@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase/client';
 
 interface SalesData {
   id: string;
@@ -26,7 +26,7 @@ export function useSalesData({ start, end }: UseSalesDataProps) {
         setIsLoading(true);
         setError(null);
 
-        const supabase = createClientComponentClient();
+        const supabase = createClient();
         
         const { data: salesData, error: salesError } = await supabase
           .from('bork_sales_data')

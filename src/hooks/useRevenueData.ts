@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase/client';
 
 interface RevenueData {
   totalRevenue: number;
@@ -28,7 +28,7 @@ export function useRevenueData({ start, end }: UseRevenueDataProps) {
         setIsLoading(true);
         setError(null);
 
-        const supabase = createClientComponentClient();
+        const supabase = createClient();
         
         // Fetch processed sales data
         const { data: salesData, error: salesError } = await supabase

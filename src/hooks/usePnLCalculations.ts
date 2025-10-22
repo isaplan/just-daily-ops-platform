@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase/client';
 
 interface PnLData {
   totalRevenue: number;
@@ -31,7 +31,7 @@ export function usePnLCalculations({ start, end }: UsePnLCalculationsProps) {
         setIsLoading(true);
         setError(null);
 
-        const supabase = createClientComponentClient();
+        const supabase = createClient();
         
         // Fetch sales data
         const { data: salesData, error: salesError } = await supabase
