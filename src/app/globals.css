@@ -2,156 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
-  :root,
-  .theme-default {
-    /* Base - KEPT */
-    --background: 30 11% 98%;
-    --foreground: 28 25% 20%;
-    
-    /* Primary - Soft Blue (5% darker) */
-    --primary: 215 50% 50%;
-    --primary-foreground: 0 0% 100%;
-    
-    /* Secondary - KEPT */
-    --secondary: 30 18% 92%;
-    --secondary-foreground: 28 25% 20%;
-    
-    /* Muted - KEPT */
-    --muted: 30 15% 90%;
-    --muted-foreground: 28 15% 40%;
-    
-    /* Accent - Matches Primary */
-    --accent: 215 50% 50%;
-    --accent-foreground: 0 0% 100%;
-    
-    /* Semantic - Vibrant */
-    --success: 145 50% 48%;
-    --success-foreground: 0 0% 100%;
-    --warning: 40 60% 58%;
-    --warning-foreground: 28 25% 20%;
-    --destructive: 8 65% 58%;
-    --destructive-foreground: 0 0% 100%;
-    
-    /* UI Elements - KEPT */
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
-    --card-foreground: 28 25% 20%;
+    --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 28 25% 20%;
-    --border: 30 11% 88%;
-    --input: 30 11% 88%;
-    --ring: 215 50% 50%;
-    
-    --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 28 25% 20%;
-    --sidebar-primary: 215 50% 55%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 30 18% 92%;
-    --sidebar-accent-foreground: 28 25% 20%;
-    --sidebar-border: 30 11% 88%;
-    --sidebar-ring: 215 50% 55%;
-  }
-
-
-  .theme-black {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-
-    --card: 217 33% 17%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 217 33% 17%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-
-    --accent: 142 76% 36%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 63% 31%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
-
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 217 91% 60%;
-
-    --success: 142 76% 36%;
-    --success-foreground: 0 0% 100%;
-
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 33% 17%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 17%;
-    --sidebar-ring: 217 91% 60%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
   }
 
-  .theme-terminal {
-    /* Base - Console log vibe */
-    --background: 0 0% 98%;
-    --foreground: 0 0% 5%;
-    
-    /* Primary - Terminal green */
-    --primary: 0 0% 5%;
-    --primary-foreground: 0 0% 98%;
-    
-    /* Secondary */
-    --secondary: 0 0% 92%;
-    --secondary-foreground: 0 0% 5%;
-    
-    /* Muted */
-    --muted: 0 0% 92%;
-    --muted-foreground: 0 0% 35%;
-    
-    /* Accent - Terminal green */
-    --accent: 120 100% 30%;
-    --accent-foreground: 0 0% 98%;
-    
-    /* Semantic */
-    --success: 120 100% 30%;
-    --success-foreground: 0 0% 98%;
-    --warning: 45 100% 45%;
-    --warning-foreground: 0 0% 5%;
-    --destructive: 0 100% 40%;
-    --destructive-foreground: 0 0% 98%;
-    
-    /* UI Elements - Bold borders */
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 5%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 5%;
-    --border: 0 0% 0%;
-    --input: 0 0% 0%;
-    --ring: 120 100% 30%;
-    
-    --radius: 0rem;
-
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 0 0% 5%;
-    --sidebar-primary: 0 0% 5%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 0 0% 92%;
-    --sidebar-accent-foreground: 0 0% 5%;
-    --sidebar-border: 0 0% 0%;
-    --sidebar-ring: 120 100% 30%;
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 94.1%;
   }
 }
 
@@ -159,37 +53,7 @@ All colors MUST be HSL.
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground;
-  }
-}
-
-@layer utilities {
-  /* Hide scrollbar for Chrome, Safari and Opera */
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-  
-  /* Hide scrollbar for IE, Edge and Firefox */
-  .scrollbar-hide {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
-  }
-}
-
-/* Print styles for PDF export */
-@media print {
-  .no-print {
-    display: none !important;
-  }
-  
-  @page {
-    margin: 1cm;
-  }
-  
-  body {
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
   }
 }
