@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DollarSign, Upload, Sparkles, FileText, TrendingUp, TrendingDown, Users, Clock, Award } from "lucide-react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@/integrations/supabase/client";
 import { PeriodSelector } from "@/components/finance/PeriodSelector";
 import { RevenueKpiCard } from "@/components/finance/RevenueKpiCard";
 import { RevenueTrendChart } from "@/components/finance/RevenueTrendChart";
