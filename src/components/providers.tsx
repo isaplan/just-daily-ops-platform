@@ -27,8 +27,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
       >
         <TooltipProvider>
           {children}
-          <Toaster />
-          <Sonner />
           <ReactQueryDevtools initialIsOpen={false} />
         </TooltipProvider>
       </ThemeProvider>
