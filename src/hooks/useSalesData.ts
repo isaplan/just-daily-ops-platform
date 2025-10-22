@@ -1,53 +1,56 @@
-"use client"
+import { useState, useEffect } from 'react';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
-import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
-
-export interface SalesData {
+interface SalesData {
   id: string;
   location_id: string;
   date: string;
   category: string;
-  amount: number;
-  product_name: string;
-  quantity: number;
+  raw_data: any;
+  created_at: string;
 }
 
-interface UseSalesDataParams {
-  locationIds: string[];
-  startDate: string;
-  endDate: string;
+interface UseSalesDataProps {
+  start: string;
+  end: string;
 }
 
-export function useSalesData({
-  locationIds,
-  startDate,
-  endDate,
-}: UseSalesDataParams) {
-  return useQuery({
-    queryKey: ["salesData", locationIds, startDate, endDate],
-    queryFn: async () => {
-      const supabase = createClient();
-      
-      const { data, error } = await supabase
-        .from("bork_sales_data")
-        .select("*")
-        .gte("date", startDate)
-        .lte("date", endDate)
-        .in("location_id", locationIds)
-        .eq("category", "STEP6_PROCESSED_DATA");
+export function useSalesData({ start, end }: UseSalesDataProps) {
+  const [data, setData] = useState<SalesData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-      if (error) throw error;
+  useEffect(() => {
+    const fetchSalesData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
 
-      return data?.map(item => ({
-        id: item.id,
-        location_id: item.location_id,
-        date: item.date,
-        category: item.raw_data?.category || "Unknown",
-        amount: parseFloat(item.raw_data?.amount || item.raw_data?.revenue || 0),
-        product_name: item.raw_data?.product_name || "Unknown",
-        quantity: parseFloat(item.raw_data?.quantity || 1),
-      })) || [];
-    },
-  });
+        const supabase = createClientComponentClient();
+        
+        const { data: salesData, error: salesError } = await supabase
+          .from('bork_sales_data')
+          .select('*')
+          .eq('category', 'STEP6_PROCESSED_DATA')
+          .gte('date', start)
+          .lte('date', end)
+          .order('created_at', { ascending: false });
+
+        if (salesError) {
+          throw new Error(salesError.message);
+        }
+
+        setData(salesData || []);
+      } catch (err: any) {
+        setError(err.message);
+        console.error('Error fetching sales data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSalesData();
+  }, [start, end]);
+
+  return { data, isLoading, error };
 }
