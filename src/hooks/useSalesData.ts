@@ -11,11 +11,12 @@ interface SalesData {
 }
 
 interface UseSalesDataProps {
-  start: string;
-  end: string;
+  locationFilter: string | string[] | "all";
+  dateRange: { start: Date; end: Date } | null;
+  includeVat?: boolean;
 }
 
-export function useSalesData({ start, end }: UseSalesDataProps) {
+export function useSalesData({ locationFilter, dateRange, includeVat = false }: UseSalesDataProps) {
   const [data, setData] = useState<SalesData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,15 +27,33 @@ export function useSalesData({ start, end }: UseSalesDataProps) {
         setIsLoading(true);
         setError(null);
 
+        // Early return if dateRange is null or undefined
+        if (!dateRange || !dateRange.start || !dateRange.end) {
+          setData([]);
+          setIsLoading(false);
+          return;
+        }
+
         const supabase = createClient();
         
-        const { data: salesData, error: salesError } = await supabase
+        let query = supabase
           .from('bork_sales_data')
           .select('*')
           .eq('category', 'STEP6_PROCESSED_DATA')
-          .gte('date', start)
-          .lte('date', end)
+          .gte('date', dateRange.start.toISOString().split('T')[0])
+          .lte('date', dateRange.end.toISOString().split('T')[0])
           .order('created_at', { ascending: false });
+
+        // Apply location filter
+        if (locationFilter !== "all") {
+          if (Array.isArray(locationFilter)) {
+            query = query.in('location_id', locationFilter);
+          } else {
+            query = query.eq('location_id', locationFilter);
+          }
+        }
+
+        const { data: salesData, error: salesError } = await query;
 
         if (salesError) {
           throw new Error(salesError.message);
@@ -50,7 +69,7 @@ export function useSalesData({ start, end }: UseSalesDataProps) {
     };
 
     fetchSalesData();
-  }, [start, end]);
+  }, [locationFilter, dateRange, includeVat]);
 
   return { data, isLoading, error };
 }

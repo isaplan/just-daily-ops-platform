@@ -1,0 +1,144 @@
+{
+  "timestamp": "2025-10-22T23:59:24.187Z",
+  "totalFunctions": 4,
+  "violations": [],
+  "analysis": [
+    {
+      "fileName": "migrate-database.js",
+      "changeDetection": {
+        "status": "BASELINE_ESTABLISHED",
+        "message": "Baseline checksum established"
+      },
+      "fileAnalysis": {
+        "fileName": "migrate-database.js",
+        "size": 9256,
+        "lastModified": "2025-10-22T22:11:54.823Z",
+        "checksum": "7f38c0cc8a1aefbf6075cf4abff9121a7e6cbc80fd5f34763bd31ffa5e9ecbcd",
+        "lineCount": 282,
+        "hasComments": true,
+        "hasFunctions": true,
+        "hasImports": true,
+        "contentPreview": "#!/usr/bin/env node\n\n/**\n * Supabase Database Migration Script\n * Migrates data from old Supabase project to new one\n */\n\nconst https = require('https');\n\n// Database configurations\nconst OLD_DB = {\n ..."
+      },
+      "registryInfo": {
+        "id": "migrate-database.js",
+        "file": "migrate-database.js",
+        "type": "migration_script",
+        "status": "completed",
+        "version": "1.0.0",
+        "completedAt": "2025-01-16T10:00:00Z",
+        "description": "Migrates all data from old Supabase to new Supabase",
+        "dependencies": [
+          "@supabase/supabase-js"
+        ],
+        "notes": "DO NOT TOUCH - Working perfectly. All 65 tables migrated successfully.",
+        "lastModified": "2025-01-16T10:00:00Z",
+        "touch_again": false,
+        "result": "98.59% data migration success - 9,967/10,110 records"
+      }
+    },
+    {
+      "fileName": "check-powerbi-bork-data.js",
+      "changeDetection": {
+        "status": "BASELINE_ESTABLISHED",
+        "message": "Baseline checksum established"
+      },
+      "fileAnalysis": {
+        "fileName": "check-powerbi-bork-data.js",
+        "size": 11379,
+        "lastModified": "2025-10-22T23:27:19.767Z",
+        "checksum": "622123c1d53715dd010f913bd1bff0fd81d6ec9d0f0f9c2305101d5c358017e0",
+        "lineCount": 344,
+        "hasComments": true,
+        "hasFunctions": true,
+        "hasImports": true,
+        "contentPreview": "#!/usr/bin/env node\n\n/**\n * CHECK POWERBI & BORK DATA - COMPLETE OVERVIEW\n * Verify all financial and Bork-related data migration\n */\n\nconst https = require('https');\n\n// Database configurations\nconst..."
+      },
+      "registryInfo": {
+        "id": "check-powerbi-bork-data.js",
+        "file": "check-powerbi-bork-data.js",
+        "type": "verification_script",
+        "status": "completed",
+        "version": "1.0.0",
+        "completedAt": "2025-01-16T10:30:00Z",
+        "description": "Verifies PowerBI and Bork data migration",
+        "dependencies": [
+          "@supabase/supabase-js"
+        ],
+        "notes": "DO NOT TOUCH - Confirmed 167.64% migration success.",
+        "lastModified": "2025-01-16T10:30:00Z",
+        "touch_again": false,
+        "result": "167.64% migration success - ALL PowerBI and Bork data confirmed"
+      }
+    },
+    {
+      "fileName": "migrate-edge-functions.js",
+      "changeDetection": {
+        "status": "BASELINE_ESTABLISHED",
+        "message": "Baseline checksum established"
+      },
+      "fileAnalysis": {
+        "fileName": "migrate-edge-functions.js",
+        "size": 6791,
+        "lastModified": "2025-10-22T22:29:35.171Z",
+        "checksum": "c6838cc024db8de15f577f86b1a9fa33e91196ba97da6cf1336f222ea74ae832",
+        "lineCount": 248,
+        "hasComments": true,
+        "hasFunctions": true,
+        "hasImports": true,
+        "contentPreview": "#!/usr/bin/env node\n\n/**\n * Supabase Edge Functions Migration Script\n * Migrates all required edge functions from old project to new project\n */\n\nconst fs = require('fs');\nconst path = require('path')..."
+      },
+      "registryInfo": {
+        "id": "migrate-edge-functions.js",
+        "file": "migrate-edge-functions.js",
+        "type": "migration_script",
+        "status": "completed",
+        "version": "1.0.0",
+        "completedAt": "2025-01-16T09:45:00Z",
+        "description": "Migrates all edge functions from old Supabase to new project",
+        "dependencies": [
+          "fs",
+          "path"
+        ],
+        "notes": "DO NOT TOUCH - All edge functions successfully copied",
+        "lastModified": "2025-01-16T09:45:00Z",
+        "touch_again": false,
+        "result": "All edge functions migrated to supabase/functions/"
+      }
+    },
+    {
+      "fileName": "create-all-65-tables.sql",
+      "changeDetection": {
+        "status": "BASELINE_ESTABLISHED",
+        "message": "Baseline checksum established"
+      },
+      "fileAnalysis": {
+        "fileName": "create-all-65-tables.sql",
+        "size": 34149,
+        "lastModified": "2025-10-22T23:19:22.248Z",
+        "checksum": "58f437464b3e90cf2f3816bb9ad559d71ccc46e28a9b9d281edb61d1b71a43c3",
+        "lineCount": 931,
+        "hasComments": false,
+        "hasFunctions": true,
+        "hasImports": false,
+        "contentPreview": "-- COMPLETE REBUILD: CREATE ALL 65 TABLES\n-- Run this in Supabase SQL Editor to create all missing tables\n\n-- First, create the update_updated_at_column function if it doesn't exist\nCREATE OR REPLACE ..."
+      },
+      "registryInfo": {
+        "id": "create-all-65-tables.sql",
+        "file": "create-all-65-tables.sql",
+        "type": "database_schema",
+        "status": "completed",
+        "version": "1.0.0",
+        "completedAt": "2025-01-16T09:30:00Z",
+        "description": "SQL script to create all 65 tables in new Supabase database",
+        "dependencies": [
+          "postgresql"
+        ],
+        "notes": "DO NOT TOUCH - All tables created successfully",
+        "lastModified": "2025-01-16T09:30:00Z",
+        "touch_again": false,
+        "result": "All 65 tables created in new Supabase database"
+      }
+    }
+  ]
+}

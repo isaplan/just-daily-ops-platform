@@ -45,65 +45,53 @@ export function getSameDayOfWeekPrevious(date: Date, weeksBack: number = 1): Dat
   return results;
 }
 
-export function formatPeriodLabel(period: PeriodType, date: Date): string {
+export function formatPeriodLabel(period: PeriodType, date: Date = new Date()): string {
   switch (period) {
     case "day":
-      return format(date, "MMM d, yyyy");
+      return format(date, "EEEE, MMMM d, yyyy");
     case "week":
-      const weekStart = startOfWeek(date, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(date, { weekStartsOn: 1 });
-      return `${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`;
+      return `Week of ${format(startOfWeek(date, { weekStartsOn: 1 }), "MMM d, yyyy")}`;
     case "month":
       return format(date, "MMMM yyyy");
     case "quarter":
-      const quarter = Math.floor(date.getMonth() / 3) + 1;
-      return `Q${quarter} ${format(date, "yyyy")}`;
+      const quarter = Math.ceil((date.getMonth() + 1) / 3);
+      return `Q${quarter} ${date.getFullYear()}`;
     case "year":
       return format(date, "yyyy");
+    default:
+      return format(date, "MMMM d, yyyy");
   }
-}
-
-export function getComparisonDates(
-  period: PeriodType,
-  currentDate: Date,
-  comparisonCount: number
-): Date[] {
-  const dates: Date[] = [];
-  
-  if (period === "day") {
-    // For daily, get same day of week for previous weeks
-    return getSameDayOfWeekPrevious(currentDate, comparisonCount);
-  }
-  
-  // For other periods, get previous periods
-  for (let i = 1; i <= comparisonCount; i++) {
-    dates.push(getPreviousPeriod(period, currentDate, i));
-  }
-  
-  return dates;
 }
 
 export function formatDateForQuery(date: Date): string {
   return format(date, "yyyy-MM-dd");
 }
 
-export function getSeasonFromDate(date: Date): string {
-  const month = date.getMonth();
-  if (month >= 2 && month <= 4) return "Spring";
-  if (month >= 5 && month <= 7) return "Summer";
-  if (month >= 8 && month <= 10) return "Fall";
-  return "Winter";
+export function isDateInRange(date: Date, start: Date, end: Date): boolean {
+  return date >= start && date <= end;
 }
 
-export function getQuarterFromDate(date: Date): number {
-  return Math.floor(date.getMonth() / 3) + 1;
+export function getDaysBetween(start: Date, end: Date): number {
+  const diffTime = Math.abs(end.getTime() - start.getTime());
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 }
 
-export function getQuarterDateRange(quarter: number, year: number): DateRange {
-  const startMonth = (quarter - 1) * 3;
-  const endMonth = startMonth + 2;
-  return {
-    start: new Date(year, startMonth, 1),
-    end: endOfMonth(new Date(year, endMonth, 1)),
-  };
+export function getWeeksBetween(start: Date, end: Date): number {
+  const diffTime = Math.abs(end.getTime() - start.getTime());
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
+}
+
+export function getMonthsBetween(start: Date, end: Date): number {
+  return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+}
+
+export function getQuartersBetween(start: Date, end: Date): number {
+  const startQuarter = Math.ceil((start.getMonth() + 1) / 3);
+  const endQuarter = Math.ceil((end.getMonth() + 1) / 3);
+  const yearDiff = end.getFullYear() - start.getFullYear();
+  return yearDiff * 4 + (endQuarter - startQuarter);
+}
+
+export function getYearsBetween(start: Date, end: Date): number {
+  return end.getFullYear() - start.getFullYear();
 }

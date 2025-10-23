@@ -1,5 +1,7 @@
+"use client";
+
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@/integrations/supabase/client";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -57,6 +59,7 @@ export default function FlexibleMetricChart({
   const { data: locations } = useQuery({
     queryKey: ["locations"],
     queryFn: async () => {
+      const supabase = createClient();
       const { data } = await supabase.from("locations").select("*");
       return data || [];
     },

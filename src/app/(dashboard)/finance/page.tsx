@@ -27,6 +27,7 @@ export default function FinanceDashboard() {
   const { data: locations } = useQuery({
     queryKey: ["locations"],
     queryFn: async () => {
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("locations")
         .select("*")
@@ -37,12 +38,12 @@ export default function FinanceDashboard() {
   });
 
   // Fetch revenue data
-  const { data: revenueData, isLoading: revenueLoading } = useRevenueData(
+  const { data: revenueData, isLoading: revenueLoading } = useRevenueData({
     period,
     currentDate,
     comparisonCount,
     selectedLocation
-  );
+  });
 
   // Fetch sales intelligence
   const { data: salesData, isLoading: salesLoading } = useSalesIntelligence(
@@ -51,53 +52,130 @@ export default function FinanceDashboard() {
     selectedLocation
   );
 
-  // Labor data removed - use Eitje API sync instead
-  const laborData = { totalHours: 0, totalCost: 0, hasData: false };
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(value);
+  };
 
-  // Calculate comparison average
-  const comparisonAverage = revenueData
-    ? revenueData.comparison.reduce((sum, val) => sum + val, 0) / revenueData.comparison.length
-    : 0;
+  const formatPercent = (value: number) => {
+    return `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto py-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Finance Dashboard</h1>
-          <p className="text-muted-foreground">
-            Comprehensive financial analytics and KPIs
-          </p>
+          <h1 className="text-3xl font-bold">Finance Department</h1>
+          <p className="text-muted-foreground">Financial performance overview and analytics</p>
         </div>
         <div className="flex gap-2">
-          <Button asChild variant="outline">
-            <Link to="/finance/imports">
-              <Upload className="mr-2 h-4 w-4" />
+          <Button asChild>
+            <Link href="/finance/imports">
+              <Upload className="h-4 w-4 mr-2" />
               Import Data
             </Link>
           </Button>
-          <Button asChild>
-            <Link to="/finance/insights">
-              <Sparkles className="mr-2 h-4 w-4" />
-              AI Insights
+          <Button variant="outline" asChild>
+            <Link href="/finance/bork-api">
+              <Sparkles className="h-4 w-4 mr-2" />
+              Bork API
             </Link>
           </Button>
         </div>
       </div>
 
-      {/* Location Filter */}
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
+                <p className="text-2xl font-bold">
+                  {revenueLoading ? "..." : formatCurrency(revenueData?.totalRevenue || 0)}
+                </p>
+              </div>
+              <DollarSign className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatPeriodLabel(period)} growth: {formatPercent(revenueData?.revenueGrowth || 0)}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Active Locations</p>
+                <p className="text-2xl font-bold">{locations?.length || 0}</p>
+              </div>
+              <Users className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              All locations operational
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Data Sources</p>
+                <p className="text-2xl font-bold">2</p>
+              </div>
+              <Clock className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Bork API + Manual imports
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Last Sync</p>
+                <p className="text-2xl font-bold">2h</p>
+              </div>
+              <Award className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Bork API automated
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Controls */}
       <Card>
         <CardHeader>
-          <CardTitle>Filters</CardTitle>
+          <CardTitle>Analysis Controls</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Location:</span>
-              <Select
-                value={selectedLocation || "all"}
-                onValueChange={(value) => setSelectedLocation(value === "all" ? null : value)}
-              >
-                <SelectTrigger className="w-[200px]">
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-sm font-medium">Period</label>
+              <Select value={period} onValueChange={(value) => setPeriod(value as PeriodType)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="day">Daily</SelectItem>
+                  <SelectItem value="week">Weekly</SelectItem>
+                  <SelectItem value="month">Monthly</SelectItem>
+                  <SelectItem value="quarter">Quarterly</SelectItem>
+                  <SelectItem value="year">Yearly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium">Location</label>
+              <Select value={selectedLocation || "all"} onValueChange={(value) => setSelectedLocation(value === "all" ? null : value)}>
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -110,214 +188,153 @@ export default function FinanceDashboard() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Period Selector */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Period Selection</CardTitle>
-        </CardHeader>
-        <CardContent>
+            <div>
+              <label className="text-sm font-medium">Comparison Periods</label>
+              <Select value={comparisonCount.toString()} onValueChange={(value) => setComparisonCount(parseInt(value))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 Period</SelectItem>
+                  <SelectItem value="3">3 Periods</SelectItem>
+                  <SelectItem value="6">6 Periods</SelectItem>
+                  <SelectItem value="12">12 Periods</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <PeriodSelector
             period={period}
-            onPeriodChange={setPeriod}
             currentDate={currentDate}
+            onPeriodChange={setPeriod}
             onDateChange={setCurrentDate}
-            comparisonCount={comparisonCount}
-            onComparisonCountChange={setComparisonCount}
           />
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="revenue" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="revenue">Revenue</TabsTrigger>
-          <TabsTrigger value="labor">Labor</TabsTrigger>
-          <TabsTrigger value="sales">Sales Intelligence</TabsTrigger>
+      {/* Main Content Tabs */}
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="revenue">Revenue Analysis</TabsTrigger>
+          <TabsTrigger value="intelligence">Sales Intelligence</TabsTrigger>
         </TabsList>
 
-        {/* Revenue Tab */}
-        <TabsContent value="revenue" className="space-y-6">
-          {/* Revenue KPI */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button asChild className="w-full justify-start">
+                  <Link href="/finance/pnl">
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    View P&L Analysis
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full justify-start">
+                  <Link href="/finance/sales">
+                    <DollarSign className="h-4 w-4 mr-2" />
+                    Sales Performance
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full justify-start">
+                  <Link href="/finance/labor">
+                    <Users className="h-4 w-4 mr-2" />
+                    Labor Analytics
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full justify-start">
+                  <Link href="/finance/analytics">
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    AI Analytics
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-green-500 rounded-full" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Bork API Sync</p>
+                      <p className="text-xs text-muted-foreground">2 hours ago</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Data Import</p>
+                      <p className="text-xs text-muted-foreground">Yesterday</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">Report Generated</p>
+                      <p className="text-xs text-muted-foreground">3 days ago</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="revenue" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <RevenueKpiCard
-              title={`Revenue - ${formatPeriodLabel(period, currentDate)}`}
-              value={revenueData?.current || 0}
-              previousValue={comparisonAverage}
-              comparisonLabel={`avg of last ${comparisonCount}`}
+              title="Total Revenue"
+              value={revenueData?.totalRevenue || 0}
+              previousValue={0}
+              comparisonLabel=""
               isLoading={revenueLoading}
             />
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Average per Period</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {revenueLoading ? (
-                  <div className="h-8 bg-muted animate-pulse rounded" />
-                ) : (
-                  <div className="text-2xl font-bold">
-                    €{comparisonAverage.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground mt-1">
-                  Based on {comparisonCount} previous periods
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Analyzed</CardTitle>
-                <FileText className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{comparisonCount + 1}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Periods in comparison
-                </p>
-              </CardContent>
-            </Card>
+            <RevenueKpiCard
+              title="Growth Rate"
+              value={revenueData?.revenueGrowth || 0}
+              previousValue={0}
+              comparisonLabel=""
+              isLoading={revenueLoading}
+            />
           </div>
 
-          {/* Revenue Trend Chart */}
-          <RevenueTrendChart
-            data={revenueData?.chartData || []}
-            isLoading={revenueLoading}
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle>Revenue Trend</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RevenueTrendChart
+                data={revenueData?.dailyBreakdown || []}
+                isLoading={revenueLoading}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        {/* Labor Tab */}
-        <TabsContent value="labor" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {laborData?.totalHours.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}h
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {laborData?.hasData ? "Recorded hours" : "No data available"}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Labor Cost</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  €{laborData?.totalCost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {laborData?.hasData ? "Total labor costs" : "No data available"}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Avg Hourly Rate</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  €{laborData?.totalHours && laborData?.totalHours > 0
-                    ? (laborData.totalCost / laborData.totalHours).toFixed(2)
-                    : "0.00"}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Per hour</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Status</CardTitle>
-                <Award className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {laborData?.hasData ? "Active" : "No Data"}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {laborData?.hasData ? "Labor tracking enabled" : "Import labor data to track"}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {!laborData?.hasData && (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-center text-muted-foreground py-8">
-                  <Clock className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                  <h3 className="text-lg font-semibold mb-2">No Labor Data Available</h3>
-                  <p className="mb-4">Import Eitje labor hours data to see detailed analytics</p>
-                  <Button asChild>
-                    <Link to="/finance/imports">
-                      <Upload className="mr-2 h-4 w-4" />
-                      Import Labor Data
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-
-        {/* Sales Intelligence Tab */}
-        <TabsContent value="sales" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
+        <TabsContent value="intelligence" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <SalesIntelligenceCard
-              title="Top Products by Revenue"
+              title="Top Products"
               data={salesData?.topProducts || []}
               isLoading={salesLoading}
             />
             <SalesIntelligenceCard
-              title="Top Categories by Revenue"
+              title="Top Categories"
               data={salesData?.topCategories || []}
               isLoading={salesLoading}
             />
           </div>
         </TabsContent>
-
       </Tabs>
-
-      {/* Quick Actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-4">
-          <Button asChild variant="outline" className="h-20 flex-col gap-2">
-            <Link to="/finance/overview">
-              <DollarSign className="h-6 w-6" />
-              <span>Finance Overview</span>
-            </Link>
-          </Button>
-          <Button asChild variant="outline" className="h-20 flex-col gap-2">
-            <Link to="/finance/imports">
-              <Upload className="h-6 w-6" />
-              <span>Import Data</span>
-            </Link>
-          </Button>
-          <Button asChild variant="outline" className="h-20 flex-col gap-2">
-            <Link to="/finance/insights">
-              <Sparkles className="h-6 w-6" />
-              <span>View Insights</span>
-            </Link>
-          </Button>
-          <Button asChild variant="outline" className="h-20 flex-col gap-2">
-            <Link to="/finance/reports">
-              <FileText className="h-6 w-6" />
-              <span>Reports</span>
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@/integrations/supabase/client";
 import { TimeGranularity } from "@/lib/finance/chartDataAggregator";
 
 interface DateRange {
@@ -41,6 +41,7 @@ export function useSalesByCategory(
     queryFn: async () => {
       if (!dateRange || selectedCategories.length === 0) return [];
 
+      const supabase = createClient();
       const results: CategoryData[] = [];
       const revenueField = includeVat ? 'revenue_inc_vat' : 'revenue_ex_vat';
 

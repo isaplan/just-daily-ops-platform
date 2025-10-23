@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@/integrations/supabase/client";
 import { CategorySelection } from "@/components/finance/CategoryFilterSheet";
 
 interface DateRange {
@@ -28,6 +28,7 @@ export function usePnLByCategory(
     queryFn: async () => {
       if (!dateRange || selectedCategories.length === 0) return [];
 
+      const supabase = createClient();
       const startYear = dateRange.start.getFullYear();
       const startMonth = dateRange.start.getMonth() + 1;
       const endYear = dateRange.end.getFullYear();

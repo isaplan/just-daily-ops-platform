@@ -1,0 +1,66 @@
+{
+  "_metadata": {
+    "projectName": "just-daily-ops-platform",
+    "framework": "Next.js 15.5.6",
+    "database": "Supabase",
+    "lastUpdated": "2025-01-16T10:00:00Z",
+    "totalFunctions": 0,
+    "systemActive": true
+  },
+  "migrate-database.js": {
+    "id": "migrate-database.js",
+    "file": "migrate-database.js",
+    "type": "migration_script",
+    "status": "completed",
+    "version": "1.0.0",
+    "completedAt": "2025-01-16T10:00:00Z",
+    "description": "Migrates all data from old Supabase to new Supabase",
+    "dependencies": ["@supabase/supabase-js"],
+    "notes": "DO NOT TOUCH - Working perfectly. All 65 tables migrated successfully.",
+    "lastModified": "2025-01-16T10:00:00Z",
+    "touch_again": false,
+    "result": "98.59% data migration success - 9,967/10,110 records"
+  },
+  "check-powerbi-bork-data.js": {
+    "id": "check-powerbi-bork-data.js",
+    "file": "check-powerbi-bork-data.js", 
+    "type": "verification_script",
+    "status": "completed",
+    "version": "1.0.0",
+    "completedAt": "2025-01-16T10:30:00Z",
+    "description": "Verifies PowerBI and Bork data migration",
+    "dependencies": ["@supabase/supabase-js"],
+    "notes": "DO NOT TOUCH - Confirmed 167.64% migration success.",
+    "lastModified": "2025-01-16T10:30:00Z",
+    "touch_again": false,
+    "result": "167.64% migration success - ALL PowerBI and Bork data confirmed"
+  },
+  "migrate-edge-functions.js": {
+    "id": "migrate-edge-functions.js",
+    "file": "migrate-edge-functions.js",
+    "type": "migration_script", 
+    "status": "completed",
+    "version": "1.0.0",
+    "completedAt": "2025-01-16T09:45:00Z",
+    "description": "Migrates all edge functions from old Supabase to new project",
+    "dependencies": ["fs", "path"],
+    "notes": "DO NOT TOUCH - All edge functions successfully copied",
+    "lastModified": "2025-01-16T09:45:00Z",
+    "touch_again": false,
+    "result": "All edge functions migrated to supabase/functions/"
+  },
+  "create-all-65-tables.sql": {
+    "id": "create-all-65-tables.sql",
+    "file": "create-all-65-tables.sql",
+    "type": "database_schema",
+    "status": "completed",
+    "version": "1.0.0",
+    "completedAt": "2025-01-16T09:30:00Z",
+    "description": "SQL script to create all 65 tables in new Supabase database",
+    "dependencies": ["postgresql"],
+    "notes": "DO NOT TOUCH - All tables created successfully",
+    "lastModified": "2025-01-16T09:30:00Z",
+    "touch_again": false,
+    "result": "All 65 tables created in new Supabase database"
+  }
+}

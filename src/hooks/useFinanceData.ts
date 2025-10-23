@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@/integrations/supabase/client";
 import { PeriodType, getPeriodRange, formatDateForQuery } from "@/lib/dateUtils";
 import { SourceType } from "@/pages/departments/FinanceDataViewer";
 
@@ -25,6 +25,7 @@ export function useFinanceData({
   const query = useQuery({
     queryKey: ["finance-data", sourceType, locationIds, periodType, currentDate, searchQuery, page, limit],
     queryFn: async () => {
+      const supabase = createClient();
       const dateRange = getPeriodRange(periodType, currentDate);
       const offset = (page - 1) * limit;
 

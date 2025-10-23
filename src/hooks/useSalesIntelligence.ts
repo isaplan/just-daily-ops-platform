@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@/integrations/supabase/client";
 import { PeriodType, getPeriodRange, formatDateForQuery } from "@/lib/dateUtils";
 
 interface ProductPerformance {
@@ -18,6 +18,7 @@ export function useSalesIntelligence(
   return useQuery({
     queryKey: ["sales-intelligence", period, currentDate, locationId],
     queryFn: async () => {
+      const supabase = createClient();
       const range = getPeriodRange(period, currentDate);
 
       // Get sales imports in range

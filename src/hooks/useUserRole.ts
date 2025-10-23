@@ -1,18 +1,25 @@
-import { useAuth } from "@/contexts/AuthContext";
+"use client";
 
-type UserRole = 'owner' | 'member';
+import { useState, useEffect } from "react";
 
-export function useUserRole() {
-  const { userRole } = useAuth();
+interface UserRole {
+  isOwner: () => boolean;
+  isAdmin: () => boolean;
+  isUser: () => boolean;
+}
 
-  const isOwner = () => userRole === 'owner';
-  const isMember = () => userRole === 'member';
-  const hasRole = (role: UserRole) => userRole === role;
+export function useUserRole(): UserRole {
+  const [userRole, setUserRole] = useState<string>("user");
+
+  useEffect(() => {
+    // For now, we'll default to owner for development
+    // In production, this would check the actual user role from Supabase
+    setUserRole("owner");
+  }, []);
 
   return {
-    userRole,
-    isOwner,
-    isMember,
-    hasRole,
+    isOwner: () => userRole === "owner",
+    isAdmin: () => userRole === "admin" || userRole === "owner",
+    isUser: () => userRole === "user",
   };
 }

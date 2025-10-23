@@ -1,105 +1,77 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { Line, LineChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts";
-import { useState } from "react";
+"use client";
 
-interface ChartDataPoint {
-  date: string;
-  revenue: number;
-  foodRevenue?: number;
-  beverageRevenue?: number;
-}
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface RevenueTrendChartProps {
-  data: ChartDataPoint[];
+  data: Array<{
+    date: string;
+    revenue: number;
+    profit: number;
+    transactions: number;
+  }>;
   isLoading?: boolean;
 }
 
-export function RevenueTrendChart({ data, isLoading = false }: RevenueTrendChartProps) {
-  const [metric, setMetric] = useState<"total" | "split">("total");
+export function RevenueTrendChart({ data, isLoading }: RevenueTrendChartProps) {
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Revenue Trend</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[300px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
-  const chartConfig = {
-    revenue: {
-      label: "Total Revenue",
-      color: "hsl(var(--primary))",
-    },
-    foodRevenue: {
-      label: "Food Revenue",
-      color: "hsl(var(--chart-1))",
-    },
-    beverageRevenue: {
-      label: "Beverage Revenue",
-      color: "hsl(var(--chart-2))",
-    },
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("nl-NL", {
+      style: "currency",
+      currency: "EUR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
   };
 
   return (
-    <Card className="col-span-full">
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card>
+      <CardHeader>
         <CardTitle>Revenue Trend</CardTitle>
-        <Select value={metric} onValueChange={(value) => setMetric(value as "total" | "split")}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="total">Total Revenue</SelectItem>
-            <SelectItem value="split">Food vs Beverage</SelectItem>
-          </SelectContent>
-        </Select>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="h-[400px] bg-muted animate-pulse rounded" />
-        ) : (
-          <ChartContainer config={chartConfig} className="h-[400px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis
-                  dataKey="date"
-                  className="text-xs"
-                  tickFormatter={(value) => value}
-                />
-                <YAxis
-                  className="text-xs"
-                  tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Legend />
-                {metric === "total" ? (
-                  <Line
-                    type="monotone"
-                    dataKey="revenue"
-                    stroke="var(--color-revenue)"
-                    strokeWidth={2}
-                    dot={{ r: 4 }}
-                    activeDot={{ r: 6 }}
-                  />
-                ) : (
-                  <>
-                    <Line
-                      type="monotone"
-                      dataKey="foodRevenue"
-                      stroke="var(--color-foodRevenue)"
-                      strokeWidth={2}
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="beverageRevenue"
-                      stroke="var(--color-beverageRevenue)"
-                      strokeWidth={2}
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </>
-                )}
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartContainer>
-        )}
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={data}>
+            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+            <XAxis 
+              dataKey="date" 
+              className="text-xs"
+              tickFormatter={(value) => new Date(value).toLocaleDateString("nl-NL", { month: "short", day: "numeric" })}
+            />
+            <YAxis 
+              className="text-xs"
+              tickFormatter={(value) => `€${(value / 1000).toFixed(0)}k`}
+            />
+            <Tooltip 
+              formatter={(value: any) => formatCurrency(value)}
+              contentStyle={{ 
+                backgroundColor: "hsl(var(--background))",
+                border: "1px solid hsl(var(--border))"
+              }}
+            />
+            <Line
+              type="monotone"
+              dataKey="revenue"
+              stroke="hsl(var(--primary))"
+              strokeWidth={2}
+              dot={{ r: 4 }}
+              name="Revenue"
+            />
+          </LineChart>
+        </ResponsiveContainer>
       </CardContent>
     </Card>
   );

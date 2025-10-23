@@ -1,81 +1,73 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+"use client";
 
-interface ProductPerformance {
-  productName: string;
-  quantity: number;
-  revenue: number;
-  profit?: number;
-  category?: string;
-}
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface SalesIntelligenceCardProps {
   title: string;
-  data: ProductPerformance[];
+  data: Array<{
+    productName: string;
+    quantity: number;
+    revenue: number;
+    category?: string;
+  }>;
   isLoading?: boolean;
-  showProfit?: boolean;
 }
 
-export function SalesIntelligenceCard({
-  title,
-  data,
-  isLoading = false,
-  showProfit = false,
-}: SalesIntelligenceCardProps) {
+export function SalesIntelligenceCard({ title, data, isLoading }: SalesIntelligenceCardProps) {
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("nl-NL", {
+      style: "currency",
+      currency: "EUR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <div className="space-y-2">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-12 bg-muted animate-pulse rounded" />
-            ))}
-          </div>
-        ) : data.length === 0 ? (
-          <div className="text-center text-muted-foreground py-8">
-            No data available
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Revenue</TableHead>
-                {showProfit && <TableHead className="text-right">Profit</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.slice(0, 10).map((item, index) => (
-                <TableRow key={index}>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{item.productName}</span>
-                      {item.category && (
-                        <Badge variant="outline" className="w-fit text-xs mt-1">
-                          {item.category}
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">{item.quantity}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    €{item.revenue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </TableCell>
-                  {showProfit && item.profit !== undefined && (
-                    <TableCell className="text-right font-medium text-green-600">
-                      €{item.profit.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </TableCell>
-                  )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+        <div className="space-y-3">
+          {data.slice(0, 5).map((item, index) => (
+            <div key={index} className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{item.productName}</p>
+                {item.category && (
+                  <p className="text-xs text-muted-foreground">{item.category}</p>
+                )}
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-semibold">{formatCurrency(item.revenue)}</p>
+                <p className="text-xs text-muted-foreground">{item.quantity} units</p>
+              </div>
+            </div>
+          ))}
+          {data.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No data available
+            </p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

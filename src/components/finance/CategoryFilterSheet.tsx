@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Sheet, SheetPortal, SheetOverlay } from "@/components/ui/sheet";
 import * as SheetPrimitive from "@radix-ui/react-dialog";

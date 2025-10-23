@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@/integrations/supabase/client";
 
 export type MetricType = "revenue" | "gross_profit" | "ebitda" | "labor_cost" | "other_costs";
 
@@ -10,6 +10,7 @@ interface PnLData {
   labor_cost: number;
   other_costs: number;
   cogs: number;
+  financial_costs?: number;
 }
 
 interface DateRange {
@@ -30,13 +31,14 @@ export function usePnLSummary(
     queryFn: async () => {
       if (!dateRange) return null;
 
+      const supabase = createClient();
       const startYear = dateRange.start.getFullYear();
       const startMonth = dateRange.start.getMonth() + 1;
       const endYear = dateRange.end.getFullYear();
       const endMonth = dateRange.end.getMonth() + 1;
 
       let query = supabase
-        .from("pnl_monthly_summary")
+        .from("powerbi_pnl_data")
         .select("*");
 
       // Filter by year and month range
@@ -71,24 +73,42 @@ export function usePnLSummary(
  * Simple aggregation - SUM the pre-calculated fields
  */
 function aggregatePnLData(data: any[]): PnLData {
-  const totals = data.reduce((acc, record) => ({
-    revenue: acc.revenue + (Number(record.revenue_net) || 0),
-    cogs: acc.cogs + (Number(record.cogs_total) || 0),
-    labor: acc.labor + (Number(record.labor_cost_total) || 0),
-    opex: acc.opex + (Number(record.opex_total) || 0),
-    depreciation: acc.depreciation + (Number(record.depreciation) || 0),
-    finance: acc.finance + (Number(record.finance_costs) || 0),
-  }), {
+  const totals = data.reduce((acc, record) => {
+    const amount = Number(record.amount) || 0;
+    const category = record.category?.toLowerCase() || '';
+    
+    // Map PowerBI categories to P&L structure using correct sign logic from just-stock-it
+    if (category === 'netto-omzet') {
+      acc.revenue += amount; // Revenue: keep as-is (positive stays positive, negative stays negative)
+    } else if (category === 'kostprijs van de omzet') {
+      acc.cogs += -1 * amount; // COGS: convert negative to positive (multiply by -1)
+    } else if (category === 'lasten uit hoofde van personeelsbeloningen') {
+      acc.labor += -1 * amount; // Labor: convert negative to positive (multiply by -1)
+    } else if (category === 'overige bedrijfskosten') {
+      acc.opex += -1 * amount; // OPEX: convert negative to positive (multiply by -1)
+    } else if (category === 'overige bedrijfsopbrengsten') {
+      acc.revenue += amount; // Revenue: keep as-is
+    } else if (category === 'opbrengst van vorderingen die tot de vaste activa behoren en van effecten') {
+      acc.revenue += amount; // Revenue: keep as-is
+    } else if (category === 'afschrijvingen op immateriële en materiële vaste activa') {
+      acc.depreciation += -1 * amount; // Depreciation: convert negative to positive (multiply by -1)
+    } else if (category === 'financiële baten en lasten') {
+      acc.financial += -1 * amount; // Financial: convert negative to positive (multiply by -1)
+    }
+    
+    return acc;
+  }, {
     revenue: 0,
     cogs: 0,
     labor: 0,
     opex: 0,
     depreciation: 0,
-    finance: 0
+    financial: 0
   });
 
   const gross_profit = totals.revenue - totals.cogs;
   const ebitda = gross_profit - totals.labor - totals.opex + totals.depreciation;
+  const net_profit = ebitda - totals.financial;
 
   return {
     revenue: totals.revenue,
@@ -96,7 +116,8 @@ function aggregatePnLData(data: any[]): PnLData {
     ebitda,
     labor_cost: totals.labor,
     other_costs: totals.opex,
-    cogs: totals.cogs
+    cogs: totals.cogs,
+    financial_costs: totals.financial
   };
 }
 
@@ -114,14 +135,15 @@ export function usePnLTimeSeries(
     queryFn: async () => {
       if (!dateRange) return [];
 
+      const supabase = createClient();
       const startYear = dateRange.start.getFullYear();
       const startMonth = dateRange.start.getMonth() + 1;
       const endYear = dateRange.end.getFullYear();
       const endMonth = dateRange.end.getMonth() + 1;
 
       let query = supabase
-        .from("pnl_monthly_summary")
-        .select("year, month, revenue_net, cogs_total, labor_cost_total, opex_total, depreciation");
+        .from("powerbi_pnl_data")
+        .select("year, month, category, amount");
 
       // Filter by year and month range
       if (startYear === endYear) {
@@ -161,22 +183,39 @@ function groupByMonth(data: any[]) {
   data.forEach((row) => {
     const monthKey = `${row.year}-${String(row.month).padStart(2, '0')}`;
 
-    if (!grouped.has(monthKey)) {
-      grouped.set(monthKey, {
-        revenue: 0,
-        cogs: 0,
-        labor: 0,
-        opex: 0,
-        depreciation: 0
-      });
-    }
+        if (!grouped.has(monthKey)) {
+          grouped.set(monthKey, {
+            revenue: 0,
+            cogs: 0,
+            labor: 0,
+            opex: 0,
+            depreciation: 0,
+            financial: 0
+          });
+        }
     
     const totals = grouped.get(monthKey);
-    totals.revenue += Number(row.revenue_net) || 0;
-    totals.cogs += Number(row.cogs_total) || 0;
-    totals.labor += Number(row.labor_cost_total) || 0;
-    totals.opex += Number(row.opex_total) || 0;
-    totals.depreciation += Number(row.depreciation) || 0;
+    const amount = Number(row.amount) || 0;
+    const category = row.category?.toLowerCase() || '';
+    
+    // Map PowerBI categories to P&L structure using correct sign logic from just-stock-it
+    if (category === 'netto-omzet') {
+      totals.revenue += amount; // Revenue: keep as-is (positive stays positive, negative stays negative)
+    } else if (category === 'kostprijs van de omzet') {
+      totals.cogs += -1 * amount; // COGS: convert negative to positive (multiply by -1)
+    } else if (category === 'lasten uit hoofde van personeelsbeloningen') {
+      totals.labor += -1 * amount; // Labor: convert negative to positive (multiply by -1)
+    } else if (category === 'overige bedrijfskosten') {
+      totals.opex += -1 * amount; // OPEX: convert negative to positive (multiply by -1)
+    } else if (category === 'overige bedrijfsopbrengsten') {
+      totals.revenue += amount; // Revenue: keep as-is
+    } else if (category === 'opbrengst van vorderingen die tot de vaste activa behoren en van effecten') {
+      totals.revenue += amount; // Revenue: keep as-is
+    } else if (category === 'afschrijvingen op immateriële en materiële vaste activa') {
+      totals.depreciation += -1 * amount; // Depreciation: convert negative to positive (multiply by -1)
+    } else if (category === 'financiële baten en lasten') {
+      totals.financial += -1 * amount; // Financial: convert negative to positive (multiply by -1)
+    }
   });
 
   return Array.from(grouped.entries())

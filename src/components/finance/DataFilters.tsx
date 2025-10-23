@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { createClient } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { PeriodType, formatPeriodLabel, getPeriodRange } from "@/lib/dateUtils";
 import { SourceType } from "@/pages/departments/FinanceDataViewer";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
@@ -39,7 +39,6 @@ export function DataFilters({
 
   useEffect(() => {
     const fetchLocations = async () => {
-      const supabase = createClient();
       const { data } = await supabase.from("locations").select("id, name").order("name");
       setLocations(data || []);
     };

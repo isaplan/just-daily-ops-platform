@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@/integrations/supabase/client";
 import { startOfMonth, endOfMonth, format } from "date-fns";
 
 export interface LaborMetrics {
@@ -34,6 +34,7 @@ export function useLaborData({ locationId, startDate, endDate }: LaborDataParams
   return useQuery({
     queryKey: ['labor-data', locationId, startDate, endDate],
     queryFn: async () => {
+      const supabase = createClient();
       const start = startDate || startOfMonth(new Date());
       const end = endDate || endOfMonth(new Date());
       const startStr = format(start, 'yyyy-MM-dd');
