@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, Loader2, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,6 +57,7 @@ export function UniversalFileUpload() {
   const [locations, setLocations] = useState<any[]>([]);
   
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const { importState, setImportState, saveImportSnapshot, logImportError } = useFinanceImport();
 
   // Load locations on mount

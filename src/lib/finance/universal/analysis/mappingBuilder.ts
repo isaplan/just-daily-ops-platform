@@ -42,9 +42,9 @@ export function buildProposedMapping(
   // PowerBI-specific fallback: Detect standard 6-column structure
   if (importType === 'powerbi_pnl' && headers.length === 6) {
     const powerbiTemplate: Record<string, number> = {
-      category: 0,      // Column A: 'RGS-Schema'[RGSNiveau2]
-      subcategory: 1,   // Column B: 'RGS-Schema'[RGSNiveau3]
-      gl_account: 2,    // Column C: Grootboek
+      gl_account: 0,    // Column A: 'RGS-Schema'[RGSNiveau2]
+      category: 1,      // Column B: 'RGS-Schema'[RGSNiveau3]
+      subcategory: 2,   // Column C: Grootboek
       amount: 3,        // Column D: Forecast
       year: 4,          // Column E: 'Kalender2'[Jaar]
       month: 5          // Column F: Mnd

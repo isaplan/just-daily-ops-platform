@@ -56,18 +56,9 @@ export function EnhancedManualSync() {
       return unifiedData.map(item => item.location_id);
     }
 
-    // Fallback to old bork_api_credentials table
-    console.log("⚠️ Unified table not available, using bork_api_credentials");
-    const { data: borkData, error: borkError } = await supabase
-      .from("bork_api_credentials")
-      .select("location_id")
-      .eq("is_active", true);
-
-    if (borkError) {
-      console.error("❌ Failed to load location IDs from both tables:", { unifiedError, borkError });
-      return [];
-    }
-    return (borkData ?? []).map(item => item.location_id);
+    // No fallback needed - use unified table only
+    console.error("❌ Failed to load location IDs from api_credentials table:", unifiedError);
+    return [];
   };
 
   // Call server-side daily sync function

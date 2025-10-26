@@ -58,12 +58,28 @@ export const parsePowerBISheet = (
   let headerRow: any[] | undefined;
   for (let r = 0; r < Math.min(15, data.length); r++) {
     const row = data[r] || [];
-    const cells = row.map(lower);
+    // Handle both array and single string cases
+    const cells = Array.isArray(row) ? row.map(lower) : [lower(row)];
     const hasYear = cells.some((c) => /\bjaar\b|\byear\b/.test(c));
     const hasMonth = cells.some((c) => /\bmnd\b|\bmaand\b|\bmonth\b/.test(c));
     const hasRgs = cells.some((c) => /rgsniveau2|rgs niveau 2/.test(c));
     const hasGrootboek = cells.some((c) => /grootboek/.test(c));
-    if ((hasYear && hasMonth) || (hasRgs && hasGrootboek)) {
+    // Also check for the actual PowerBI column names
+    const hasRgsSchema = cells.some((c) => /rgs-schema.*rgsniveau2/i.test(c));
+    const hasGrootboekCol = cells.some((c) => /^grootboek$/i.test(c));
+    // Check for PowerBI specific patterns
+    const hasPowerBIHeaders = cells.some((c) => /rgs-schema.*rgsniveau2/i.test(c)) && 
+                             cells.some((c) => /rgs-schema.*rgsniveau3/i.test(c)) &&
+                             cells.some((c) => /^grootboek$/i.test(c));
+    // Prioritize PowerBI headers over generic year/month detection
+    // Only consider it a valid header if it's an array with proper PowerBI structure
+    const isValidHeader = Array.isArray(row) && row.length > 3 && (
+      hasPowerBIHeaders || 
+      (hasRgsSchema && hasGrootboekCol) || 
+      (hasRgs && hasGrootboek)
+    );
+    
+    if (isValidHeader || (hasYear && hasMonth && Array.isArray(row) && row.length > 3)) {
       headerRowIndex = r;
       headerRow = row;
       break;
@@ -83,12 +99,13 @@ export const parsePowerBISheet = (
     const findIdx = (regex: RegExp) => cells.findIndex((c) => regex.test(c));
 
     const trySet = (current: number, idx: number) => (idx >= 0 ? idx : current);
-    glCol = trySet(glCol, findIdx(/rgsniveau2|gl.?account|rekening/));
-    categoryCol = trySet(categoryCol, findIdx(/rgsniveau3|categorie|category/));
-    subcategoryCol = trySet(subcategoryCol, findIdx(/grootboek|subcat|subcategorie/));
-    yearCol = trySet(yearCol, findIdx(/\bjaar\b|\byear\b/));
-    monthCol = trySet(monthCol, findIdx(/\bmnd\b|\bmaand\b|\bmonth\b/));
-    amountCol = trySet(amountCol, findIdx(/bedrag|amount|waarde|value|actueel|actual|omzet|spent|kosten/));
+    // Updated regex patterns to match PowerBI format
+    glCol = trySet(glCol, findIdx(/rgs-schema.*rgsniveau2|rgsniveau2|gl.?account|rekening/i));
+    categoryCol = trySet(categoryCol, findIdx(/rgs-schema.*rgsniveau3|rgsniveau3|categorie|category/i));
+    subcategoryCol = trySet(subcategoryCol, findIdx(/^grootboek$|grootboek|subcat|subcategorie/i));
+    yearCol = trySet(yearCol, findIdx(/kalender.*jaar|jaar|\byear\b/i));
+    monthCol = trySet(monthCol, findIdx(/^mnd$|\bmnd\b|\bmaand\b|\bmonth\b/i));
+    amountCol = trySet(amountCol, findIdx(/forecast|bedrag|amount|waarde|value|actueel|actual|omzet|spent|kosten/i));
   }
 
   const startRow = headerRowIndex >= 0 ? headerRowIndex + 1 : 2; // Skip possible filter + header rows

@@ -77,23 +77,23 @@ function aggregatePnLData(data: any[]): PnLData {
     const amount = Number(record.amount) || 0;
     const category = record.category?.toLowerCase() || '';
     
-    // Map PowerBI categories to P&L structure using correct sign logic from just-stock-it
-    if (category === 'netto-omzet') {
-      acc.revenue += amount; // Revenue: keep as-is (positive stays positive, negative stays negative)
+    // Map PowerBI categories to P&L structure using exact just-stock-it logic
+    // Revenue categories: keep amounts as-is (positive stays positive, negative stays negative)
+    // Cost/Expense categories: multiply by -1 to convert negative to positive
+    if (category === 'netto-omzet' || 
+        category === 'overige bedrijfsopbrengsten' || 
+        category === 'opbrengst van vorderingen die tot de vaste activa behoren en van effecten') {
+      acc.revenue += amount; // Revenue: keep as-is
     } else if (category === 'kostprijs van de omzet') {
-      acc.cogs += -1 * amount; // COGS: convert negative to positive (multiply by -1)
+      acc.cogs += -1 * amount; // COGS: convert negative to positive
     } else if (category === 'lasten uit hoofde van personeelsbeloningen') {
-      acc.labor += -1 * amount; // Labor: convert negative to positive (multiply by -1)
+      acc.labor += -1 * amount; // Labor: convert negative to positive
     } else if (category === 'overige bedrijfskosten') {
-      acc.opex += -1 * amount; // OPEX: convert negative to positive (multiply by -1)
-    } else if (category === 'overige bedrijfsopbrengsten') {
-      acc.revenue += amount; // Revenue: keep as-is
-    } else if (category === 'opbrengst van vorderingen die tot de vaste activa behoren en van effecten') {
-      acc.revenue += amount; // Revenue: keep as-is
+      acc.opex += -1 * amount; // OPEX: convert negative to positive
     } else if (category === 'afschrijvingen op immateriële en materiële vaste activa') {
-      acc.depreciation += -1 * amount; // Depreciation: convert negative to positive (multiply by -1)
+      acc.depreciation += -1 * amount; // Depreciation: convert negative to positive
     } else if (category === 'financiële baten en lasten') {
-      acc.financial += -1 * amount; // Financial: convert negative to positive (multiply by -1)
+      acc.financial += -1 * amount; // Financial: convert negative to positive
     }
     
     return acc;
@@ -198,23 +198,23 @@ function groupByMonth(data: any[]) {
     const amount = Number(row.amount) || 0;
     const category = row.category?.toLowerCase() || '';
     
-    // Map PowerBI categories to P&L structure using correct sign logic from just-stock-it
-    if (category === 'netto-omzet') {
-      totals.revenue += amount; // Revenue: keep as-is (positive stays positive, negative stays negative)
+    // Map PowerBI categories to P&L structure using exact just-stock-it logic
+    // Revenue categories: keep amounts as-is (positive stays positive, negative stays negative)
+    // Cost/Expense categories: multiply by -1 to convert negative to positive
+    if (category === 'netto-omzet' || 
+        category === 'overige bedrijfsopbrengsten' || 
+        category === 'opbrengst van vorderingen die tot de vaste activa behoren en van effecten') {
+      totals.revenue += amount; // Revenue: keep as-is
     } else if (category === 'kostprijs van de omzet') {
-      totals.cogs += -1 * amount; // COGS: convert negative to positive (multiply by -1)
+      totals.cogs += -1 * amount; // COGS: convert negative to positive
     } else if (category === 'lasten uit hoofde van personeelsbeloningen') {
-      totals.labor += -1 * amount; // Labor: convert negative to positive (multiply by -1)
+      totals.labor += -1 * amount; // Labor: convert negative to positive
     } else if (category === 'overige bedrijfskosten') {
-      totals.opex += -1 * amount; // OPEX: convert negative to positive (multiply by -1)
-    } else if (category === 'overige bedrijfsopbrengsten') {
-      totals.revenue += amount; // Revenue: keep as-is
-    } else if (category === 'opbrengst van vorderingen die tot de vaste activa behoren en van effecten') {
-      totals.revenue += amount; // Revenue: keep as-is
+      totals.opex += -1 * amount; // OPEX: convert negative to positive
     } else if (category === 'afschrijvingen op immateriële en materiële vaste activa') {
-      totals.depreciation += -1 * amount; // Depreciation: convert negative to positive (multiply by -1)
+      totals.depreciation += -1 * amount; // Depreciation: convert negative to positive
     } else if (category === 'financiële baten en lasten') {
-      totals.financial += -1 * amount; // Financial: convert negative to positive (multiply by -1)
+      totals.financial += -1 * amount; // Financial: convert negative to positive
     }
   });
 

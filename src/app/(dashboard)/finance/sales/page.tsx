@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Filter, Calendar, Database, TrendingUp, CheckCircle } from "lucide-react";
+import { Filter, Calendar, Database, TrendingUp, CheckCircle, RefreshCw, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/integrations/supabase/client";
 import { SalesKpiCard } from "@/components/sales/SalesKpiCard";
@@ -42,6 +42,9 @@ export default function Sales() {
   const [chartType, setChartType] = useState<"line" | "bar">("line");
   const [granularity, setGranularity] = useState<"day" | "week" | "month" | "quarter" | "year">("month");
   const [includeVat, setIncludeVat] = useState(false); // Default to excl. VAT
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   
   // Period presets and date ranges - initialize with current month
   const [periodPreset, setPeriodPreset] = useState<string>("this-month");
@@ -96,15 +99,124 @@ export default function Sales() {
     }
   }, [dateRange]);
 
+  // Auto-refresh mechanism (every 5 minutes)
+  useEffect(() => {
+    if (!autoRefreshEnabled) return;
+
+    const interval = setInterval(async () => {
+      try {
+        console.log('[Sales] Auto-refresh triggered');
+        
+        // Check if there's new data by calling the aggregate API
+        const response = await fetch('/api/bork/aggregate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.summary.totalAggregatedDates > 0) {
+          console.log('[Sales] Auto-refresh found new data:', result.summary);
+          setLastRefreshTime(new Date());
+          
+          // Only reload if we actually aggregated new data
+          if (result.summary.totalAggregatedDates > 0) {
+            window.location.reload();
+          }
+        } else {
+          console.log('[Sales] Auto-refresh: No new data found');
+        }
+      } catch (error) {
+        console.error('[Sales] Auto-refresh error:', error);
+        // Don't show alerts for auto-refresh errors
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, [autoRefreshEnabled]);
+
+  // Manual refresh function
+  const handleRefreshSalesData = async () => {
+    setIsRefreshing(true);
+    try {
+      console.log('[Sales] Manual refresh triggered');
+      
+      const response = await fetch('/api/bork/aggregate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          // No specific location - aggregate all
+          // No specific date range - use existing data range
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setLastRefreshTime(new Date());
+        console.log('[Sales] Manual refresh successful:', result.summary);
+        
+        // Invalidate and refetch sales data
+        // This will trigger a refetch of the sales data
+        window.location.reload(); // Simple approach for now
+      } else {
+        console.error('[Sales] Manual refresh failed:', result.error);
+        alert(`Refresh failed: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('[Sales] Manual refresh error:', error);
+      alert(`Refresh error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   // Compute location filter: "all" if selected, else array of location IDs
-  const locationFilter = activeLocations.includes("all") ? "all" : activeLocations;
+  // DEFENSIVE: Handle empty array case
+  const locationFilter = activeLocations.includes("all") || activeLocations.length === 0 ? "all" : activeLocations;
 
   // Fetch sales data for primary period
-  const { data: primaryData, isLoading: primaryLoading, error: primaryError } = useSalesData({
+  const { data: primaryRawData, isLoading: primaryLoading, error: primaryError } = useSalesData({
     locationFilter,
     dateRange,
     includeVat
   });
+
+  // DEFENSIVE: Aggregate raw data into summary metrics
+  const primaryData = primaryRawData && primaryRawData.length > 0 ? {
+    revenue: primaryRawData.reduce((sum, record) => sum + (includeVat ? record.total_revenue_incl_vat : record.total_revenue_excl_vat), 0),
+    quantity: primaryRawData.reduce((sum, record) => sum + record.total_quantity, 0),
+    avgPrice: primaryRawData.reduce((sum, record) => sum + record.avg_price, 0) / primaryRawData.length,
+    productCount: primaryRawData.reduce((sum, record) => sum + record.product_count, 0),
+    topCategory: primaryRawData.reduce((acc, record) => {
+      if (!acc || record.total_revenue_incl_vat > acc.revenue) {
+        return { category: record.top_category, revenue: record.total_revenue_incl_vat };
+      }
+      return acc;
+    }, null as { category: string | null; revenue: number } | null)?.category || null,
+    vatAmount: primaryRawData.reduce((sum, record) => sum + record.total_vat_amount, 0),
+    vat9Base: primaryRawData.reduce((sum, record) => sum + record.vat_9_base, 0),
+    vat9Amount: primaryRawData.reduce((sum, record) => sum + record.vat_9_amount, 0),
+    vat21Base: primaryRawData.reduce((sum, record) => sum + record.vat_21_base, 0),
+    vat21Amount: primaryRawData.reduce((sum, record) => sum + record.vat_21_amount, 0),
+    totalCost: primaryRawData.reduce((sum, record) => sum + record.total_cost, 0),
+    // Additional properties needed by the UI
+    vatBreakdown: {
+      vat9Base: primaryRawData.reduce((sum, record) => sum + record.vat_9_base, 0),
+      vat9Amount: primaryRawData.reduce((sum, record) => sum + record.vat_9_amount, 0),
+      vat21Base: primaryRawData.reduce((sum, record) => sum + record.vat_21_base, 0),
+      vat21Amount: primaryRawData.reduce((sum, record) => sum + record.vat_21_amount, 0)
+    },
+    costTotal: primaryRawData.reduce((sum, record) => sum + record.total_cost, 0),
+    profitMargin: (() => {
+      const revenue = primaryRawData.reduce((sum, record) => sum + (includeVat ? record.total_revenue_incl_vat : record.total_revenue_excl_vat), 0);
+      const cost = primaryRawData.reduce((sum, record) => sum + record.total_cost, 0);
+      return revenue > 0 ? ((revenue - cost) / revenue) * 100 : 0;
+    })(),
+    revenueExVat: primaryRawData.reduce((sum, record) => sum + record.total_revenue_excl_vat, 0),
+    revenueIncVat: primaryRawData.reduce((sum, record) => sum + record.total_revenue_incl_vat, 0)
+  } : null;
 
   // Check data source status
   const { data: dataSourceStatus } = useQuery({
@@ -112,12 +224,20 @@ export default function Sales() {
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from("bork_sales_data")
+        .from("bork_sales_aggregated")
         .select("id")
-        .eq("category", "STEP6_STORED_DATA")
         .limit(1);
       
-      if (error) throw error;
+      if (error) {
+        // If table doesn't exist, return empty status
+        if (error.message?.includes('Could not find the table') || error.message?.includes('relation') || error.message?.includes('does not exist')) {
+          return {
+            hasProcessedData: false,
+            recordCount: 0
+          };
+        }
+        throw error;
+      }
       return {
         hasProcessedData: data && data.length > 0,
         recordCount: data ? data.length : 0
@@ -126,11 +246,46 @@ export default function Sales() {
   });
 
   // Fetch sales data for comparison period
-  const { data: comparisonData, isLoading: comparisonLoading } = useSalesData({
+  const { data: comparisonRawData, isLoading: comparisonLoading } = useSalesData({
     locationFilter,
     dateRange: comparisonMode ? comparisonDateRange : null,
     includeVat
   });
+
+  // DEFENSIVE: Aggregate comparison data into summary metrics
+  const comparisonData = comparisonRawData && comparisonRawData.length > 0 ? {
+    revenue: comparisonRawData.reduce((sum, record) => sum + (includeVat ? record.total_revenue_incl_vat : record.total_revenue_excl_vat), 0),
+    quantity: comparisonRawData.reduce((sum, record) => sum + record.total_quantity, 0),
+    avgPrice: comparisonRawData.reduce((sum, record) => sum + record.avg_price, 0) / comparisonRawData.length,
+    productCount: comparisonRawData.reduce((sum, record) => sum + record.product_count, 0),
+    topCategory: comparisonRawData.reduce((acc, record) => {
+      if (!acc || record.total_revenue_incl_vat > acc.revenue) {
+        return { category: record.top_category, revenue: record.total_revenue_incl_vat };
+      }
+      return acc;
+    }, null as { category: string | null; revenue: number } | null)?.category || null,
+    vatAmount: comparisonRawData.reduce((sum, record) => sum + record.total_vat_amount, 0),
+    vat9Base: comparisonRawData.reduce((sum, record) => sum + record.vat_9_base, 0),
+    vat9Amount: comparisonRawData.reduce((sum, record) => sum + record.vat_9_amount, 0),
+    vat21Base: comparisonRawData.reduce((sum, record) => sum + record.vat_21_base, 0),
+    vat21Amount: comparisonRawData.reduce((sum, record) => sum + record.vat_21_amount, 0),
+    totalCost: comparisonRawData.reduce((sum, record) => sum + record.total_cost, 0),
+    // Additional properties needed by the UI
+    vatBreakdown: {
+      vat9Base: comparisonRawData.reduce((sum, record) => sum + record.vat_9_base, 0),
+      vat9Amount: comparisonRawData.reduce((sum, record) => sum + record.vat_9_amount, 0),
+      vat21Base: comparisonRawData.reduce((sum, record) => sum + record.vat_21_base, 0),
+      vat21Amount: comparisonRawData.reduce((sum, record) => sum + record.vat_21_amount, 0)
+    },
+    costTotal: comparisonRawData.reduce((sum, record) => sum + record.total_cost, 0),
+    profitMargin: (() => {
+      const revenue = comparisonRawData.reduce((sum, record) => sum + (includeVat ? record.total_revenue_incl_vat : record.total_revenue_excl_vat), 0);
+      const cost = comparisonRawData.reduce((sum, record) => sum + record.total_cost, 0);
+      return revenue > 0 ? ((revenue - cost) / revenue) * 100 : 0;
+    })(),
+    revenueExVat: comparisonRawData.reduce((sum, record) => sum + record.total_revenue_excl_vat, 0),
+    revenueIncVat: comparisonRawData.reduce((sum, record) => sum + record.total_revenue_incl_vat, 0)
+  } : null;
 
   // Fetch category-specific data when categories are selected
   const { data: categoryData = [] } = useSalesByCategory(
@@ -228,9 +383,35 @@ export default function Sales() {
               ? `Connected to ${dataSourceStatus.recordCount} processed sales records from Bork API`
               : "Analyze sales data from Bork POS"
             }
+            {lastRefreshTime && (
+              <span className="ml-2 text-sm text-green-600">
+                • Last refreshed: {lastRefreshTime.toLocaleTimeString()}
+              </span>
+            )}
           </p>
         </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefreshSalesData}
+              disabled={isRefreshing}
+              className="gap-2"
+            >
+              {isRefreshing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              {isRefreshing ? 'Refreshing...' : 'Refresh Sales Data'}
+            </Button>
+            <div className="flex items-center gap-2 text-sm">
+              <Switch
+                checked={autoRefreshEnabled}
+                onCheckedChange={setAutoRefreshEnabled}
+              />
+              <Label className="text-xs">Auto-refresh (5min)</Label>
+            </div>
             <Button
               variant="outline"
               size="sm"
