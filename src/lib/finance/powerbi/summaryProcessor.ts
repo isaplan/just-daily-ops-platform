@@ -70,58 +70,64 @@ export async function processPowerBISummaries(
   
   console.log(`✅ Inserted ${lineItems.length} line items`);
   
-  // Build pnl_monthly_summary record
+  // Build pnl_monthly_summary record with simplified schema
   const summary: any = {
     location_id: locationId,
-    import_id: importId,
     year,
     month,
-    revenue_net: 0,
-    revenue_gross: 0,
-    cogs_total: 0,
-    cogs_kitchen: 0,
-    cogs_beer_wine: 0,
-    cogs_spirits: 0,
-    cogs_non_alcoholic: 0,
-    cogs_other: 0,
-    labor_cost_total: 0,
-    labor_wages_salaries: 0,
-    labor_social_charges: 0,
-    labor_pension: 0,
-    labor_other: 0,
-    opex_total: 0,
-    opex_rent: 0,
-    opex_utilities: 0,
-    opex_maintenance: 0,
-    opex_marketing: 0,
-    opex_insurance: 0,
-    opex_administrative: 0,
-    opex_other: 0,
-    depreciation: 0,
-    finance_costs: 0
+    total_revenue: 0,
+    total_costs: 0,
+    gross_profit: 0,
+    operating_expenses: 0,
+    net_profit: 0
   };
   
   // Aggregate amounts into summary fields
   lineItems.forEach(item => {
-    const fieldName = mapCategoryToSummaryField(item.category_level_1, item.category_level_2);
-    if (fieldName && fieldName in summary) {
-      summary[fieldName] += item.amount;
+    const amount = item.amount;
+    
+    switch (item.category_level_1) {
+      case "Revenue":
+        summary.total_revenue += amount;
+        break;
+      case "COGS":
+        summary.total_costs += amount;
+        break;
+      case "Labor":
+        summary.total_costs += amount;
+        break;
+      case "OPEX":
+        summary.operating_expenses += amount;
+        break;
+      case "Depreciation":
+        summary.operating_expenses += amount;
+        break;
+      case "Finance":
+        summary.operating_expenses += amount;
+        break;
     }
   });
   
-  // Calculate gross revenue (net * 1.12 for VAT)
-  if (summary.revenue_net > 0 && summary.revenue_gross === 0) {
-    summary.revenue_gross = summary.revenue_net * 1.12;
-  }
+  // Calculate derived fields
+  summary.gross_profit = summary.total_revenue - summary.total_costs;
+  summary.net_profit = summary.gross_profit - summary.operating_expenses;
   
-  // Upsert into pnl_monthly_summary
-  const { error: upsertSummaryError } = await supabase
+  // Delete existing record first, then insert new one
+  const { error: deleteError } = await supabase
     .from("pnl_monthly_summary")
-    .upsert(summary, {
-      onConflict: "location_id,year,month"
-    });
+    .delete()
+    .eq("location_id", locationId)
+    .eq("year", year)
+    .eq("month", month);
   
-  if (upsertSummaryError) throw new Error(`Failed to upsert summary: ${upsertSummaryError.message}`);
+  if (deleteError) throw new Error(`Failed to delete existing summary: ${deleteError.message}`);
+  
+  // Insert new summary record
+  const { error: insertError } = await supabase
+    .from("pnl_monthly_summary")
+    .insert(summary);
+  
+  if (insertError) throw new Error(`Failed to insert summary: ${insertError.message}`);
   
   console.log(`✅ Upserted monthly summary for ${locationId}, ${year}-${month}`);
   

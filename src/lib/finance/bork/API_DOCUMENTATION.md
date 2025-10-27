@@ -110,7 +110,7 @@ When syncing data:
 ## Security Considerations
 
 ### Credential Storage
-- API keys stored in `bork_api_credentials` table
+- API keys stored in `api_credentials` table (unified credentials system)
 - Encrypted at rest by Supabase
 - RLS policies restrict access to owners only
 - Never exposed to frontend JavaScript
@@ -178,6 +178,83 @@ Returns list of users/employees
 3. **Category Mapping**: Link Bork categories to internal product categories
 4. **Delta Syncs**: Only fetch changed/new records (if API supports)
 5. **Rate Limiting**: Implement intelligent throttling
+
+## Hybrid Aggregation System
+
+### Overview
+The system now supports three methods for triggering data aggregation:
+
+1. **Automatic**: Runs after raw data processing
+2. **Manual**: User-triggered via "Refresh Sales Data" button
+3. **Auto-refresh**: Background checks every 5 minutes
+
+### Manual Aggregation API
+
+**Endpoint**: `/api/bork/aggregate`
+**Method**: POST
+**Purpose**: Manually trigger aggregation for processed data
+
+**Parameters**:
+- `locationId`: UUID of the location (optional - aggregates all if not provided)
+- `startDate`: Start date for aggregation (optional)
+- `endDate`: End date for aggregation (optional)
+- `forceFull`: Boolean to force full aggregation (optional)
+
+**Response**:
+```json
+{
+  "success": true,
+  "results": {
+    "location_id": {
+      "success": true,
+      "aggregatedDates": ["2025-01-25"],
+      "errors": [],
+      "incremental": true
+    }
+  },
+  "summary": {
+    "totalLocations": 3,
+    "successfulLocations": 3,
+    "totalAggregatedDates": 15,
+    "totalErrors": 0,
+    "incrementalCount": 3,
+    "fullCount": 0
+  }
+}
+```
+
+### Auto-Refresh Mechanism
+
+**Frequency**: Every 5 minutes
+**Behavior**: 
+- Checks for new data automatically
+- Only reloads if new aggregated data is found
+- Runs silently in background
+- Can be toggled on/off by user
+
+**Configuration**:
+- Toggle switch in sales page UI
+- Default: Enabled
+- Visual indicator shows last refresh time
+
+### Incremental Aggregation
+
+**Timestamp Tracking**: Uses `last_location_aggregation` column
+**Efficiency**: Only processes dates with updated raw data
+**Fallback**: Full aggregation if timestamp tracking fails
+
+### Visual Feedback
+
+**Sales Page Features**:
+- "Refresh Sales Data" button with loading state
+- Last refresh time indicator
+- Auto-refresh toggle switch
+- Success/error notifications
+
+**Status Indicators**:
+- Loading spinner during aggregation
+- Green timestamp for successful refresh
+- Error messages for failed operations
 
 ## Support
 

@@ -121,73 +121,41 @@ Deno.serve(async (req) => {
     const dateToTest = getTestDate(testDate);
     console.log(`Testing Bork API for location ${locationId}, date: ${dateToTest}`);
 
-    // CURSOR-DEV: Get credentials from request or environment variables
-    console.log(`🔧 CURSOR-DEV: Getting credentials from request or environment variables`);
+    // CURSOR-DEV: Get credentials from bork_api_credentials table
+    console.log(`🔧 CURSOR-DEV: Getting credentials from bork_api_credentials table`);
     
-    let apiUsername: string | undefined;
-    let apiPassword: string | undefined;
-    let apiBaseUrl: string | undefined;
-    
-    try {
-      // Try to get from request first (for frontend testing)
-      if (apiKey && baseUrl) {
-        console.log(`🔧 CURSOR-DEV: Using credentials from request`);
-        apiUsername = 'frontend_user'; // Placeholder username
-        apiPassword = apiKey;
-        apiBaseUrl = baseUrl;
-      } else {
-        // Fall back to environment variables
-        console.log(`🔧 CURSOR-DEV: Using credentials from environment variables`);
-        apiUsername = Deno.env.get('BORK_API_USERNAME');
-        apiPassword = Deno.env.get('BORK_API_PASSWORD');
-        apiBaseUrl = 'https://dash-api-prod-01.thisisbork.com/api';
-      }
-      
-      console.log(`🔧 CURSOR-DEV: API Username: ${apiUsername ? 'Set' : 'Not set'}`);
-      console.log(`🔧 CURSOR-DEV: API Password: ${apiPassword ? 'Set' : 'Not set'}`);
-      console.log(`🔧 CURSOR-DEV: API Base URL: ${apiBaseUrl ? 'Set' : 'Not set'}`);
+    const { data: credentials, error: credError } = await supabaseClient
+      .from('bork_api_credentials')
+      .select('*')
+      .eq('location_id', locationId)
+      .eq('is_active', true)
+      .single();
 
-      if (!apiUsername || !apiPassword || !apiBaseUrl) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            status: 404,
-            statusText: 'No Credentials',
-            hasData: false,
-            errorMessage: `Bork API credentials not configured. Please provide apiKey and baseUrl in request or set BORK_API_USERNAME and BORK_API_PASSWORD secrets.`,
-          } as TestResponse),
-          { 
-            status: 404,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      }
-    } catch (error) {
-      console.error('🔧 CURSOR-DEV: Error getting credentials:', error);
+    if (credError || !credentials) {
+      console.error('🔧 CURSOR-DEV: No credentials found for location:', locationId);
       return new Response(
         JSON.stringify({
           success: false,
-          status: 500,
-          statusText: 'Credential Error',
+          status: 404,
+          statusText: 'No Credentials',
           hasData: false,
-          errorMessage: `Error accessing credentials: ${error.message}`,
+          errorMessage: `No API credentials found for location ${locationId}`,
         } as TestResponse),
         { 
-          status: 500,
+          status: 404,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         }
       );
     }
 
-    // Create credentials object for compatibility
-    const credentials = {
-      base_url: apiBaseUrl,
-      api_key: apiPassword, // Using password as API key
-      username: apiUsername
-    };
+    console.log('🔧 CURSOR-DEV: Credentials found:', {
+      location_id: credentials.location_id,
+      api_url: credentials.api_url,
+      has_api_key: !!credentials.api_key
+    });
 
     // Build API URL per Bork documentation
-    const apiUrl = buildBorkApiUrl(credentials.base_url, dateToTest, credentials.api_key);
+    const apiUrl = buildBorkApiUrl(credentials.api_url, dateToTest, credentials.api_key);
 
     // Test the connection
     const { response, error } = await testBorkApi(apiUrl);

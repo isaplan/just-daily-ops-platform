@@ -76,6 +76,7 @@ const operationsItems = [
 
 const financeItems = [
   { title: "Profit & Loss", url: "/finance/pnl", icon: DollarSign },
+  { title: "P&L Balance", url: "/finance/pnl/balance", icon: BarChartBig },
   { title: "Sales", url: "/finance/sales", icon: TrendingUp },
   { title: "Labor", url: "/finance/labor", icon: Users },
   { title: "Analytics & AI", url: "/finance/analytics", icon: BarChart3 },

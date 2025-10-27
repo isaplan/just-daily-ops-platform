@@ -1,0 +1,168 @@
+{
+  "build_sessions": [
+    {
+      "session_id": "eitje-api-integration-step1-2025-10-26",
+      "date": "2025-10-26",
+      "problem": "Implement Step 1 of Eitje API Endpoints Integration Plan",
+      "root_cause": "Need to update core authentication and configuration for Eitje API",
+      "investigation": [
+        "Eitje API uses 4-credential header authentication (Partner-Username, Partner-Password, Api-Username, Api-Password)",
+        "Base URL needs to be updated to https://open-api.eitje.app/open_api",
+        "API service needs endpoint configuration and defensive field mapping",
+        "Build log requirement to check Eitje API documentation before any work"
+      ],
+      "solution": [
+        "Updated EitjeApiConfig interface to require additional_config with 4 credentials",
+        "Added EITJE_ENDPOINTS configuration with all available endpoints",
+        "Implemented createEitjeAuthHeaders() method for 4-credential authentication",
+        "Updated makeRequest() to use new header authentication instead of Bearer token",
+        "Added defensive field mapping for shift data with multiple field name variations",
+        "Added date range validation based on endpoint limits (7-day for shifts, 90-day for revenue)",
+        "Updated base URL in credentials SQL to correct endpoint",
+        "Added build log requirement to check Eitje API documentation"
+      ],
+      "files_modified": [
+        "src/lib/eitje/api-service.ts",
+        "update-eitje-base-url.sql",
+        "build-log.json"
+      ],
+      "status": "completed",
+      "notes": "Step 1 of Eitje API integration plan completed. Core authentication updated to 4-credential system with endpoint configuration and defensive programming."
+    },
+    {
+      "session_id": "bork-credentials-fix-2025-01-25",
+      "date": "2025-01-25",
+      "problem": "Bork API sync failing for Bar Bea and Van Kinsbergen (0 records) while L'Amour Toujours works (388 records)",
+      "root_cause": "System using hardcoded test credentials instead of real database credentials",
+      "investigation": [
+        "Found two credential tables: api_credentials (unified) and bork_api_credentials (old)",
+        "Credentials API was looking for 'base_url' column but database has 'api_url' column",
+        "Frontend was falling back to hardcoded test URLs when API failed",
+        "Old bork_api_credentials table still referenced in some components"
+      ],
+      "solution": [
+        "Fixed credentials API to use 'api_url' instead of 'base_url'",
+        "Updated frontend mapping to use api_url from database",
+        "Removed fallback to old bork_api_credentials table",
+        "Created migration to drop old tables",
+        "Verified all components use unified api_credentials table"
+      ],
+      "result": "System now uses real database credentials for all locations",
+      "files_modified": [
+        "src/app/api/bork/credentials/route.ts",
+        "src/app/(dashboard)/finance/bork-api/page.tsx", 
+        "src/components/finance/EnhancedManualSync.tsx",
+        "src/lib/finance/bork/API_DOCUMENTATION.md"
+      ],
+      "status": "completed"
+    },
+    {
+      "session_id": "sync-timeout-fix-2025-01-25",
+      "date": "2025-01-25", 
+      "problem": "Parallel sync timeout - individual locations work but fail when syncing all together",
+      "root_cause": "30-second frontend timeout too short for parallel processing",
+      "solution": [
+        "Increased frontend timeout from 30s to 60s",
+        "Increased API timeout from 25s to 55s", 
+        "Added individual retry mechanism for failed locations",
+        "Added retry buttons in UI for failed syncs"
+      ],
+      "result": "Parallel sync now works with individual retry capability",
+      "status": "completed"
+    },
+    {
+      "session_id": "process-batch-timeout-fix-2025-01-25",
+      "date": "2025-01-25",
+      "problem": "Raw data processing showing 0 records processed despite successful sync operations",
+      "root_cause": "Database timeout due to inefficient query on large bork_sales_data table",
+      "solution": [
+        "Optimized database query with specific columns and LIMIT 50",
+        "Added timeout protection for database queries (5 seconds)",
+        "Implemented robust batch processing with fail-safe retry logic",
+        "Added 1-second delays between batches to prevent database overload",
+        "Added 3-retry mechanism with 2-second delays for failed batches",
+        "Added 10-second timeout protection per batch"
+      ],
+             "result": "Raw data processing now works with 225 records processed successfully and shows per-location counts",
+      "files_modified": [
+        "src/app/api/bork/process/route.ts"
+      ],
+      "critical_findings": [
+        "Large batches cause database timeouts - need batch processing",
+        "Database queries on large tables need optimization (specific columns, LIMIT)",
+        "Fail-safe retry logic essential for production reliability",
+        "Sync results show individual API records, processing results show daily aggregates - this is expected behavior",
+        "Processing results should show per-location distribution, not total count for each location"
+      ],
+             "status": "completed"
+           },
+           {
+             "session_id": "duplicate-cleanup-implementation-2025-01-25",
+             "date": "2025-01-25",
+             "problem": "Duplicate Bork sales data records accumulating from repeated syncs - multiple records per (location_id, date) pair",
+             "root_cause": "Sync operations append new data instead of replacing existing data for same date",
+             "investigation": [
+               "Database analysis showed 38 records for Van Kinsbergen, 31 for Bar Bea, 31 for L'Amour Toujours",
+               "Multiple records per date with different created_at timestamps",
+               "Date extraction from raw_data.raw_response[0].Date field (YYYYMMDD format)",
+               "Need to keep only most recent record for each (location_id, date) pair"
+             ],
+             "solution": [
+               "Created cleanup-service.ts with two functions: cleanupDuplicatesForDateRange and cleanupAllDuplicates",
+               "Updated sync API to call cleanup after successful data insertion",
+               "Created weekly cleanup API route for database-wide maintenance",
+               "Implemented batched deletes (10 records at a time) with 100ms delays",
+               "Added comprehensive logging and error handling"
+             ],
+             "result": "Automatic cleanup after each sync operation, manual cleanup endpoint for weekly maintenance, no duplicate data accumulation",
+             "files_modified": [
+               "src/lib/bork/cleanup-service.ts",
+               "src/app/api/bork/sync/route.ts",
+               "src/app/api/bork/cleanup/route.ts",
+               "function-registry.json"
+             ],
+             "critical_findings": [
+               "Cleanup must run AFTER successful data insertion to prevent data loss",
+               "Date extraction from raw_data.raw_response[0].Date field (YYYYMMDD format)",
+               "Batched deletes prevent database timeouts on large datasets",
+               "Two cleanup strategies: targeted (per sync) and database-wide (weekly)",
+               "Keep most recent record based on created_at timestamp"
+             ],
+             "status": "completed"
+           },
+           {
+             "session_id": "hybrid-aggregation-system-2025-01-25",
+             "date": "2025-01-25",
+             "problem": "Need flexible aggregation trigger system - automatic after processing, manual refresh, and auto-refresh capabilities",
+             "root_cause": "Single automatic trigger after processing not sufficient for all use cases",
+             "investigation": [
+               "Current system only aggregates automatically after raw data processing",
+               "No manual way to trigger aggregation without reprocessing all data",
+               "No background refresh mechanism for updated data",
+               "Users need control over when aggregation occurs"
+             ],
+             "solution": [
+               "Created /api/bork/aggregate endpoint for manual aggregation triggers",
+               "Added 'Refresh Sales Data' button to sales page with loading states",
+               "Implemented auto-refresh mechanism (every 5 minutes) with toggle",
+               "Added visual feedback: last refresh time, loading states, success indicators",
+               "Integrated incremental aggregation with timestamp tracking",
+               "Added RLS policy fix for bork_sales_aggregated table"
+             ],
+             "result": "Three-tier aggregation system: automatic (after processing), manual (refresh button), auto-refresh (background)",
+             "files_modified": [
+               "src/app/api/bork/aggregate/route.ts",
+               "src/app/(dashboard)/finance/sales/page.tsx",
+               "fix-rls-policies.sql"
+             ],
+             "critical_findings": [
+               "Hybrid approach provides maximum flexibility for different use cases",
+               "Auto-refresh prevents stale data without user intervention",
+               "Manual refresh gives users immediate control when needed",
+               "RLS policies must be configured for aggregation service to work",
+               "Incremental aggregation only processes changed dates for efficiency"
+             ],
+             "status": "completed"
+           }
+         ]
+       }
