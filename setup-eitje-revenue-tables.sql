@@ -129,3 +129,4 @@ SELECT
 FROM information_schema.columns 
 WHERE table_name IN ('eitje_revenue_days_raw', 'eitje_revenue_aggregated')
 ORDER BY table_name, ordinal_position;
+

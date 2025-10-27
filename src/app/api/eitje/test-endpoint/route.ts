@@ -64,9 +64,9 @@ export async function POST(request: NextRequest) {
         case 'time_registration_shifts':
           data = await fetchEitjeTimeRegistrationShifts(baseUrl, credentials, startDate, endDate);
           break;
-        case 'planning_shifts':
-          data = await fetchEitjePlanningShifts(baseUrl, credentials, startDate, endDate);
-          break;
+        // case 'planning_shifts': // NOT NEEDED - Commented out per user request
+        //   data = await fetchEitjePlanningShifts(baseUrl, credentials, startDate, endDate);
+        //   break;
         case 'revenue_days':
           data = await fetchEitjeRevenueDays(baseUrl, credentials, startDate, endDate);
           break;

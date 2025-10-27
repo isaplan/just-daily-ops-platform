@@ -178,3 +178,4 @@ export function getGLAccountsForCategory(data: PnLData[], category: string): str
       .map(d => d.gl_account)
   )].sort();
 }
+

@@ -67,3 +67,4 @@ export async function GET() {
     usage: 'POST /api/sync/manual to trigger immediate data synchronization'
   });
 }
+

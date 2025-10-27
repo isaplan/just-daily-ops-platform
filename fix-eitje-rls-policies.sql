@@ -51,3 +51,4 @@ CREATE POLICY "Allow all operations" ON eitje_time_registration_shifts_raw
 
 CREATE POLICY "Allow all operations" ON eitje_revenue_days_raw
   FOR ALL USING (true) WITH CHECK (true);
+

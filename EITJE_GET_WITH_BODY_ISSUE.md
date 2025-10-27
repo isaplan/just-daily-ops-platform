@@ -86,3 +86,4 @@ Request that they also support POST for these endpoints (as a workaround for cli
 3. Test all three endpoints (`time_registration_shifts`, `planning_shifts`, `revenue_days`)
 4. Update todos and mark as completed
 
+

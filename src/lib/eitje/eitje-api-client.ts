@@ -257,40 +257,41 @@ export async function fetchEitjeTimeRegistrationShifts(
   }
 }
 
-export async function fetchEitjePlanningShifts(
-  baseUrl: string,
-  credentials: EitjeCredentials,
-  startDate: string,
-  endDate: string
-) {
-  console.log('[Eitje API] Fetching planning shifts:', { startDate, endDate });
-  
-  // DEFENSIVE: Validate inputs
-  validateBaseUrl(baseUrl);
-  validateCredentials(credentials);
-  validateDateRange(startDate, endDate, 7); // Max 7 days for shifts
-  
-  try {
-    const response = await axios({
-      method: 'GET',
-      url: `${baseUrl}/planning_shifts`,
-      headers: createHeaders(credentials),
-      data: { filters: { start_date: startDate, end_date: endDate, date_filter_type: 'resource_date' } },
-      timeout: 30000
-    });
-    
-    const data = response.data.items || response.data;
-    
-    if (!Array.isArray(data)) {
-      console.warn('[Eitje API] Planning shifts response is not an array:', typeof data);
-    }
-    
-    console.log('[Eitje API] Fetched', Array.isArray(data) ? data.length : 'not array', 'planning shifts');
-    return data;
-  } catch (error) {
-    handleApiError(error, 'planning_shifts');
-  }
-}
+// NOT NEEDED - Commented out per user request
+// export async function fetchEitjePlanningShifts(
+//   baseUrl: string,
+//   credentials: EitjeCredentials,
+//   startDate: string,
+//   endDate: string
+// ) {
+//   console.log('[Eitje API] Fetching planning shifts:', { startDate, endDate });
+//   
+//   // DEFENSIVE: Validate inputs
+//   validateBaseUrl(baseUrl);
+//   validateCredentials(credentials);
+//   validateDateRange(startDate, endDate, 7); // Max 7 days for shifts
+//   
+//   try {
+//     const response = await axios({
+//       method: 'GET',
+//       url: `${baseUrl}/planning_shifts`,
+//       headers: createHeaders(credentials),
+//       data: { filters: { start_date: startDate, end_date: endDate, date_filter_type: 'resource_date' } },
+//       timeout: 30000
+//     });
+//     
+//     const data = response.data.items || response.data;
+//     
+//     if (!Array.isArray(data)) {
+//       console.warn('[Eitje API] Planning shifts response is not an array:', typeof data);
+//     }
+//     
+//     console.log('[Eitje API] Fetched', Array.isArray(data) ? data.length : 'not array', 'planning shifts');
+//     return data;
+//   } catch (error) {
+//     handleApiError(error, 'planning_shifts');
+//   }
+// }
 
 export async function fetchEitjeRevenueDays(
   baseUrl: string,

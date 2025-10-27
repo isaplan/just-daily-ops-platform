@@ -79,3 +79,4 @@ function sumByGlAccount(data, glAccount) {
 }
 
 testAggregationCalculations();
+

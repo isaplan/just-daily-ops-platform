@@ -168,3 +168,4 @@ export async function POST() {
     error: 'Method not allowed. Use GET to fetch data.'
   }, { status: 405 });
 }
+

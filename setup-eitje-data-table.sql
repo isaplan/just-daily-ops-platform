@@ -65,3 +65,4 @@ SELECT
 FROM information_schema.columns 
 WHERE table_name = 'eitje_sales_data'
 ORDER BY ordinal_position;
+

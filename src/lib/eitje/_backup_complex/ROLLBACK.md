@@ -61,3 +61,4 @@ const service = createEitjeApiService(config);
 - If performance is worse than expected
 - If the complex validation/mapping logic is actually needed
 - If the modular structure was actually beneficial for maintenance
+

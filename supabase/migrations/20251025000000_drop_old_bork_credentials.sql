@@ -12,3 +12,4 @@ DROP TABLE IF EXISTS bork_api_credentials;
 
 -- Also drop the old bork_api_sync_logs table (replaced by api_sync_logs)
 DROP TABLE IF EXISTS bork_api_sync_logs;
+

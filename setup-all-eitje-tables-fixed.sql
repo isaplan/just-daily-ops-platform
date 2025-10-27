@@ -482,3 +482,4 @@ FROM information_schema.columns
 WHERE table_name LIKE 'eitje_%'
 GROUP BY table_name
 ORDER BY table_name;
+

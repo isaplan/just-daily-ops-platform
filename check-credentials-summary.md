@@ -71,3 +71,4 @@
 - **Table**: `api_credentials`
 - **Key Fields**: `provider`, `location_id`, `api_key`, `base_url`, `additional_config`, `is_active`
 - **RLS Policies**: Need to verify for Eitje provider
+

@@ -216,3 +216,4 @@ SELECT
 FROM information_schema.columns 
 WHERE table_name IN ('eitje_time_registration_shifts_raw', 'eitje_planning_shifts_raw', 'eitje_hours_aggregated')
 ORDER BY table_name, ordinal_position;
+

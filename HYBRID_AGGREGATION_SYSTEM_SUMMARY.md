@@ -219,3 +219,4 @@ POST /api/bork/aggregate
 **🚀 READY FOR TESTING** (after RLS fix)
 
 The hybrid aggregation system provides maximum flexibility with three trigger methods, visual feedback, and efficient incremental processing. Once the RLS policies are fixed, the system will be fully operational!
+

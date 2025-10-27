@@ -23,3 +23,4 @@ SELECT
 FROM api_credentials 
 GROUP BY provider
 ORDER BY provider;
+

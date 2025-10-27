@@ -17,7 +17,7 @@ export const EITJE_ENDPOINTS = {
   users: '/users',
   shift_types: '/shift_types',
   time_registration_shifts: '/time_registration_shifts',
-  planning_shifts: '/planning_shifts',
+  // planning_shifts: '/planning_shifts', // NOT NEEDED - Commented out per user request
   revenue_days: '/revenue_days',
   availability_shifts: '/availability_shifts',
   leave_requests: '/leave_requests',
@@ -26,7 +26,7 @@ export const EITJE_ENDPOINTS = {
 
 export const EITJE_DATE_LIMITS = {
   time_registration_shifts: 7,
-  planning_shifts: 7,
+  // planning_shifts: 7, // NOT NEEDED - Commented out per user request
   revenue_days: 90,
   availability_shifts: 7,
   leave_requests: 7,

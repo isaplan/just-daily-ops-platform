@@ -64,3 +64,4 @@ BEGIN
             FOR ALL USING (auth.role() = 'authenticated');
     END IF;
 END $$;
+

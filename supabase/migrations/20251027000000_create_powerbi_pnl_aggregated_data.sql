@@ -80,3 +80,4 @@ CREATE TRIGGER update_powerbi_pnl_aggregated_updated_at
   BEFORE UPDATE ON public.powerbi_pnl_aggregated_data
   FOR EACH ROW
   EXECUTE FUNCTION update_powerbi_pnl_aggregated_updated_at();
+

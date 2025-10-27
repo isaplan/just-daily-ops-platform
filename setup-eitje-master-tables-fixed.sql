@@ -152,3 +152,4 @@ SELECT
 FROM information_schema.columns 
 WHERE table_name IN ('eitje_environments', 'eitje_teams', 'eitje_users', 'eitje_shift_types')
 ORDER BY table_name, ordinal_position;
+

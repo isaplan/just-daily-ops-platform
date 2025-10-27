@@ -82,3 +82,4 @@ function sumCategory(data, category) {
 }
 
 testAggregationLogic();
+

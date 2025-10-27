@@ -24,3 +24,4 @@ WHERE category = 'STEP1_RAW_DATA';
 
 -- Analyze table to update statistics
 ANALYZE bork_sales_data;
+

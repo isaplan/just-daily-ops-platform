@@ -57,3 +57,4 @@ fetch("https://open-api.eitje.app/open_api/time_registration_shifts", {
 
 **For BI/Daily Ops apps**: When the API documentation says GET but requires a body, use POST in the implementation. Document it as a "read-only POST operation" for clarity.
 
+

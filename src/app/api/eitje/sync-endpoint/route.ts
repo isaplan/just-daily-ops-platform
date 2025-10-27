@@ -67,9 +67,9 @@ export async function POST(request: NextRequest) {
         case 'time_registration_shifts':
           data = await fetchEitjeTimeRegistrationShifts(baseUrl, credentials, startDate, endDate);
           break;
-        case 'planning_shifts':
-          data = await fetchEitjePlanningShifts(baseUrl, credentials, startDate, endDate);
-          break;
+        // case 'planning_shifts': // NOT NEEDED - Commented out per user request
+        //   data = await fetchEitjePlanningShifts(baseUrl, credentials, startDate, endDate);
+        //   break;
         case 'revenue_days':
           data = await fetchEitjeRevenueDays(baseUrl, credentials, startDate, endDate);
           break;
@@ -163,7 +163,7 @@ async function processAndStoreData(
       'users': 'eitje_users',
       'shift_types': 'eitje_shift_types',
       'time_registration_shifts': 'eitje_time_registration_shifts_raw',
-      'planning_shifts': 'eitje_planning_shifts_raw',
+      // 'planning_shifts': 'eitje_planning_shifts_raw', // NOT NEEDED - Commented out per user request
       'revenue_days': 'eitje_revenue_days_raw'
     };
 
@@ -284,7 +284,7 @@ function transformRecord(record: any, endpoint: string): any {
       };
     
     case 'time_registration_shifts':
-    case 'planning_shifts':
+    // case 'planning_shifts': // NOT NEEDED - Commented out per user request
       return {
         ...baseRecord,
         user_id: record.user_id,

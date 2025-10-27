@@ -498,3 +498,4 @@ SELECT
 FROM information_schema.columns 
 WHERE table_name LIKE 'eitje_%'
 ORDER BY table_name, ordinal_position;
+

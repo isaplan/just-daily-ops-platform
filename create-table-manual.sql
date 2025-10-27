@@ -49,3 +49,4 @@ CREATE POLICY "Allow authenticated read access" ON public.bork_sales_aggregated
 
 CREATE POLICY "Allow authenticated write access" ON public.bork_sales_aggregated
     FOR ALL USING (auth.role() = 'authenticated');
+

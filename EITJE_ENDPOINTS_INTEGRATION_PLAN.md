@@ -270,3 +270,4 @@ Dashboard showing:
 - [ ] Test master data endpoints (environments, teams, users, shift_types)
 - [ ] Test labor endpoints with small date ranges (1-6 days)
 - [ ] Test labor data aggregation with real data
+

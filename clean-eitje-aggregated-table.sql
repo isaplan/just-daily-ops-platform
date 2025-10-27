@@ -69,3 +69,4 @@ ORDER BY date DESC, location_id;
 GRANT SELECT ON eitje_sales_summary TO authenticated;
 GRANT SELECT ON eitje_sales_summary TO service_role;
 GRANT SELECT ON eitje_sales_summary TO anon;
+

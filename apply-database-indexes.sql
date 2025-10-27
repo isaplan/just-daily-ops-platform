@@ -34,3 +34,4 @@ SELECT
 FROM pg_indexes 
 WHERE tablename = 'bork_sales_data'
 ORDER BY indexname;
+

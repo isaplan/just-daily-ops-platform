@@ -20,3 +20,4 @@ SELECT
 FROM api_credentials 
 WHERE provider = 'eitje' 
 AND is_active = true;
+
