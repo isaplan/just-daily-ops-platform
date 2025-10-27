@@ -11,10 +11,11 @@ export async function POST(request: NextRequest) {
     // Fetch credentials from database
     const supabase = await createClient();
     const { data: credentials, error: credError } = await supabase
-      .from('bork_api_credentials')
+      .from('api_credentials')
       .select('*')
       .eq('location_id', locationId)
       .eq('is_active', true)
+      .eq('provider', 'bork')
       .single();
 
     if (credError || !credentials) {
