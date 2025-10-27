@@ -24,9 +24,10 @@ serve(async (req) => {
 
     // Get credentials for all locations
     const { data: credentials, error: credsError } = await supabase
-      .from('bork_api_credentials')
-      .select('location_id, api_url, username')
+      .from('api_credentials')
+      .select('location_id, api_url, api_key')
       .eq('is_active', true)
+      .eq('provider', 'bork')
       .in('location_id', location_ids)
 
     if (credsError || !credentials?.length) {
@@ -102,8 +103,8 @@ async function syncMasterDataEndpoint(supabase: any, cred: any, endpoint: string
     users: 'bork_users'
   }
 
-  const url = `${cred.api_url}${endpointUrls[endpoint]}?appid=${cred.username}`
-  console.log(`    🌐 Calling: ${url.replace(cred.username, '[API_KEY]')}`)
+  const url = `${cred.api_url}${endpointUrls[endpoint]}?appid=${cred.api_key}`
+  console.log(`    🌐 Calling: ${url.replace(cred.api_key, '[API_KEY]')}`)
   
   const response = await fetch(url)
   if (!response.ok) {
