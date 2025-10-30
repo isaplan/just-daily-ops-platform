@@ -466,9 +466,8 @@ export default function PnLBalancePage() {
       }
     });
 
-    processed.push(resultaat);
-
     // Add any additional categories from raw data that weren't in COGS_CATEGORIES
+    // Do this before adding Resultaat so Resultaat is always last
     const processedCategoryNames = new Set(processed.map(p => p.category));
     const allRawCategories = new Set(rawData.map(d => d.category).filter(Boolean));
     
@@ -477,9 +476,10 @@ export default function PnLBalancePage() {
       if (processedCategoryNames.has(categoryName)) return;
       
       // Skip if it's a configured subcategory (check if it's in any category's subcategories array)
-      const isConfiguredSubcategory = COGS_CATEGORIES.some(c => 
-        c.subcategories && c.subcategories.includes(categoryName)
-      );
+      const isConfiguredSubcategory = COGS_CATEGORIES.some(c => {
+        const subcats = c.subcategories;
+        return Array.isArray(subcats) && (subcats as string[]).includes(categoryName);
+      });
       if (isConfiguredSubcategory) return;
       
       // Add the category with its data
@@ -510,6 +510,9 @@ export default function PnLBalancePage() {
         processedCategoryNames.add(categoryName);
       }
     });
+
+    // Add Resultaat last
+    processed.push(resultaat);
 
     return processed;
   }, [MONTHS]);
