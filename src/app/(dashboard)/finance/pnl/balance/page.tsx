@@ -274,7 +274,7 @@ const COGS_CATEGORIES = [
 ];
 
 export default function PnLBalancePage() {
-  const { t } = useTranslation('common');
+  const { t, ready } = useTranslation('common');
   
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(1);
@@ -286,28 +286,28 @@ export default function PnLBalancePage() {
   const [warning, setWarning] = useState<string | null>(null);
   const [availableMonths, setAvailableMonths] = useState<number[]>([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
 
-  // Define translated arrays
+  // Define translated arrays with fallbacks
   const MONTHS = useMemo(() => [
-    { value: 1, label: t('pnl.table.january') },
-    { value: 2, label: t('pnl.table.february') },
-    { value: 3, label: t('pnl.table.march') },
-    { value: 4, label: t('pnl.table.april') },
-    { value: 5, label: t('pnl.table.may') },
-    { value: 6, label: t('pnl.table.june') },
-    { value: 7, label: t('pnl.table.july') },
-    { value: 8, label: t('pnl.table.august') },
-    { value: 9, label: t('pnl.table.september') },
-    { value: 10, label: t('pnl.table.october') },
-    { value: 11, label: t('pnl.table.november') },
-    { value: 12, label: t('pnl.table.december') }
-  ], [t]);
+    { value: 1, label: ready ? t('pnl.table.january') : 'Jan' },
+    { value: 2, label: ready ? t('pnl.table.february') : 'Feb' },
+    { value: 3, label: ready ? t('pnl.table.march') : 'Mar' },
+    { value: 4, label: ready ? t('pnl.table.april') : 'Apr' },
+    { value: 5, label: ready ? t('pnl.table.may') : 'May' },
+    { value: 6, label: ready ? t('pnl.table.june') : 'Jun' },
+    { value: 7, label: ready ? t('pnl.table.july') : 'Jul' },
+    { value: 8, label: ready ? t('pnl.table.august') : 'Aug' },
+    { value: 9, label: ready ? t('pnl.table.september') : 'Sep' },
+    { value: 10, label: ready ? t('pnl.table.october') : 'Oct' },
+    { value: 11, label: ready ? t('pnl.table.november') : 'Nov' },
+    { value: 12, label: ready ? t('pnl.table.december') : 'Dec' }
+  ], [t, ready]);
 
   const LOCATIONS = useMemo(() => [
-    { value: 'all', label: t('pnl.locations.all') },
-    { value: '550e8400-e29b-41d4-a716-446655440001', label: t('pnl.locations.kinsbergen') },
-    { value: '550e8400-e29b-41d4-a716-446655440002', label: t('pnl.locations.barbea') },
-    { value: '550e8400-e29b-41d4-a716-446655440003', label: t('pnl.locations.lamour') }
-  ], [t]);
+    { value: 'all', label: ready ? t('pnl.locations.all') : 'All Locations' },
+    { value: '550e8400-e29b-41d4-a716-446655440001', label: ready ? t('pnl.locations.kinsbergen') : 'Van Kinsbergen' },
+    { value: '550e8400-e29b-41d4-a716-446655440002', label: ready ? t('pnl.locations.barbea') : 'Bar Bea' },
+    { value: '550e8400-e29b-41d4-a716-446655440003', label: ready ? t('pnl.locations.lamour') : 'L\'Amour Toujours' }
+  ], [t, ready]);
 
   // Process raw P&L data into structured format using calculation service
   const processPnLData = useCallback((rawData: PnLData[]): ProcessedPnLData[] => {
@@ -496,10 +496,10 @@ export default function PnLBalancePage() {
       // Check if database is down and show non-blocking warning
       if (result.meta?.warning) {
         console.warn('Database warning:', result.meta.warning);
-        setWarning(t('pnl.alerts.databaseWarning'));
+        setWarning(ready ? t('pnl.alerts.databaseWarning') : 'Database temporarily unavailable. Showing mock data for testing.');
       } else if (rawData.length === 0) {
         // No data found for the selected year/location
-        setError(t('pnl.alerts.noData'));
+        setError(ready ? t('pnl.alerts.noData') : 'No P&L data available for the selected criteria.');
       }
       
       // Extract available months from the data
@@ -519,7 +519,7 @@ export default function PnLBalancePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedYear, selectedLocation, processPnLData, t]);
+  }, [selectedYear, selectedLocation, processPnLData, t, ready]);
 
   // Validate balance with 0.5% error margin
   const validateBalance = (data: ProcessedPnLData[]): ValidationResult => {
@@ -595,9 +595,9 @@ export default function PnLBalancePage() {
       {/* Page Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold">{t('pnl.title')}</h1>
+          <h1 className="text-3xl font-bold">{ready ? t('pnl.title') : 'P&L Balance'}</h1>
           <p className="text-muted-foreground">
-            {t('pnl.description')}
+            {ready ? t('pnl.description') : 'Monthly P&L balance tables with expandable COGS categories'}
           </p>
         </div>
         <LanguageSwitcher />
@@ -606,12 +606,12 @@ export default function PnLBalancePage() {
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>{t('pnl.filters.year')} & {t('pnl.filters.location')}</CardTitle>
+          <CardTitle>{ready ? t('pnl.filters.year') : 'Year'} & {ready ? t('pnl.filters.location') : 'Location'}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Year Buttons */}
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">{t('pnl.filters.year')}:</span>
+            <span className="text-sm font-medium text-muted-foreground">{ready ? t('pnl.filters.year') : 'Year'}:</span>
             <div className="flex gap-2">
               <Button
                 variant={selectedYear === 2024 ? 'default' : 'outline'}
@@ -649,7 +649,7 @@ export default function PnLBalancePage() {
 
           {/* Location Buttons */}
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">{t('pnl.filters.location')}:</span>
+            <span className="text-sm font-medium text-muted-foreground">{ready ? t('pnl.filters.location') : 'Location'}:</span>
             <div className="flex gap-2">
               {LOCATIONS.map(location => (
                 <Button
@@ -675,7 +675,7 @@ export default function PnLBalancePage() {
                 setSelectedLocation('all');
               }}
             >
-              {t('pnl.filters.clear')}
+              {ready ? t('pnl.filters.clear') : 'Clear'}
             </Button>
           </div>
         </CardContent>
@@ -754,12 +754,12 @@ export default function PnLBalancePage() {
       {/* P&L Balance Table */}
       <Card>
         <CardHeader>
-          <CardTitle>{t('pnl.title')} - {selectedYear}</CardTitle>
+          <CardTitle>{ready ? t('pnl.title') : 'P&L Balance'} - {selectedYear}</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center items-center h-40">
-              <div className="text-muted-foreground">{t('pnl.alerts.loading')}</div>
+              <div className="text-muted-foreground">{ready ? t('pnl.alerts.loading') : 'Loading P&L data...'}</div>
             </div>
           ) : error ? (
             <div className="text-red-500 text-center p-4">{error}</div>
@@ -768,13 +768,13 @@ export default function PnLBalancePage() {
               <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[300px]">{t('pnl.table.category')}</TableHead>
+                  <TableHead className="w-[300px]">{ready ? t('pnl.table.category') : 'Category'}</TableHead>
                   {MONTHS.filter(month => availableMonths.includes(month.value)).map(month => (
                     <TableHead key={month.value} className="text-center min-w-[100px]">
                       {month.label}
                     </TableHead>
                   ))}
-                  <TableHead className="text-center min-w-[100px] font-bold">{t('pnl.table.total')}</TableHead>
+                  <TableHead className="text-center min-w-[100px] font-bold">{ready ? t('pnl.table.total') : 'Total'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
