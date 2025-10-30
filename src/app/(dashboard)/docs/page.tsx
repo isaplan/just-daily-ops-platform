@@ -29,14 +29,33 @@ export default function DocsPage() {
   const pathname = usePathname();
   
   // Find current doc based on pathname, handling nested routes
-  const currentDoc = docFiles.find(doc => {
-    if (pathname === doc.route) return true;
-    // Handle finance sub-routes
-    if (pathname.startsWith("/docs/finance") && doc.route.startsWith("/docs/finance")) {
-      return pathname === doc.route;
+  const getCurrentDoc = () => {
+    // Direct match
+    const exactMatch = docFiles.find(doc => pathname === doc.route);
+    if (exactMatch) return exactMatch;
+    
+    // Handle /docs/finance routes
+    if (pathname.startsWith("/docs/finance/")) {
+      const slug = pathname.replace("/docs/finance/", "");
+      const match = docFiles.find(doc => {
+        const docSlug = doc.route.replace("/docs/finance/", "");
+        return docSlug === slug;
+      });
+      if (match) return match;
     }
-    return false;
-  }) || (pathname === "/docs" ? docFiles[0] : docFiles.find(doc => doc.route === "/docs/finance/README.md".replace("docs/", "/docs/")) || docFiles[0]);
+    
+    // Default to index for /docs
+    if (pathname === "/docs") return docFiles[0];
+    
+    // Default to finance README for /docs/finance
+    if (pathname === "/docs/finance") {
+      return docFiles.find(doc => doc.route === "/docs/finance") || docFiles[0];
+    }
+    
+    return docFiles[0];
+  };
+  
+  const currentDoc = getCurrentDoc();
   const [content, setContent] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
