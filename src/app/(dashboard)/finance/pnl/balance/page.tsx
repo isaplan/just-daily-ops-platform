@@ -12,6 +12,38 @@ import { LanguageSwitcher } from '@/components/ui/language-switcher';
 
 // PnLData interface is now imported from pnl-calculations
 
+interface AggregatedPnLRecord {
+  id: string;
+  location_id: string;
+  year: number;
+  month: number;
+  // Revenue (positive values)
+  netto_omzet_uit_levering_geproduceerd: number;
+  netto_omzet_verkoop_handelsgoederen: number;
+  revenue_total?: number;
+  // Cost of Sales (negative values)
+  inkoopwaarde_handelsgoederen: number;
+  cost_of_sales_total?: number;
+  // Labor Costs (negative values)
+  lonen_en_salarissen?: number;
+  labor_contract?: number;
+  labor_flex?: number;
+  labor_total?: number;
+  // Other Costs (negative values)
+  other_costs_total?: number;
+  overige_bedrijfskosten?: number;
+  afschrijvingen?: number;
+  financiele_baten_lasten?: number;
+  opbrengst_vorderingen?: number;
+  // Calculated
+  total_costs?: number;
+  resultaat: number;
+  // Metadata
+  import_id?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 interface ProcessedPnLData {
   category: string;
   subcategory: string | null;
@@ -292,7 +324,6 @@ export default function PnLBalancePage() {
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [warning, setWarning] = useState<string | null>(null);
   const [availableMonths, setAvailableMonths] = useState<number[]>([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
 
   // Define translated arrays with fallbacks
@@ -318,7 +349,9 @@ export default function PnLBalancePage() {
     { value: '550e8400-e29b-41d4-a716-446655440003', label: canUseTranslations ? t('pnl.locations.lamour') : 'L\'Amour Toujours' }
   ], [t, canUseTranslations]);
 
+  // NOTE: processPnLData is kept for reference but not used - we now use mapAggregatedToDisplay
   // Process raw P&L data into structured format using calculation service
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const processPnLData = useCallback((rawData: PnLData[]): ProcessedPnLData[] => {
     const processed: ProcessedPnLData[] = [];
 
@@ -566,7 +599,235 @@ export default function PnLBalancePage() {
     return processed;
   }, [MONTHS]);
 
-  // Load P&L data
+  // Map aggregated data from powerbi_pnl_aggregated to display format
+  const mapAggregatedToDisplay = useCallback((aggregatedData: AggregatedPnLRecord[]): ProcessedPnLData[] => {
+    const processed: ProcessedPnLData[] = [];
+
+    // REVENUE
+    const nettoOmzet: ProcessedPnLData = {
+      category: 'Netto-omzet groepen',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: false,
+      isCollapsible: true
+    };
+    
+    const nettoOmzetLevering: ProcessedPnLData = {
+      category: 'Netto-omzet uit leveringen geproduceerde goederen',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: true,
+      parentCategory: 'Netto-omzet groepen',
+      isCollapsible: true
+    };
+    
+    const nettoOmzetHandel: ProcessedPnLData = {
+      category: 'Netto-omzet uit verkoop van handelsgoederen',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: true,
+      parentCategory: 'Netto-omzet groepen',
+      isCollapsible: true
+    };
+
+    // COST OF SALES
+    const kostprijs: ProcessedPnLData = {
+      category: 'Kostprijs van de omzet',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: false,
+      isCollapsible: true
+    };
+    
+    const inkoopwaarde: ProcessedPnLData = {
+      category: 'Inkoopwaarde handelsgoederen',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: true,
+      parentCategory: 'Kostprijs van de omzet'
+    };
+
+    // LABOR COSTS
+    const arbeidskosten: ProcessedPnLData = {
+      category: 'Arbeidskosten',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: false,
+      isCollapsible: true
+    };
+    
+    const contractArbeid: ProcessedPnLData = {
+      category: 'Contract Arbeid',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: true,
+      parentCategory: 'Arbeidskosten',
+      isCollapsible: true
+    };
+    
+    const flexArbeid: ProcessedPnLData = {
+      category: 'Flex Arbeid',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: true,
+      parentCategory: 'Arbeidskosten',
+      isCollapsible: true
+    };
+
+    // OTHER COSTS
+    const overigeBedrijfskosten: ProcessedPnLData = {
+      category: 'Overige bedrijfskosten',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: false,
+      isCollapsible: false
+    };
+
+    const afschrijvingen: ProcessedPnLData = {
+      category: 'Afschrijvingen op immateriële en materiële vaste activa',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: false,
+      isCollapsible: false
+    };
+
+    const financieel: ProcessedPnLData = {
+      category: 'Financiële baten en lasten',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: false,
+      isCollapsible: false
+    };
+
+    // RESULTAAT
+    const resultaat: ProcessedPnLData = {
+      category: 'Resultaat',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: false
+    };
+
+    // Process each month's data
+    MONTHS.forEach(month => {
+      const monthData = aggregatedData.filter((item) => item.month === month.value);
+      
+      if (monthData.length === 0) {
+        // Set all to 0 for months without data
+        nettoOmzet.amounts[month.value] = 0;
+        nettoOmzetLevering.amounts[month.value] = 0;
+        nettoOmzetHandel.amounts[month.value] = 0;
+        kostprijs.amounts[month.value] = 0;
+        inkoopwaarde.amounts[month.value] = 0;
+        arbeidskosten.amounts[month.value] = 0;
+        contractArbeid.amounts[month.value] = 0;
+        flexArbeid.amounts[month.value] = 0;
+        overigeBedrijfskosten.amounts[month.value] = 0;
+        afschrijvingen.amounts[month.value] = 0;
+        financieel.amounts[month.value] = 0;
+        resultaat.amounts[month.value] = 0;
+        return;
+      }
+
+      // Aggregate values for this month (sum across all locations if location='all')
+      const revenueLeveringTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.netto_omzet_uit_levering_geproduceerd || 0), 0);
+      const revenueHandelTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.netto_omzet_verkoop_handelsgoederen || 0), 0);
+      const revenueTotal = revenueLeveringTotal + revenueHandelTotal;
+      
+      const costInkoopTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.inkoopwaarde_handelsgoederen || 0), 0);
+      
+      const laborTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.labor_total || item.lonen_en_salarissen || 0), 0);
+      const laborContractTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.labor_contract || 0), 0);
+      const laborFlexTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.labor_flex || 0), 0);
+      
+      const otherTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.other_costs_total || 0), 0);
+      const afschrijvingenTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.afschrijvingen || 0), 0);
+      const financieelTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.financiele_baten_lasten || 0), 0);
+      
+      const resultaatTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.resultaat || 0), 0);
+
+      // Assign values
+      nettoOmzet.amounts[month.value] = revenueTotal;
+      nettoOmzet.total += revenueTotal;
+      nettoOmzetLevering.amounts[month.value] = revenueLeveringTotal;
+      nettoOmzetLevering.total += revenueLeveringTotal;
+      nettoOmzetHandel.amounts[month.value] = revenueHandelTotal;
+      nettoOmzetHandel.total += revenueHandelTotal;
+      
+      kostprijs.amounts[month.value] = costInkoopTotal;
+      kostprijs.total += costInkoopTotal;
+      inkoopwaarde.amounts[month.value] = costInkoopTotal;
+      inkoopwaarde.total += costInkoopTotal;
+      
+      arbeidskosten.amounts[month.value] = laborTotal;
+      arbeidskosten.total += laborTotal;
+      contractArbeid.amounts[month.value] = laborContractTotal;
+      contractArbeid.total += laborContractTotal;
+      flexArbeid.amounts[month.value] = laborFlexTotal;
+      flexArbeid.total += laborFlexTotal;
+      
+      overigeBedrijfskosten.amounts[month.value] = otherTotal;
+      overigeBedrijfskosten.total += otherTotal;
+      afschrijvingen.amounts[month.value] = afschrijvingenTotal;
+      afschrijvingen.total += afschrijvingenTotal;
+      financieel.amounts[month.value] = financieelTotal;
+      financieel.total += financieelTotal;
+      
+      resultaat.amounts[month.value] = resultaatTotal;
+      resultaat.total += resultaatTotal;
+    });
+
+    // Build the processed array in the right order
+    processed.push(nettoOmzet);
+    processed.push(nettoOmzetLevering);
+    processed.push(nettoOmzetHandel);
+    processed.push(kostprijs);
+    processed.push(inkoopwaarde);
+    processed.push(arbeidskosten);
+    processed.push(contractArbeid);
+    processed.push(flexArbeid);
+    processed.push(overigeBedrijfskosten);
+    processed.push(afschrijvingen);
+    processed.push(financieel);
+    processed.push(resultaat);
+
+    return processed;
+  }, [MONTHS]);
+
+  // Load P&L data from aggregated table
   const loadPnLData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -577,44 +838,40 @@ export default function PnLBalancePage() {
         location: selectedLocation
       });
 
-      const apiUrl = `/api/finance/pnl-data?${params}`;
-      console.log('Making API call to:', apiUrl);
+      // Use aggregated data endpoint - no calculations needed!
+      const apiUrl = `/api/finance/pnl-aggregated-data?${params}`;
+      console.log('[P&L Balance] Fetching aggregated data from:', apiUrl);
       const response = await fetch(apiUrl);
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const result = await response.json();
-      console.log('API result:', result);
+      console.log('[P&L Balance] Aggregated data result:', result);
 
       if (!result.success) {
         console.error('API returned success: false', result);
         throw new Error(result.error || 'Failed to load P&L data');
       }
 
-      const rawData: PnLData[] = result.data || [];
+      const aggregatedData = result.data || [];
       
-      // Clear any previous warnings when we get live data
-      if (result.meta?.isLiveData) {
-        setWarning(null);
-        console.log('[P&L Balance] Using live data from database');
+      if (aggregatedData.length === 0) {
+        console.log('[P&L Balance] No aggregated data found for the selected criteria');
+        setError(null);
+        setPnlData([]);
+        setAvailableMonths([]);
+        return;
       }
       
-      // Only show error if there's actually an error, not just empty data
-      if (rawData.length === 0) {
-        // No data found for the selected year/location - this is expected if no data exists
-        console.log('[P&L Balance] No data found for the selected criteria');
-        setError(null); // Don't show error for empty results - just show empty state
-      }
-      
-      // Extract available months from the data
-      const months = [...new Set(rawData.map(item => item.month))].sort((a, b) => a - b);
+      // Extract available months from the aggregated data
+      const months = [...new Set(aggregatedData.map((item: AggregatedPnLRecord) => item.month))] as number[];
+      months.sort((a, b) => a - b);
       setAvailableMonths(months);
       
-      const processedData = processPnLData(rawData);
+      // Map aggregated data to display format
+      const processedData = mapAggregatedToDisplay(aggregatedData);
       setPnlData(processedData);
 
       // Validate the data
@@ -627,7 +884,7 @@ export default function PnLBalancePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedYear, selectedLocation, processPnLData]);
+  }, [selectedYear, selectedLocation, mapAggregatedToDisplay]);
 
   // Validate balance with 0.5% error margin
   const validateBalance = (data: ProcessedPnLData[]): ValidationResult => {
@@ -845,13 +1102,7 @@ export default function PnLBalancePage() {
         </Alert>
       )}
 
-      {/* Warning / Error Alerts */}
-      {warning && (
-        <Alert variant="default">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>{warning}</AlertDescription>
-        </Alert>
-      )}
+      {/* Error Alerts */}
       {error && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
