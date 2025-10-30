@@ -90,45 +90,49 @@ export default function DocsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Sidebar Navigation */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="text-lg">Navigation</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-muted-foreground mb-2">General</p>
-              {docFiles.filter(doc => doc.route === "/docs").map((doc) => (
-                <Link key={doc.route} href={doc.route}>
-                  <Button
-                    variant={pathname === doc.route ? "default" : "ghost"}
-                    className="w-full justify-start text-left"
-                    size="sm"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    {doc.title}
-                  </Button>
-                </Link>
-              ))}
-              
-              <p className="text-xs font-semibold text-muted-foreground mb-2 mt-4">Finance</p>
-              {docFiles.filter(doc => doc.route.startsWith("/docs/finance") && doc.route !== "/docs/finance").map((doc) => (
-                <Link key={doc.route} href={doc.route}>
-                  <Button
-                    variant={pathname === doc.route ? "default" : "ghost"}
-                    className="w-full justify-start text-left pl-8"
-                    size="sm"
-                  >
-                    <ChevronRight className="h-3 w-3 mr-2" />
-                    {doc.title.replace("Finance ", "")}
-                  </Button>
-                </Link>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        {/* Sidebar Navigation - Sticky, Auto Height */}
+        <div className="lg:col-span-1">
+          <div className="sticky top-6">
+            <Card className="h-auto">
+              <CardHeader>
+                <CardTitle className="text-lg">Navigation</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">General</p>
+                  {docFiles.filter(doc => doc.route === "/docs").map((doc) => (
+                    <Link key={doc.route} href={doc.route}>
+                      <Button
+                        variant={pathname === doc.route ? "default" : "ghost"}
+                        className="w-full justify-start text-left"
+                        size="sm"
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        {doc.title}
+                      </Button>
+                    </Link>
+                  ))}
+                  
+                  <p className="text-xs font-semibold text-muted-foreground mb-2 mt-4">Finance</p>
+                  {docFiles.filter(doc => doc.route.startsWith("/docs/finance") && doc.route !== "/docs/finance").map((doc) => (
+                    <Link key={doc.route} href={doc.route}>
+                      <Button
+                        variant={pathname === doc.route ? "default" : "ghost"}
+                        className="w-full justify-start text-left pl-8"
+                        size="sm"
+                      >
+                        <ChevronRight className="h-3 w-3 mr-2" />
+                        {doc.title.replace("Finance ", "")}
+                      </Button>
+                    </Link>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
 
-        {/* Content */}
+        {/* Content - Scrollable */}
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle>{currentDoc.title}</CardTitle>
@@ -139,7 +143,7 @@ export default function DocsPage() {
                 <div className="text-muted-foreground">Loading documentation...</div>
               </div>
             ) : (
-              <div className="prose prose-sm max-w-none dark:prose-invert">
+              <div className="prose prose-sm max-w-none dark:prose-invert overflow-y-auto max-h-[calc(100vh-12rem)]">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {content}
                 </ReactMarkdown>
