@@ -1,27 +1,27 @@
--- Fix RLS policies for bork_sales_aggregated table
--- This allows the aggregation service to insert data
+-- Fix RLS policies for powerbi_pnl_aggregated tables
+-- The current policies are too restrictive
 
--- Enable RLS on the table (if not already enabled)
-ALTER TABLE public.bork_sales_aggregated ENABLE ROW LEVEL SECURITY;
+-- Drop existing policies
+DROP POLICY IF EXISTS "Enable read access for all users" ON public.powerbi_pnl_aggregated;
+DROP POLICY IF EXISTS "Enable insert access for authenticated users" ON public.powerbi_pnl_aggregated;
+DROP POLICY IF EXISTS "Enable update access for authenticated users" ON public.powerbi_pnl_aggregated;
+DROP POLICY IF EXISTS "Enable delete access for authenticated users" ON public.powerbi_pnl_aggregated;
 
--- Create policy to allow all operations for authenticated users
-CREATE POLICY "Allow all operations for authenticated users" ON public.bork_sales_aggregated
-FOR ALL
-TO authenticated
-USING (true)
-WITH CHECK (true);
+DROP POLICY IF EXISTS "Enable read access for all users" ON public.powerbi_pnl_aggregated_subcategories;
+DROP POLICY IF EXISTS "Enable insert access for authenticated users" ON public.powerbi_pnl_aggregated_subcategories;
+DROP POLICY IF EXISTS "Enable update access for authenticated users" ON public.powerbi_pnl_aggregated_subcategories;
+DROP POLICY IF EXISTS "Enable delete access for authenticated users" ON public.powerbi_pnl_aggregated_subcategories;
 
--- Create policy to allow all operations for service role
-CREATE POLICY "Allow all operations for service role" ON public.bork_sales_aggregated
-FOR ALL
-TO service_role
-USING (true)
-WITH CHECK (true);
+-- Create more permissive policies
+CREATE POLICY "Allow all operations for authenticated users" ON public.powerbi_pnl_aggregated
+    FOR ALL USING (auth.role() = 'authenticated');
 
--- Create policy to allow all operations for anon users (for development)
-CREATE POLICY "Allow all operations for anon users" ON public.bork_sales_aggregated
-FOR ALL
-TO anon
-USING (true)
-WITH CHECK (true);
+CREATE POLICY "Allow all operations for authenticated users" ON public.powerbi_pnl_aggregated_subcategories
+    FOR ALL USING (auth.role() = 'authenticated');
 
+-- Also allow service role access (for server-side operations)
+CREATE POLICY "Allow service role access" ON public.powerbi_pnl_aggregated
+    FOR ALL USING (auth.role() = 'service_role');
+
+CREATE POLICY "Allow service role access" ON public.powerbi_pnl_aggregated_subcategories
+    FOR ALL USING (auth.role() = 'service_role');

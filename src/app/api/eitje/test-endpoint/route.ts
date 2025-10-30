@@ -5,11 +5,7 @@ import {
   fetchEitjeUsers,
   fetchEitjeShiftTypes,
   fetchEitjeTimeRegistrationShifts,
-  fetchEitjePlanningShifts,
   fetchEitjeRevenueDays,
-  fetchEitjeAvailabilityShifts,
-  fetchEitjeLeaveRequests,
-  fetchEitjeEvents,
   getEitjeCredentials
 } from '@/lib/eitje/api-service';
 

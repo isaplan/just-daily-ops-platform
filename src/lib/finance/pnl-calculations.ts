@@ -48,17 +48,41 @@ export function calculateMonthlyPnL(
     monthData = monthData.filter(d => d.location_id === locationId);
   }
   
-  // Revenue (positive)
-  const revenue = sumCategory(monthData, 'Netto-omzet');
+  // Revenue (positive) - map multiple revenue categories
+  const revenue = 
+    sumCategory(monthData, 'Netto-omzet uit leveringen geproduceerde goederen') +
+    sumCategory(monthData, 'Netto-omzet uit verkoop van handelsgoederen') +
+    sumCategory(monthData, 'Netto-omzet groepen');
+  
   const opbrengst = sumCategory(monthData, 'Opbrengst van vorderingen die tot de vaste activa behoren en van effecten');
   
-  // Costs (all negative in database)
+  // Costs (all negative in database) - map detailed categories to main COGS
   const costs = {
-    kostprijs: sumCategory(monthData, 'Kostprijs van de omzet'),
-    personeel: sumCategory(monthData, 'Lasten uit hoofde van personeelsbeloningen'),
-    overige: sumCategory(monthData, 'Overige bedrijfskosten'), // MUST work!
-    afschrijvingen: sumCategory(monthData, 'Afschrijvingen op immateriële en materiële vaste activa'),
-    financieel: sumCategory(monthData, 'Financiële baten en lasten')
+    kostprijs: sumCategory(monthData, 'Inkoopwaarde handelsgoederen'),
+    personeel: 
+      sumCategory(monthData, 'Lonen en salarissen') +
+      sumCategory(monthData, 'Overige lasten uit hoofde van personeelsbeloningen') +
+      sumCategory(monthData, 'Overige personeelsgerelateerde kosten') +
+      sumCategory(monthData, 'Pensioenlasten') +
+      sumCategory(monthData, 'Sociale lasten') +
+      sumCategory(monthData, 'Werkkostenregeling - detail'),
+    overige: 
+      sumCategory(monthData, 'Accountants- en advieskosten') +
+      sumCategory(monthData, 'Administratieve lasten') +
+      sumCategory(monthData, 'Andere kosten') +
+      sumCategory(monthData, 'Assurantiekosten') +
+      sumCategory(monthData, 'Autokosten') +
+      sumCategory(monthData, 'Exploitatie- en machinekosten') +
+      sumCategory(monthData, 'Huisvestingskosten') +
+      sumCategory(monthData, 'Kantoorkosten') +
+      sumCategory(monthData, 'Verkoop gerelateerde kosten'),
+    afschrijvingen: 
+      sumCategory(monthData, 'Afschrijvingen op immateriële vaste activa') +
+      sumCategory(monthData, 'Afschrijvingen op materiële vaste activa'),
+    financieel: 
+      sumCategory(monthData, 'Rentelasten en soortgelijke kosten') +
+      sumCategory(monthData, 'Rentebaten en soortgelijke opbrengsten') +
+      sumCategory(monthData, 'Rente belastingen')
   };
   
   const totalCosts = Object.values(costs).reduce((sum, val) => sum + val, 0);
@@ -154,7 +178,9 @@ function sumCategory(data: PnLData[], category: string): number {
  * Get all unique categories in the data
  */
 export function getAvailableCategories(data: PnLData[]): string[] {
-  return [...new Set(data.map(d => d.category))].sort();
+  const categories = [...new Set(data.map(d => d.category))];
+  const glAccounts = [...new Set(data.map(d => d.gl_account))];
+  return [...categories, ...glAccounts].sort();
 }
 
 /**

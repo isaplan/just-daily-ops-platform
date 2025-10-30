@@ -115,16 +115,16 @@ function aggregateByCategory(rawData: PowerBIRawRecord[]): {
     financieel: number;
   };
 } {
-  // Get revenue and opbrengst from gl_account
-  const revenue = sumByGlAccount(rawData, 'Netto-omzet');
-  const opbrengst = sumByGlAccount(rawData, 'Opbrengst van vorderingen die tot de vaste activa behoren en van effecten');
+  // Get revenue and opbrengst from category
+  const revenue = sumCategory(rawData, 'Netto-omzet uit leveringen geproduceerde goederen');
+  const opbrengst = sumCategory(rawData, 'Opbrengst van vorderingen die tot de vaste activa behoren en van effecten');
 
   const costs = {
-    kostprijs: sumByGlAccount(rawData, 'Kostprijs van de omzet'),
-    personeel: sumByGlAccount(rawData, 'Lasten uit hoofde van personeelsbeloningen'),
-    overige: sumByGlAccount(rawData, 'Overige bedrijfskosten'),
-    afschrijvingen: sumByGlAccount(rawData, 'Afschrijvingen op immateriële en materiële vaste activa'),
-    financieel: sumByGlAccount(rawData, 'Financiële baten en lasten')
+    kostprijs: sumCategory(rawData, 'Inkoopwaarde handelsgoederen'),
+    personeel: sumCategory(rawData, 'Lonen en salarissen'),
+    overige: sumCategory(rawData, 'Overige personeelsgerelateerde kosten'),
+    afschrijvingen: sumCategory(rawData, 'Afschrijvingen op immateriële vaste activa'),
+    financieel: sumCategory(rawData, 'Rentelasten en soortgelijke kosten')
   };
 
   return { revenue, opbrengst, costs };

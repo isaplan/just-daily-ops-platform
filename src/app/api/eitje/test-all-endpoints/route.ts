@@ -5,11 +5,7 @@ import {
   fetchEitjeUsers,
   fetchEitjeShiftTypes,
   fetchEitjeTimeRegistrationShifts,
-  fetchEitjePlanningShifts,
   fetchEitjeRevenueDays,
-  fetchEitjeAvailabilityShifts,
-  fetchEitjeLeaveRequests,
-  fetchEitjeEvents,
   getEitjeCredentials
 } from '@/lib/eitje/api-service';
 
@@ -36,7 +32,6 @@ export async function POST(request: NextRequest) {
     
     const dataEndpoints = [
       { name: 'time_registration_shifts', fn: () => fetchEitjeTimeRegistrationShifts(baseUrl, credentials, '2024-10-24', '2024-10-25') },
-      { name: 'planning_shifts', fn: () => fetchEitjePlanningShifts(baseUrl, credentials, '2024-10-24', '2024-10-25') },
       { name: 'revenue_days', fn: () => fetchEitjeRevenueDays(baseUrl, credentials, '2024-10-24', '2024-10-25') },
       { name: 'availability_shifts', fn: () => fetchEitjeAvailabilityShifts(baseUrl, credentials, '2024-10-24', '2024-10-25') },
       { name: 'leave_requests', fn: () => fetchEitjeLeaveRequests(baseUrl, credentials, '2024-10-24', '2024-10-25') },

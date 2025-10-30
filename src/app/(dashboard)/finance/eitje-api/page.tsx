@@ -80,11 +80,13 @@ export default function EitjeSettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncingMonths, setSyncingMonths] = useState<Set<string>>(new Set());
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'failed'>('unknown');
   const [lastSync, setLastSync] = useState<SyncResult | null>(null);
   const [rawData, setRawData] = useState<RawDataRecord[]>([]);
   const [progressData, setProgressData] = useState<any>(null);
   const [syncedMonths, setSyncedMonths] = useState<Set<string>>(new Set());
+  const [monthlyProgress, setMonthlyProgress] = useState<Record<string, any>>({});
   const [dataStats, setDataStats] = useState({
     totalRecords: 0,
     totalRevenue: 0,
@@ -92,10 +94,6 @@ export default function EitjeSettingsPage() {
     dateRange: { start: '', end: '' }
   });
 
-  // Date range state for sync
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [quickRange, setQuickRange] = useState<string>('last7');
 
   // DEFENSIVE: Load existing credentials
   useEffect(() => {
@@ -106,94 +104,8 @@ export default function EitjeSettingsPage() {
     // Initialize with months you already synced
     setSyncedMonths(new Set(['2024-1', '2025-8', '2025-9', '2025-10']));
     
-    // Set default date range to last 7 days
-    setQuickRange('last7');
   }, []);
 
-  // DEFENSIVE: Handle quick range selection
-  const handleQuickRange = (range: string) => {
-    setQuickRange(range);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    
-    switch (range) {
-      case 'last7':
-        // Last 7 days (excluding today, starting from yesterday)
-        const last7 = new Date(yesterday);
-        last7.setDate(yesterday.getDate() - 6);
-        setStartDate(last7.toISOString().split('T')[0]);
-        setEndDate(yesterday.toISOString().split('T')[0]);
-        break;
-      case 'last8-14':
-        // Days 8-14 (7 days)
-        const day14 = new Date(today);
-        day14.setDate(today.getDate() - 14);
-        const day8 = new Date(today);
-        day8.setDate(today.getDate() - 8);
-        setStartDate(day14.toISOString().split('T')[0]);
-        setEndDate(day8.toISOString().split('T')[0]);
-        break;
-      case 'last15-21':
-        // Days 15-21 (7 days, not 8)
-        const day21 = new Date(today);
-        day21.setDate(today.getDate() - 21);
-        const day15 = new Date(today);
-        day15.setDate(today.getDate() - 15);
-        setStartDate(day21.toISOString().split('T')[0]);
-        setEndDate(day15.toISOString().split('T')[0]);
-        break;
-      case 'last22-28':
-        // Days 22-28 (7 days, not 8)
-        const day28 = new Date(today);
-        day28.setDate(today.getDate() - 28);
-        const day22 = new Date(today);
-        day22.setDate(today.getDate() - 22);
-        setStartDate(day28.toISOString().split('T')[0]);
-        setEndDate(day22.toISOString().split('T')[0]);
-        break;
-      
-      // October 2024 chunks
-      case 'oct1-7':
-        setStartDate('2024-10-01');
-        setEndDate('2024-10-07');
-        break;
-      case 'oct8-14':
-        setStartDate('2024-10-08');
-        setEndDate('2024-10-14');
-        break;
-      case 'oct15-21':
-        setStartDate('2024-10-15');
-        setEndDate('2024-10-21');
-        break;
-      case 'oct22-25':
-        setStartDate('2024-10-22');
-        setEndDate('2024-10-25');
-        break;
-      
-      // September 2024 chunks
-      case 'sep1-7':
-        setStartDate('2024-09-01');
-        setEndDate('2024-09-07');
-        break;
-      case 'sep8-14':
-        setStartDate('2024-09-08');
-        setEndDate('2024-09-14');
-        break;
-      case 'sep15-21':
-        setStartDate('2024-09-15');
-        setEndDate('2024-09-21');
-        break;
-      case 'sep22-28':
-        setStartDate('2024-09-22');
-        setEndDate('2024-09-28');
-        break;
-      case 'sep29-30':
-        setStartDate('2024-09-29');
-        setEndDate('2024-09-30');
-        break;
-    }
-  };
 
   // DEFENSIVE: Load credentials from database
   const loadCredentials = async () => {
@@ -300,92 +212,6 @@ export default function EitjeSettingsPage() {
     return chunks;
   };
 
-  // DEFENSIVE: Manual sync with automatic chunking
-  const triggerManualSync = async () => {
-    setIsSyncing(true);
-    try {
-      // Use the selected date range
-      const syncStartDate = startDate || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const syncEndDate = endDate || new Date().toISOString().split('T')[0];
-      
-      // Check if date range exceeds 7 days
-      const start = new Date(syncStartDate);
-      const end = new Date(syncEndDate);
-      const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      
-      if (daysDiff > 7) {
-        console.log(`Date range is ${daysDiff} days, chunking into 7-day periods...`);
-        const chunks = chunkDateRange(syncStartDate, syncEndDate);
-        
-        let totalRecords = 0;
-        let totalErrors = 0;
-        
-        for (let i = 0; i < chunks.length; i++) {
-          const chunk = chunks[i];
-          console.log(`Syncing chunk ${i + 1}/${chunks.length}: ${chunk.start} to ${chunk.end}`);
-          
-          const response = await fetch('/api/eitje/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              endpoint: 'planning_shifts',
-              startDate: chunk.start,
-              endDate: chunk.end,
-              batchSize: 100
-            })
-          });
-
-          const data = await response.json();
-          
-          if (data.success) {
-            totalRecords += data.result.recordsProcessed || 0;
-            console.log(`Chunk ${i + 1} completed: ${data.result.recordsProcessed} records`);
-          } else {
-            totalErrors++;
-            console.error(`Chunk ${i + 1} failed:`, data.error);
-          }
-        }
-        
-        setLastSync({
-          success: true,
-          recordsProcessed: totalRecords,
-          recordsAdded: totalRecords,
-          recordsUpdated: 0,
-          errors: totalErrors,
-          syncTime: Date.now() - startTime
-        });
-        
-        console.log(`Manual sync completed: ${totalRecords} records across ${chunks.length} chunks`);
-      } else {
-        // Single sync for 7 days or less
-        const response = await fetch('/api/eitje/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            endpoint: 'planning_shifts',
-            startDate: syncStartDate,
-            endDate: syncEndDate,
-            batchSize: 100
-          })
-        });
-
-        const data = await response.json();
-        
-        if (data.success) {
-          setLastSync(data.result);
-          console.log('Manual sync completed:', data.result);
-        } else {
-          console.error('Manual sync failed:', data.error);
-        }
-      }
-      
-      await loadRawData(); // Refresh raw data
-    } catch (error) {
-      console.error('Manual sync failed:', error);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   // DEFENSIVE: Load raw data
   const loadRawData = async () => {
@@ -435,58 +261,93 @@ export default function EitjeSettingsPage() {
   // DEFENSIVE: Load monthly progress for all months
   const loadMonthlyProgress = async () => {
     try {
-      // Load progress for all months in both years
+      setIsLoading(true);
+      
+      // Load progress for all months in both years using the detailed endpoint-status API
       const progressPromises = [];
       
       // Load all 12 months for 2024
       for (let month = 1; month <= 12; month++) {
         progressPromises.push(
-          fetch(`/api/eitje/progress?action=summary&year=2024&month=${month}`)
-            .then(r => r.json())
-            .then(data => ({ month, year: 2024, data: data.success ? data.data : null }))
+          loadMonthProgress(2024, month).then(data => ({ month, year: 2024, data }))
         );
       }
       
       // Load all 12 months for 2025
       for (let month = 1; month <= 12; month++) {
         progressPromises.push(
-          fetch(`/api/eitje/progress?action=summary&year=2025&month=${month}`)
-            .then(r => r.json())
-            .then(data => ({ month, year: 2025, data: data.success ? data.data : null }))
+          loadMonthProgress(2025, month).then(data => ({ month, year: 2025, data }))
         );
       }
       
       const allProgress = await Promise.all(progressPromises);
       
-      // Organize by year and month
-      const organizedProgress = {
-        2024: {},
-        2025: {}
-      };
+      // Update monthlyProgress state with detailed endpoint data
+      const newMonthlyProgress: Record<string, any> = {};
       
-        allProgress.forEach(({ month, year, data }) => {
-          if (data) {
-            (organizedProgress as any)[year][month] = data;
-          }
-        });
+      allProgress.forEach(({ month, year, data }) => {
+        if (data) {
+          const monthKey = `${year}-${month}`;
+          newMonthlyProgress[monthKey] = data;
+        }
+      });
       
-      setProgressData(organizedProgress);
-      console.log('Monthly progress loaded for all months:', organizedProgress);
+      setMonthlyProgress(newMonthlyProgress);
+      console.log('Monthly progress loaded for all months:', newMonthlyProgress);
     } catch (error) {
       console.error('Failed to load progress:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   // DEFENSIVE: Load progress for specific month
   const loadMonthProgress = async (year: number, month: number) => {
     try {
-      const response = await fetch(`/api/eitje/progress?action=summary&year=${year}&month=${month}`);
-      const data = await response.json();
+      const endpoints = ['environments', 'teams', 'users', 'shift_types', 'time_registration_shifts', 'revenue_days'];
+      const endpointData: Record<string, any> = {};
       
-      if (data.success) {
-        return data.data;
+      // Load data for each endpoint
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(`/api/eitje/endpoint-status?endpoint=${endpoint}&year=${year}&month=${month}`);
+          const data = await response.json();
+          
+          if (data.success) {
+            const hasRawData = data.data.rawDataCount > 0;
+            const hasAggregatedData = data.data.aggregatedDataCount > 0;
+            
+            let status = 'not_synced';
+            if (hasAggregatedData) {
+              status = 'processed';
+            } else if (hasRawData) {
+              status = 'synced';
+            }
+            
+            endpointData[endpoint] = {
+              recordsCount: data.data.rawDataCount || 0,
+              status,
+              lastSync: data.data.lastSync
+            };
+            
+            console.log(`[loadMonthProgress] ${endpoint} for ${year}-${month}: rawDataCount=${data.data.rawDataCount}, status=${status}`);
+          } else {
+            console.warn(`[loadMonthProgress] ${endpoint} for ${year}-${month}: API returned success=false`);
+            endpointData[endpoint] = {
+              recordsCount: 0,
+              status: 'not_synced'
+            };
+          }
+        } catch (endpointError) {
+          console.error(`Failed to load ${endpoint} for ${year}-${month}:`, endpointError);
+          endpointData[endpoint] = {
+            recordsCount: 0,
+            status: 'not_synced'
+          };
+        }
       }
-      return null;
+      
+      return { endpoints: endpointData };
     } catch (error) {
       console.error(`Failed to load progress for ${year}-${month}:`, error);
       return null;
@@ -495,17 +356,19 @@ export default function EitjeSettingsPage() {
 
   // DEFENSIVE: Sync specific month
   const handleSyncMonth = async (month: number, year: number = 2024) => {
-    setIsSyncing(true);
+    const monthKey = `${year}-${month}`;
+    setSyncingMonths(prev => new Set([...prev, monthKey]));
+    
     try {
       const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
       const endDate = new Date(year, month, 0).toISOString().split('T')[0]; // Last day of month
       
       console.log(`Syncing ${year} month ${month} (${startDate} to ${endDate})`);
       
-      // Sync all endpoints for this month
-      const endpoints = ['environments', 'teams', 'users', 'shift_types', 'planning_shifts', 'time_registration_shifts', 'revenue_days'];
+      // Sync master data endpoints (no date restrictions)
+      const masterEndpoints = ['environments', 'teams', 'users', 'shift_types'];
       
-      for (const endpoint of endpoints) {
+      for (const endpoint of masterEndpoints) {
         const response = await fetch('/api/eitje/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -524,19 +387,117 @@ export default function EitjeSettingsPage() {
           console.error(`${endpoint} sync failed:`, data.error);
         }
       }
+
+      // Sync data endpoints with 7-day chunking
+      const dataEndpoints = ['time_registration_shifts', 'revenue_days'];
+      const daysDiff = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      
+      if (daysDiff > 7) {
+        console.log(`Date range is ${daysDiff} days, chunking into 7-day periods for data endpoints...`);
+        const chunks = chunkDateRange(startDate, endDate);
+        
+        for (const endpoint of dataEndpoints) {
+          let totalRecords = 0;
+          for (let i = 0; i < chunks.length; i++) {
+            const chunk = chunks[i];
+            console.log(`Syncing ${endpoint} chunk ${i + 1}/${chunks.length}: ${chunk.start} to ${chunk.end}`);
+            
+            const response = await fetch('/api/eitje/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                endpoint,
+                startDate: chunk.start,
+                endDate: chunk.end,
+                batchSize: 100
+              })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+              totalRecords += data.result.recordsProcessed || 0;
+              console.log(`${endpoint} chunk ${i + 1} completed: ${data.result.recordsProcessed} records`);
+            } else {
+              console.error(`${endpoint} chunk ${i + 1} failed:`, data.error);
+            }
+          }
+          console.log(`${endpoint} total synced: ${totalRecords} records across ${chunks.length} chunks`);
+        }
+      } else {
+        // Single sync for 7 days or less
+        for (const endpoint of dataEndpoints) {
+          const response = await fetch('/api/eitje/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              endpoint,
+              startDate,
+              endDate,
+              batchSize: 100
+            })
+          });
+
+          const data = await response.json();
+          if (data.success) {
+            console.log(`${endpoint} synced: ${data.result.recordsProcessed} records`);
+          } else {
+            console.error(`${endpoint} sync failed:`, data.error);
+          }
+        }
+      }
       
       // Track this month as synced
-      const monthKey = `${year}-${month}`;
       setSyncedMonths(prev => new Set([...prev, monthKey]));
       
-      // Refresh progress data
-      await loadMonthlyProgress();
-      console.log(`${year} month ${month} sync completed`);
+      // Auto-process the synced data into aggregated tables
+      console.log(`Processing aggregated data for ${year} month ${month}...`);
+      try {
+        const processResponse = await fetch('/api/eitje/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            startDate,
+            endDate,
+            locationIds: [], // All locations
+            includeVat: true
+          })
+        });
+        
+        const processData = await processResponse.json();
+        if (processData.success) {
+          console.log(`Processing completed: ${processData.result.recordsProcessed} records processed`);
+        } else {
+          console.error('Processing failed:', processData.error);
+        }
+      } catch (processError) {
+        console.error('Processing error:', processError);
+      }
+      
+      // Refresh progress data for this specific month
+      // Add a small delay to ensure database transactions are committed
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const monthProgress = await loadMonthProgress(year, month);
+      if (monthProgress) {
+        setMonthlyProgress(prev => ({
+          ...prev,
+          [monthKey]: monthProgress
+        }));
+        console.log(`Progress data refreshed for ${year} month ${month}:`, monthProgress);
+      } else {
+        console.warn(`Failed to load progress data for ${year} month ${month}`);
+      }
+      
+      console.log(`${year} month ${month} sync and processing completed`);
       
     } catch (error) {
       console.error(`${year} month ${month} sync failed:`, error);
     } finally {
-      setIsSyncing(false);
+      setSyncingMonths(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(monthKey);
+        return newSet;
+      });
     }
   };
 
@@ -710,11 +671,11 @@ export default function EitjeSettingsPage() {
       <Tabs defaultValue="credentials" className="space-y-6">
         <TabsList>
           <TabsTrigger value="credentials">Credentials</TabsTrigger>
-          <TabsTrigger value="sync">Data Sync</TabsTrigger>
+          {/* <TabsTrigger value="sync">Data Sync</TabsTrigger> - Replaced by Progress tab */}
           <TabsTrigger value="progress">Progress</TabsTrigger>
           <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
-          <TabsTrigger value="raw-data">Raw Data</TabsTrigger>
-          <TabsTrigger value="processing">Data Processing</TabsTrigger>
+          {/* <TabsTrigger value="raw-data">Raw Data</TabsTrigger> - Replaced by Progress tab */}
+          {/* <TabsTrigger value="processing">Data Processing</TabsTrigger> - Replaced by Progress tab */}
         </TabsList>
 
         {/* Credentials Tab */}
@@ -876,8 +837,8 @@ export default function EitjeSettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Data Sync Tab */}
-        <TabsContent value="sync">
+        {/* Data Sync Tab - REPLACED BY PROGRESS TAB */}
+        {/* <TabsContent value="sync">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -898,166 +859,9 @@ export default function EitjeSettingsPage() {
                 </Alert>
               )}
 
-              <div className="space-y-4">
-                {/* Quick Date Range Selectors */}
-                <div>
-                  <Label>Quick Date Range (Eitje 7-day limit)</Label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleQuickRange('last7')}
-                      className={quickRange === 'last7' ? 'bg-primary text-primary-foreground' : ''}
-                    >
-                      Last 7 days
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleQuickRange('last8-14')}
-                      className={quickRange === 'last8-14' ? 'bg-primary text-primary-foreground' : ''}
-                    >
-                      Last 8-14 days
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleQuickRange('last15-21')}
-                      className={quickRange === 'last15-21' ? 'bg-primary text-primary-foreground' : ''}
-                    >
-                      Last 15-21 days
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleQuickRange('last22-28')}
-                      className={quickRange === 'last22-28' ? 'bg-primary text-primary-foreground' : ''}
-                    >
-                      Last 22-28 days
-                    </Button>
-                  </div>
-                  
-                  {/* October 2024 Chunks */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-muted-foreground">October 2024</Label>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleQuickRange('oct1-7')}
-                        className={quickRange === 'oct1-7' ? 'bg-primary text-primary-foreground' : ''}
-                      >
-                        Oct 1-7
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleQuickRange('oct8-14')}
-                        className={quickRange === 'oct8-14' ? 'bg-primary text-primary-foreground' : ''}
-                      >
-                        Oct 8-14
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleQuickRange('oct15-21')}
-                        className={quickRange === 'oct15-21' ? 'bg-primary text-primary-foreground' : ''}
-                      >
-                        Oct 15-21
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleQuickRange('oct22-25')}
-                        className={quickRange === 'oct22-25' ? 'bg-primary text-primary-foreground' : ''}
-                      >
-                        Oct 22-25
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {/* September 2024 Chunks */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-muted-foreground">September 2024</Label>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleQuickRange('sep1-7')}
-                        className={quickRange === 'sep1-7' ? 'bg-primary text-primary-foreground' : ''}
-                      >
-                        Sep 1-7
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleQuickRange('sep8-14')}
-                        className={quickRange === 'sep8-14' ? 'bg-primary text-primary-foreground' : ''}
-                      >
-                        Sep 8-14
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleQuickRange('sep15-21')}
-                        className={quickRange === 'sep15-21' ? 'bg-primary text-primary-foreground' : ''}
-                      >
-                        Sep 15-21
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleQuickRange('sep22-28')}
-                        className={quickRange === 'sep22-28' ? 'bg-primary text-primary-foreground' : ''}
-                      >
-                        Sep 22-28
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleQuickRange('sep29-30')}
-                        className={quickRange === 'sep29-30' ? 'bg-primary text-primary-foreground' : ''}
-                      >
-                        Sep 29-30
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Manual Date Inputs */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="sync_start_date">Start Date</Label>
-                    <Input
-                      id="sync_start_date"
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="sync_end_date">End Date</Label>
-                    <Input
-                      id="sync_end_date"
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Button onClick={triggerManualSync} disabled={isSyncing} className="w-full">
-                {isSyncing ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                )}
-                {isSyncing ? 'Syncing...' : 'Sync Data from Eitje API'}
-              </Button>
-            </CardContent>
+            {/* </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent> */}
 
         {/* Progress Tracking Tab */}
         <TabsContent value="progress">
@@ -1068,7 +872,7 @@ export default function EitjeSettingsPage() {
                 <span>Monthly Progress Tracking</span>
               </CardTitle>
               <CardDescription>
-                Track sync progress for each month - green = complete, yellow = partial, red = missing
+                Track sync and process status for each month and endpoint - detailed per-endpoint monitoring
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -1089,61 +893,86 @@ export default function EitjeSettingsPage() {
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold mb-4">2024</h3>
-                  <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {Array.from({ length: 12 }, (_, i) => {
                       const month = i + 1;
                       const monthName = new Date(2024, i).toLocaleString('default', { month: 'short' });
                       const isCurrentMonth = month === new Date().getMonth() + 1 && new Date().getFullYear() === 2024;
                       
-                      // Get real progress data for this specific month
-                      const monthProgress = progressData?.[2024]?.[month];
-                      const monthKey = `2024-${month}`;
-                      const wasSynced = syncedMonths.has(monthKey);
-                      const isComplete = monthProgress?.completionPercentage === 100;
-                      const completionPercentage = wasSynced ? (monthProgress?.completionPercentage || 18) : 0;
-                      const hasData = completionPercentage > 0;
-                      
                       return (
-                        <Card key={`2024-${month}`} className={`p-4 text-center hover:shadow-md transition-shadow ${
+                        <Card key={`2024-${month}`} className={`p-4 hover:shadow-md transition-shadow ${
                           isCurrentMonth ? 'ring-2 ring-blue-500' : ''
                         }`}>
-                          <div className="text-sm font-medium text-muted-foreground">{monthName}</div>
-                          <div className="text-lg font-bold mt-1">2024</div>
-                          <div className="mt-2 space-y-1">
-                            <div className="flex justify-center space-x-1">
-                              <div className={`w-2 h-2 rounded-full ${
-                                isComplete ? 'bg-green-500' : 'bg-gray-300'
-                              }`} title="Complete"></div>
-                              <div className={`w-2 h-2 rounded-full ${
-                                hasData && !isComplete ? 'bg-yellow-500' : 'bg-gray-300'
-                              }`} title="Partial"></div>
-                              <div className={`w-2 h-2 rounded-full ${
-                                !hasData ? 'bg-red-500' : 'bg-gray-300'
-                              }`} title="Missing"></div>
-                            </div>
-                            <div className="text-xs text-muted-foreground">{completionPercentage}%</div>
-                            <div className="mt-2">
-                              {isComplete ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleResyncMonth(month, 2024)}
-                                  className="h-6 w-6 p-0"
-                                >
-                                  <RefreshCw className="h-3 w-3" />
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleSyncMonth(month, 2024)}
-                                  disabled={isSyncing}
-                                  className="h-6 px-2 text-xs"
-                                >
-                                  {isSyncing ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Sync'}
-                                </Button>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-lg flex items-center justify-between">
+                              <span>{monthName} 2024</span>
+                              {isCurrentMonth && (
+                                <Badge variant="outline" className="text-xs">Current</Badge>
                               )}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            {/* Status Summary */}
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Status:</span>
+                              <div className="flex items-center space-x-1">
+                                <div className="w-2 h-2 rounded-full bg-green-500" title="Processed"></div>
+                                <div className="w-2 h-2 rounded-full bg-yellow-500" title="Synced"></div>
+                                <div className="w-2 h-2 rounded-full bg-red-500" title="Not Synced"></div>
+                              </div>
                             </div>
-                          </div>
+                            
+                            {/* Endpoint Status List */}
+                            <div className="space-y-1">
+                              {['environments', 'teams', 'users', 'shift_types', 'time_registration_shifts', 'revenue_days'].map((endpoint) => {
+                                const monthKey = `2024-${month}`;
+                                const progress = monthlyProgress[monthKey];
+                                const endpointData = progress?.endpoints?.[endpoint] || { recordsCount: 0, status: 'not_synced' };
+                                
+                                // Get display name and format value
+                                let displayName = endpoint.replace('_', ' ');
+                                let displayValue = endpointData.recordsCount || 0;
+                                
+                                if (endpoint === 'time_registration_shifts') {
+                                  displayName = 'Hours Worked';
+                                } else if (endpoint === 'revenue_days') {
+                                  displayName = 'Financial Records';
+                                  // Show only the count, no days format
+                                }
+                                
+                                return (
+                                  <div key={endpoint} className="flex items-center justify-between text-xs">
+                                    <span className="capitalize">{displayName}</span>
+                                    <div className="flex items-center space-x-1">
+                                      <div className={`w-1.5 h-1.5 rounded-full ${
+                                        endpointData.status === 'processed' ? 'bg-green-500' :
+                                        endpointData.status === 'synced' ? 'bg-yellow-500' :
+                                        'bg-gray-300'
+                                      }`}></div>
+                                      <span className="text-muted-foreground">{displayValue}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            
+                            {/* Action Button */}
+                            <div className="pt-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleSyncMonth(month, 2024)}
+                                disabled={syncingMonths.has(`2024-${month}`)}
+                                className="w-full"
+                              >
+                                {syncingMonths.has(`2024-${month}`) ? (
+                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                ) : (
+                                  <RefreshCw className="h-3 w-3 mr-1" />
+                                )}
+                                Sync & Process
+                              </Button>
+                            </div>
+                          </CardContent>
                         </Card>
                       );
                     })}
@@ -1153,61 +982,86 @@ export default function EitjeSettingsPage() {
                 {/* 2025 Monthly Progress Grid */}
                 <div>
                   <h3 className="text-lg font-semibold mb-4">2025</h3>
-                  <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {Array.from({ length: 12 }, (_, i) => {
                       const month = i + 1;
                       const monthName = new Date(2025, i).toLocaleString('default', { month: 'short' });
                       const isCurrentMonth = month === new Date().getMonth() + 1 && new Date().getFullYear() === 2025;
                       
-                      // Get real progress data for this specific month
-                      const monthProgress = progressData?.[2025]?.[month];
-                      const monthKey = `2025-${month}`;
-                      const wasSynced = syncedMonths.has(monthKey);
-                      const isComplete = monthProgress?.completionPercentage === 100;
-                      const completionPercentage = wasSynced ? (monthProgress?.completionPercentage || 18) : 0;
-                      const hasData = completionPercentage > 0;
-                      
                       return (
-                        <Card key={`2025-${month}`} className={`p-4 text-center hover:shadow-md transition-shadow ${
+                        <Card key={`2025-${month}`} className={`p-4 hover:shadow-md transition-shadow ${
                           isCurrentMonth ? 'ring-2 ring-blue-500' : ''
                         }`}>
-                          <div className="text-sm font-medium text-muted-foreground">{monthName}</div>
-                          <div className="text-lg font-bold mt-1">2025</div>
-                          <div className="mt-2 space-y-1">
-                            <div className="flex justify-center space-x-1">
-                              <div className={`w-2 h-2 rounded-full ${
-                                isComplete ? 'bg-green-500' : 'bg-gray-300'
-                              }`} title="Complete"></div>
-                              <div className={`w-2 h-2 rounded-full ${
-                                hasData && !isComplete ? 'bg-yellow-500' : 'bg-gray-300'
-                              }`} title="Partial"></div>
-                              <div className={`w-2 h-2 rounded-full ${
-                                !hasData ? 'bg-red-500' : 'bg-gray-300'
-                              }`} title="Missing"></div>
-                            </div>
-                            <div className="text-xs text-muted-foreground">{completionPercentage}%</div>
-                            <div className="mt-2">
-                              {isComplete ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleResyncMonth(month, 2025)}
-                                  className="h-6 w-6 p-0"
-                                >
-                                  <RefreshCw className="h-3 w-3" />
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleSyncMonth(month, 2025)}
-                                  disabled={isSyncing}
-                                  className="h-6 px-2 text-xs"
-                                >
-                                  {isSyncing ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Sync'}
-                                </Button>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-lg flex items-center justify-between">
+                              <span>{monthName} 2025</span>
+                              {isCurrentMonth && (
+                                <Badge variant="outline" className="text-xs">Current</Badge>
                               )}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            {/* Status Summary */}
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Status:</span>
+                              <div className="flex items-center space-x-1">
+                                <div className="w-2 h-2 rounded-full bg-green-500" title="Processed"></div>
+                                <div className="w-2 h-2 rounded-full bg-yellow-500" title="Synced"></div>
+                                <div className="w-2 h-2 rounded-full bg-red-500" title="Not Synced"></div>
+                              </div>
                             </div>
-                          </div>
+                            
+                            {/* Endpoint Status List */}
+                            <div className="space-y-1">
+                              {['environments', 'teams', 'users', 'shift_types', 'time_registration_shifts', 'revenue_days'].map((endpoint) => {
+                                const monthKey = `2025-${month}`;
+                                const progress = monthlyProgress[monthKey];
+                                const endpointData = progress?.endpoints?.[endpoint] || { recordsCount: 0, status: 'not_synced' };
+                                
+                                // Get display name and format value
+                                let displayName = endpoint.replace('_', ' ');
+                                let displayValue = endpointData.recordsCount || 0;
+                                
+                                if (endpoint === 'time_registration_shifts') {
+                                  displayName = 'Hours Worked';
+                                } else if (endpoint === 'revenue_days') {
+                                  displayName = 'Financial Records';
+                                  // Show only the count, no days format
+                                }
+                                
+                                return (
+                                  <div key={endpoint} className="flex items-center justify-between text-xs">
+                                    <span className="capitalize">{displayName}</span>
+                                    <div className="flex items-center space-x-1">
+                                      <div className={`w-1.5 h-1.5 rounded-full ${
+                                        endpointData.status === 'processed' ? 'bg-green-500' :
+                                        endpointData.status === 'synced' ? 'bg-yellow-500' :
+                                        'bg-gray-300'
+                                      }`}></div>
+                                      <span className="text-muted-foreground">{displayValue}</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            
+                            {/* Action Button */}
+                            <div className="pt-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleSyncMonth(month, 2025)}
+                                disabled={syncingMonths.has(`2025-${month}`)}
+                                className="w-full"
+                              >
+                                {syncingMonths.has(`2025-${month}`) ? (
+                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                ) : (
+                                  <RefreshCw className="h-3 w-3 mr-1" />
+                                )}
+                                Sync & Process
+                              </Button>
+                            </div>
+                          </CardContent>
                         </Card>
                       );
                     })}
@@ -1215,21 +1069,22 @@ export default function EitjeSettingsPage() {
                 </div>
               </div>
 
-              {/* Current Month Details */}
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold mb-4">October 2024 Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {['environments', 'teams', 'users', 'shift_types', 'planning_shifts', 'time_registration_shifts', 'revenue_days'].map((endpoint) => (
-                    <Card key={endpoint} className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium capitalize">{endpoint.replace('_', ' ')}</div>
-                          <div className="text-sm text-muted-foreground">0/31 days</div>
-                        </div>
-                        <Badge variant="destructive">Missing</Badge>
-                      </div>
-                    </Card>
-                  ))}
+              {/* Legend */}
+              <div className="mt-6 p-4 bg-muted rounded-lg">
+                <h4 className="font-medium mb-2">Status Legend</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span>Processed - Data synced and aggregated</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <span>Synced - Raw data available</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <span>Not Synced - No data available</span>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -1393,8 +1248,8 @@ export default function EitjeSettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Raw Data Tab */}
-        <TabsContent value="raw-data">
+        {/* Raw Data Tab - REPLACED BY PROGRESS TAB */}
+        {/* <TabsContent value="raw-data">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
@@ -1445,8 +1300,8 @@ export default function EitjeSettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* Data Processing Tab */}
-        <TabsContent value="processing">
+        {/* Data Processing Tab - REPLACED BY PROGRESS TAB */}
+        {/* <TabsContent value="processing">
           <Card>
             <CardHeader>
               <CardTitle>Data Processing</CardTitle>
@@ -1472,7 +1327,7 @@ export default function EitjeSettingsPage() {
               </Button>
             </CardContent>
           </Card>
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
     </div>
   );

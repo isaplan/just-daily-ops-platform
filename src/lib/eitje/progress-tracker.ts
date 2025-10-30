@@ -39,22 +39,112 @@ export async function getEitjeMonthlyProgress(
   console.log(`[Eitje Progress] Checking table: ${tableName} for ${year}-${month}`);
   console.log(`[Eitje Progress] Date range: ${startOfMonth.toISOString()} to ${endOfMonth.toISOString()}`);
   
-  // Get all records and filter by data date, not created_at
-  const { data: records, error } = await supabase
-    .from(tableName)
-    .select('id, created_at, updated_at, raw_data')
-    .order('created_at', { ascending: true });
+  // DEFENSIVE: Handle master data differently from data endpoints
+  const isMasterData = ['environments', 'teams', 'users', 'shift_types'].includes(endpoint);
+  
+  let records: any[] = [];
+  
+  if (isMasterData) {
+    // For master data, get all records with pagination
+    let allMasterRecords: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    let hasMore = true;
 
-  if (error) {
-    console.error('[Eitje Progress] Error fetching records:', error);
-    throw error;
+    while (hasMore) {
+      const { data: masterRecords, error } = await supabase
+        .from(tableName)
+        .select('id, created_at, updated_at, raw_data')
+        .order('created_at', { ascending: true })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (error) {
+        console.error('[Eitje Progress] Error fetching master records:', error);
+        throw error;
+      }
+
+      if (masterRecords && masterRecords.length > 0) {
+        allMasterRecords = [...allMasterRecords, ...masterRecords];
+        page++;
+        hasMore = masterRecords.length === pageSize;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    records = allMasterRecords;
+  } else {
+    // For data endpoints, filter by date range with pagination
+    let allDataRecords: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+      const startDate = startOfMonth.toISOString().split('T')[0];
+      const endDate = endOfMonth.toISOString().split('T')[0];
+      
+      console.log(`[Eitje Progress] Date range: ${startDate} to ${endDate}`);
+      
+      const { data: dataRecords, error } = await supabase
+        .from(tableName)
+        .select('id, created_at, updated_at, raw_data, date')
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('created_at', { ascending: true })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (error) {
+        console.error('[Eitje Progress] Error fetching data records:', error);
+        throw error;
+      }
+
+      if (dataRecords && dataRecords.length > 0) {
+        allDataRecords = [...allDataRecords, ...dataRecords];
+        page++;
+        hasMore = dataRecords.length === pageSize;
+        
+        // DEBUG: Log sample record to see what we're getting
+        if (page === 1) {
+          console.log(`[Eitje Progress] First filtered record:`, {
+            id: dataRecords[0].id,
+            created_at: dataRecords[0].created_at,
+            has_raw_data: !!dataRecords[0].raw_data,
+            raw_data_date: dataRecords[0].raw_data?.date || 'no date in raw_data'
+          });
+        }
+      } else {
+        hasMore = false;
+      }
+    }
+
+    records = allDataRecords;
   }
 
   console.log(`[Eitje Progress] Found ${records?.length || 0} total records`);
   
-  // For now, we'll use a simple approach: if there are any records in the database,
-  // we'll assume they were synced for the requested month
-  // TODO: This should be improved to track which months were actually synced
+  if (isMasterData) {
+    // For master data, if we have any records, consider the month synced
+    const hasRecords = (records?.length || 0) > 0;
+    const totalDays = endOfMonth.getDate();
+    const syncedDays = hasRecords ? totalDays : 0; // All days synced if we have master data
+    
+    console.log(`[Eitje Progress] Master data endpoint - has records: ${hasRecords}`);
+    
+    return {
+      endpoint,
+      year,
+      month,
+      totalDays,
+      syncedDays,
+      lastSyncDate: hasRecords ? (records?.[0]?.created_at || '') : '',
+      lastCheckDate: new Date().toISOString(),
+      isComplete: hasRecords,
+      hasChanges: false // Master data doesn't change often
+    };
+  }
+  
+  // For data endpoints, records are already filtered by date range
   const filteredRecords = records || [];
   
   console.log(`[Eitje Progress] Found ${filteredRecords.length} total records for ${year}-${month}`);
@@ -69,16 +159,11 @@ export async function getEitjeMonthlyProgress(
     });
   }
 
-  // Group filtered records by date
+  // Group records by date (records are already filtered by date range)
   const recordsByDate = new Map<string, any[]>();
   filteredRecords.forEach(record => {
-    // Get the actual data date
-    let dataDate = null;
-    if (record.raw_data && record.raw_data.date) {
-      dataDate = record.raw_data.date;
-    } else if (record.date) {
-      dataDate = record.date;
-    }
+    // Use the date field directly since records are already filtered
+    const dataDate = record.date;
     
     if (dataDate) {
       const dateStr = new Date(dataDate).toISOString().split('T')[0];

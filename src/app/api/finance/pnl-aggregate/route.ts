@@ -1,74 +1,88 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { processAllData, processAllDataForLocation } from '@/lib/finance/powerbi/aggregator';
+import { aggregatePnLData, storeAggregatedData, aggregateAllDataForLocation } from '@/lib/finance/powerbi/aggregation-service';
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('[API /finance/pnl-aggregate] Starting aggregation process');
+    const { locationId, year, month, aggregateAll = false } = await request.json();
     
-    const body = await request.json();
-    const { locationId, year, importId } = body;
-
-    // Generate import ID if not provided
-    const aggregationImportId = importId || `aggregation-${Date.now()}`;
-
-    let result;
-
-    if (locationId && year) {
-      // Process specific location and year
-      console.log(`[API /finance/pnl-aggregate] Processing location ${locationId}, year ${year}`);
-      result = await processAllDataForLocation(locationId, year, aggregationImportId);
-    } else {
-      // Process all data
-      console.log('[API /finance/pnl-aggregate] Processing all data');
-      result = await processAllData(aggregationImportId);
+    if (!locationId || !year) {
+      return NextResponse.json({
+        success: false,
+        error: 'locationId and year are required'
+      }, { status: 400 });
     }
-
-    console.log('[API /finance/pnl-aggregate] Aggregation completed:', result);
-
-    return NextResponse.json({
-      success: true,
-      processed: result.processed,
-      errors: result.errors,
-      message: `Successfully processed ${result.processed} months with ${result.errors.length} errors`
-    });
-
+    
+    if (aggregateAll) {
+      // Aggregate all months for the location and year
+      console.log(`[API /finance/pnl-aggregate] Aggregating all data for location ${locationId}, year ${year}`);
+      const results = await aggregateAllDataForLocation(locationId, year);
+      
+      return NextResponse.json({
+        success: true,
+        message: `Successfully aggregated ${results.length} months of data`,
+        data: results
+      });
+    } else {
+      // Aggregate specific month
+      if (!month) {
+        return NextResponse.json({
+          success: false,
+          error: 'month is required when aggregateAll is false'
+        }, { status: 400 });
+      }
+      
+      console.log(`[API /finance/pnl-aggregate] Aggregating data for location ${locationId}, year ${year}, month ${month}`);
+      const aggregated = await aggregatePnLData(locationId, year, month);
+      
+      return NextResponse.json({
+        success: true,
+        message: 'Data aggregated successfully',
+        data: aggregated
+      });
+    }
   } catch (error) {
     console.error('[API /finance/pnl-aggregate] Error:', error);
-    
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      message: 'Aggregation failed'
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     }, { status: 500 });
   }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('[API /finance/pnl-aggregate] Getting aggregation status');
-    
     const { searchParams } = new URL(request.url);
     const locationId = searchParams.get('locationId');
     const year = searchParams.get('year');
-
-    // This would typically query the aggregated table to show current status
-    // For now, return a simple status
-    return NextResponse.json({
-      success: true,
-      message: 'Aggregation API is ready',
-      parameters: {
-        locationId: locationId || 'all',
-        year: year || 'all'
-      }
-    });
-
+    const month = searchParams.get('month');
+    
+    if (!locationId || !year) {
+      return NextResponse.json({
+        success: false,
+        error: 'locationId and year are required'
+      }, { status: 400 });
+    }
+    
+    if (month) {
+      // Get specific month
+      const aggregated = await aggregatePnLData(locationId, parseInt(year), parseInt(month));
+      return NextResponse.json({
+        success: true,
+        data: aggregated
+      });
+    } else {
+      // Get all months for the year
+      const results = await aggregateAllDataForLocation(locationId, parseInt(year));
+      return NextResponse.json({
+        success: true,
+        data: results
+      });
+    }
   } catch (error) {
     console.error('[API /finance/pnl-aggregate] Error:', error);
-    
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
     }, { status: 500 });
   }
 }
-

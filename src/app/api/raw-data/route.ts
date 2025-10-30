@@ -12,15 +12,33 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
     const offset = (page - 1) * limit;
+    const table = searchParams.get('table') || 'bork_sales_data';
     
-    console.log(`[API /raw-data] Pagination: page=${page}, limit=${limit}, offset=${offset}`);
+    console.log(`[API /raw-data] Pagination: page=${page}, limit=${limit}, offset=${offset}, table=${table}`);
     
     // Add timeout wrapper for database query
-    const queryPromise = supabase
-      .from('bork_sales_data')
-      .select('id, location_id, category, quantity, created_at, date')
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    let queryPromise;
+    
+    if (table === 'eitje_labor_hours_aggregated') {
+      queryPromise = supabase
+        .from('eitje_labor_hours_aggregated')
+        .select('*')
+        .order('date', { ascending: false })
+        .range(offset, offset + limit - 1);
+    } else if (table === 'eitje_revenue_days_aggregated') {
+      queryPromise = supabase
+        .from('eitje_revenue_days_aggregated')
+        .select('*')
+        .order('date', { ascending: false })
+        .range(offset, offset + limit - 1);
+    } else {
+      // Default to bork_sales_data for backward compatibility
+      queryPromise = supabase
+        .from('bork_sales_data')
+        .select('id, location_id, category, quantity, created_at, date')
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+    }
     
     const timeoutPromise = new Promise((_, reject) => 
       setTimeout(() => reject(new Error('Database query timeout')), 15000)
@@ -54,9 +72,16 @@ export async function GET(request: NextRequest) {
       }
 
       // Get total count for pagination metadata
-      const { count, error: countError } = await supabase
-        .from('bork_sales_data')
-        .select('*', { count: 'exact', head: true });
+      let countQuery;
+      if (table === 'eitje_labor_hours_aggregated') {
+        countQuery = supabase.from('eitje_labor_hours_aggregated').select('*', { count: 'exact', head: true });
+      } else if (table === 'eitje_revenue_days_aggregated') {
+        countQuery = supabase.from('eitje_revenue_days_aggregated').select('*', { count: 'exact', head: true });
+      } else {
+        countQuery = supabase.from('bork_sales_data').select('*', { count: 'exact', head: true });
+      }
+      
+      const { count, error: countError } = await countQuery;
 
       const total = count || 0;
       const totalPages = Math.ceil(total / limit);

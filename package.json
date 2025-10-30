@@ -6,7 +6,10 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "compliance:check": "node .ai-compliance-functions/ai-compliance-checker.js",
+    "compliance:auto": "node .ai-compliance-functions/auto-compliance.js",
+    "compliance:dashboard": "node .ai-compliance-functions/ai-compliance-dashboard.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -54,6 +57,7 @@
     "lucide-react": "^0.546.0",
     "next": "15.5.6",
     "next-themes": "^0.4.6",
+    "node-fetch": "^3.3.2",
     "react": "19.1.0",
     "react-day-picker": "^9.11.1",
     "react-dom": "19.1.0",

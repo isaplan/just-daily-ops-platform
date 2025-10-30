@@ -6,7 +6,6 @@ import {
   fetchEitjeUsers,
   fetchEitjeShiftTypes,
   fetchEitjeTimeRegistrationShifts,
-  fetchEitjePlanningShifts,
   fetchEitjeRevenueDays,
   getEitjeCredentials
 } from '@/lib/eitje/api-service';
@@ -88,9 +87,6 @@ export async function POST(request: NextRequest) {
         case 'time_registration_shifts':
           data = await fetchEitjeTimeRegistrationShifts(baseUrl, credentials, startDate, endDate);
           break;
-        case 'planning_shifts':
-          data = await fetchEitjePlanningShifts(baseUrl, credentials, startDate, endDate);
-          break;
         case 'revenue_days':
           data = await fetchEitjeRevenueDays(baseUrl, credentials, startDate, endDate);
           break;
@@ -117,10 +113,57 @@ export async function POST(request: NextRequest) {
       endpoint,
       batchSize 
     });
+    
+    // DEBUG: Log sample data structure for data endpoints
+    if (!isMasterData && data && data.length > 0) {
+      console.log('[API /eitje/sync] Sample data structure:', {
+        endpoint,
+        sampleRecord: data[0],
+        recordKeys: Object.keys(data[0] || {}),
+        hasId: 'id' in (data[0] || {}),
+        hasEitjeId: 'eitje_id' in (data[0] || {}),
+        hasDate: 'date' in (data[0] || {}),
+        hasStartDate: 'start_date' in (data[0] || {}),
+        hasResourceDate: 'resource_date' in (data[0] || {})
+      });
+    }
     const syncResult = await processAndStoreData(data || [], batchSize, endpoint);
     const syncTime = Date.now() - startTime;
 
     console.log('[API /eitje/sync] Manual sync completed:', syncResult);
+
+    // DEFENSIVE: Auto-trigger aggregation for data endpoints (skip master data)
+    const shouldAggregate = !masterDataEndpoints.includes(endpoint) && syncResult.success;
+    
+    let aggregationResult = null;
+    if (shouldAggregate) {
+      try {
+        console.log(`[API /eitje/sync] Auto-triggering aggregation for ${endpoint}`);
+        
+        // Call aggregation API
+        const aggregationResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/eitje/aggregate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            endpoint,
+            startDate,
+            endDate,
+            environmentId: body.environmentId,
+            teamId: body.teamId
+          })
+        });
+        
+        if (aggregationResponse.ok) {
+          aggregationResult = await aggregationResponse.json();
+          console.log(`[API /eitje/sync] Aggregation completed for ${endpoint}:`, aggregationResult.result);
+        } else {
+          console.warn(`[API /eitje/sync] Aggregation failed for ${endpoint}:`, await aggregationResponse.text());
+        }
+      } catch (aggregationError) {
+        console.error(`[API /eitje/sync] Aggregation error for ${endpoint}:`, aggregationError);
+        // Don't fail the sync if aggregation fails
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -135,6 +178,16 @@ export async function POST(request: NextRequest) {
         syncTime,
         lastSyncDate: new Date().toISOString(),
         nextSyncDate: new Date(Date.now() + 15 * 60000).toISOString(), // 15 minutes from now
+        aggregation: aggregationResult ? {
+          triggered: true,
+          success: aggregationResult.success,
+          recordsAggregated: aggregationResult.result?.recordsAggregated || 0,
+          processingTime: aggregationResult.result?.processingTime || 0,
+          errors: aggregationResult.result?.errors || []
+        } : {
+          triggered: false,
+          reason: masterDataEndpoints.includes(endpoint) ? 'Master data endpoint' : 'Sync failed'
+        },
         debug: {
           dataFetched: data?.length || 0,
           dataType: Array.isArray(data) ? 'array' : typeof data,
@@ -202,6 +255,8 @@ async function processAndStoreData(
         
         // Prepare all records for batch insert
         const recordsToInsert = [];
+        const isMasterData = ['environments', 'teams', 'users', 'shift_types'].includes(endpoint);
+        
         for (const record of data) {
           try {
             // DEFENSIVE: Validate record structure
@@ -212,12 +267,37 @@ async function processAndStoreData(
             }
 
             // DEFENSIVE: Store raw data directly for now
-            recordsToInsert.push({
-              id: (record as any).id,
-              raw_data: record,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            });
+            
+            if (isMasterData) {
+              // Master data: use minimal structure that we know exists
+              const eitjeId = (record as any).id;
+              
+              recordsToInsert.push({
+                id: eitjeId, // Use eitje ID as primary key
+                raw_data: record,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
+            } else {
+              // Data endpoints: include date column
+              const recordDate = (record as any).date || (record as any).start_date || (record as any).resource_date || new Date().toISOString().split('T')[0];
+              const eitjeId = (record as any).id || (record as any).eitje_id;
+              
+              // DEFENSIVE: Ensure eitje_id is a valid integer
+              if (!eitjeId || isNaN(parseInt(eitjeId))) {
+                console.warn('[API /eitje/sync] Invalid eitje_id, skipping record:', { eitjeId, record });
+                errors++;
+                continue;
+              }
+              
+              recordsToInsert.push({
+                eitje_id: parseInt(eitjeId),
+                date: recordDate,
+                raw_data: record,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+              });
+            }
           } catch (recordError) {
             const errorMsg = `Record processing error: ${recordError instanceof Error ? recordError.message : 'Unknown error'}`;
             console.error('[API /eitje/sync] Record processing error:', recordError);
@@ -233,12 +313,22 @@ async function processAndStoreData(
             targetTable 
           });
           
-          const { error } = await supabase
+          // DEFENSIVE: Try upsert first, fallback to insert if constraint doesn't exist
+          let { error } = await supabase
             .from(targetTable)
             .upsert(recordsToInsert, { 
-              onConflict: 'id',
+              onConflict: isMasterData ? 'id' : 'eitje_id,date',
               ignoreDuplicates: false 
             });
+
+          // If upsert fails due to missing constraint, try regular insert
+          if (error && error.code === '42P10') {
+            console.log('[API /eitje/sync] Upsert failed due to missing constraint, trying regular insert...');
+            const { error: insertError } = await supabase
+              .from(targetTable)
+              .insert(recordsToInsert);
+            error = insertError;
+          }
 
           if (error) {
             const errorMsg = `Batch insert error: ${error.message} (code: ${error.code})`;

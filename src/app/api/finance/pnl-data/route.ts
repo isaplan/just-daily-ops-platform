@@ -1,6 +1,99 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/integrations/supabase/server';
 
+interface MockPnLData {
+  category: string;
+  subcategory: string | null;
+  gl_account: string;
+  amount: number;
+  month: number;
+  location_id: string;
+  year: number;
+  import_id: string;
+}
+
+/**
+ * Generate mock P&L data for testing when database is unavailable
+ */
+function generateMockPnLData(year: number, location: string) {
+  const categories = [
+    'Netto-omzet groepen',
+    'Netto-omzet uit leveringen geproduceerde goederen',
+    'Netto-omzet uit verkoop van handelsgoederen',
+    'Kostprijs van de omzet',
+    'Inkoopwaarde handelsgoederen',
+    'Total Labor',
+    'Labor - Contract',
+    'Labor - Flex',
+    'Labor - Other',
+    'Lonen en salarissen',
+    'Overige lasten uit hoofde van personeelsbeloningen',
+    'Pensioenlasten',
+    'Sociale lasten',
+    'Werkkostenregeling - detail',
+    'Overige personeelsgerelateerde kosten',
+    'Overige bedrijfskosten',
+    'Accountants- en advieskosten',
+    'Administratieve lasten',
+    'Andere kosten',
+    'Assurantiekosten',
+    'Autokosten',
+    'Exploitatie- en machinekosten',
+    'Huisvestingskosten',
+    'Kantoorkosten',
+    'Verkoop gerelateerde kosten',
+    'Afschrijvingen op immateriële en materiële vaste activa',
+    'Afschrijvingen op immateriële vaste activa',
+    'Afschrijvingen op materiële vaste activa',
+    'Financiële baten en lasten',
+    'Rentebaten en soortgelijke opbrengsten',
+    'Rentelasten en soortgelijke kosten',
+    'Opbrengst van vorderingen die tot de vaste activa behoren en van effecten'
+  ];
+
+  const mockData: MockPnLData[] = [];
+  
+  // Generate data for each month
+  for (let month = 1; month <= 12; month++) {
+    categories.forEach((category, index) => {
+      // Generate realistic amounts based on category type
+      let baseAmount = 0;
+      if (category.includes('Netto-omzet')) {
+        baseAmount = Math.random() * 50000 + 20000; // Revenue: 20k-70k
+      } else if (category.includes('Kostprijs') || category.includes('Inkoopwaarde')) {
+        baseAmount = Math.random() * 30000 + 10000; // Cost of sales: 10k-40k
+      } else if (category.includes('Labor') || category.includes('Lonen')) {
+        baseAmount = Math.random() * 25000 + 15000; // Labor: 15k-40k
+      } else if (category.includes('Overige bedrijfskosten')) {
+        baseAmount = Math.random() * 5000 + 2000; // Other costs: 2k-7k
+      } else if (category.includes('Afschrijvingen')) {
+        baseAmount = Math.random() * 3000 + 1000; // Depreciation: 1k-4k
+      } else if (category.includes('Financiële')) {
+        baseAmount = Math.random() * 2000 - 1000; // Financial: -1k to 1k
+      } else {
+        baseAmount = Math.random() * 1000 + 500; // Other: 500-1.5k
+      }
+
+      // Add some seasonal variation
+      const seasonalMultiplier = month >= 6 && month <= 8 ? 1.2 : 0.9; // Summer boost
+      const amount = Math.round(baseAmount * seasonalMultiplier);
+
+      mockData.push({
+        category,
+        subcategory: null,
+        gl_account: `GL${String(index + 1).padStart(3, '0')}`,
+        amount,
+        month,
+        location_id: location === 'all' ? '550e8400-e29b-41d4-a716-446655440000' : location,
+        year,
+        import_id: 'mock-import-001'
+      });
+    });
+  }
+
+  return mockData;
+}
+
 /**
  * P&L DATA API
  * 
@@ -24,16 +117,45 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // DEFENSIVE: Create Supabase client
+    // DEFENSIVE: Create Supabase client with timeout
     console.log('[API /finance/pnl-data] Creating Supabase client...');
     const supabase = await createClient();
     console.log('[API /finance/pnl-data] Supabase client created successfully');
 
+    // DEFENSIVE: Test database connection with timeout
+    console.log('[API /finance/pnl-data] Testing database connection...');
+    const connectionTest = await Promise.race([
+      supabase.from('powerbi_pnl_data').select('count', { count: 'exact', head: true }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Database connection timeout')), 10000))
+    ]).catch(error => {
+      console.error('[API /finance/pnl-data] Database connection failed:', error);
+      return { error: error.message };
+    });
+
+    if (connectionTest && typeof connectionTest === 'object' && 'error' in connectionTest) {
+      console.error('[API /finance/pnl-data] Database is down, returning mock data for testing');
+      
+      // Generate mock data for testing the P&L structure
+      const mockData = generateMockPnLData(year, location);
+      
+      return NextResponse.json({
+        success: true,
+        data: mockData,
+        meta: {
+          year,
+          location,
+          recordCount: mockData.length,
+          warning: 'Database temporarily unavailable. Showing mock data for testing.'
+        }
+      });
+    }
+
     // DEFENSIVE: Build query with proper filtering
     let query = supabase
       .from('powerbi_pnl_data')
-      .select('category, subcategory, gl_account, amount, month, location_id, year')
+      .select('category, subcategory, gl_account, amount, month, location_id, year, import_id')
       .eq('year', year)
+      .order('gl_account', { ascending: true })
       .order('category', { ascending: true })
       .order('subcategory', { ascending: true })
       .order('month', { ascending: true });
@@ -44,16 +166,46 @@ export async function GET(request: NextRequest) {
       query = query.eq('location_id', location);
     }
 
-    console.log('[API /finance/pnl-data] Executing query...');
-    const { data, error } = await query;
-    console.log('[API /finance/pnl-data] Query executed. Error:', error);
+    console.log('[API /finance/pnl-data] Executing paginated query...');
+    
+    // DEFENSIVE: Use pagination to fetch all data
+    let allData: MockPnLData[] = [];
+    let from = 0;
+    const pageSize = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+      const { data: pageData, error: pageError } = await query
+        .range(from, from + pageSize - 1);
+      
+      if (pageError) {
+        console.error('[API /finance/pnl-data] Page error:', pageError);
+        return NextResponse.json({
+          success: false,
+          error: pageError.message
+        }, { status: 500 });
+      }
+
+      if (pageData && pageData.length > 0) {
+        allData = [...allData, ...pageData];
+        from += pageSize;
+        hasMore = pageData.length === pageSize;
+        console.log(`[API /finance/pnl-data] Fetched page: ${pageData.length} records, total: ${allData.length}`);
+      } else {
+        hasMore = false;
+      }
+    }
+
+    const data = allData;
+    const error: string | null = null;
+    console.log('[API /finance/pnl-data] Paginated query completed. Total records:', data.length);
 
     if (error) {
       console.error('[API /finance/pnl-data] Database error:', error);
       return NextResponse.json({
         success: false,
         error: 'Failed to fetch P&L data',
-        details: error.message
+        details: 'Database error'
       }, { status: 500 });
     }
 

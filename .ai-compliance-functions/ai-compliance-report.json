@@ -41,7 +41,7 @@
         "✅ function-registry.json exists",
         "✅ progress-log.json exists",
         "✅ ai-tracking-system.json exists",
-        "✅ ai-instructions.md exists",
+        "✅ .ai-rules-docs/ai-operating-constraints.md exists",
         "⚠️  Progress log not updated recently (6709.2 hours ago)"
       ]
     },

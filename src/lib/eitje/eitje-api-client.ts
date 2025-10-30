@@ -328,128 +328,129 @@ export async function fetchEitjeRevenueDays(
   }
 }
 
-// MISSING ENDPOINTS - EXTREME DEFENSIVE MODE
+// NOT NEEDED - Commented out per user request
+// These endpoints are not used in MonthCard and are not needed
 
-export async function fetchEitjeAvailabilityShifts(
-  baseUrl: string,
-  credentials: EitjeCredentials,
-  startDate: string,
-  endDate: string
-) {
-  console.log('[Eitje API] Fetching availability shifts:', { startDate, endDate });
-  
-  // DEFENSIVE: Validate inputs
-  validateBaseUrl(baseUrl);
-  validateCredentials(credentials);
-  validateDateRange(startDate, endDate, 7); // Max 7 days for shifts
-  
-  try {
-    const response = await axios({
-      method: 'GET',
-      url: `${baseUrl}/availability_shifts`,
-      headers: createHeaders(credentials),
-      data: { 
-        filters: { 
-          start_date: startDate, 
-          end_date: endDate, 
-          date_filter_type: 'resource_date' 
-        } 
-      },
-      timeout: 30000
-    });
-    
-    const data = response.data.items || response.data;
-    
-    if (!Array.isArray(data)) {
-      console.warn('[Eitje API] Availability shifts response is not an array:', typeof data);
-    }
-    
-    console.log('[Eitje API] Fetched', Array.isArray(data) ? data.length : 'not array', 'availability shifts');
-    return data;
-  } catch (error) {
-    handleApiError(error, 'availability_shifts');
-  }
-}
+// export async function fetchEitjeAvailabilityShifts(
+//   baseUrl: string,
+//   credentials: EitjeCredentials,
+//   startDate: string,
+//   endDate: string
+// ) {
+//   console.log('[Eitje API] Fetching availability shifts:', { startDate, endDate });
+//   
+//   // DEFENSIVE: Validate inputs
+//   validateBaseUrl(baseUrl);
+//   validateCredentials(credentials);
+//   validateDateRange(startDate, endDate, 7); // Max 7 days for shifts
+//   
+//   try {
+//     const response = await axios({
+//       method: 'GET',
+//       url: `${baseUrl}/availability_shifts`,
+//       headers: createHeaders(credentials),
+//       data: { 
+//         filters: { 
+//           start_date: startDate, 
+//           end_date: endDate, 
+//           date_filter_type: 'resource_date' 
+//         } 
+//       },
+//       timeout: 30000
+//     });
+//     
+//     const data = response.data.items || response.data;
+//     
+//     if (!Array.isArray(data)) {
+//       console.warn('[Eitje API] Availability shifts response is not an array:', typeof data);
+//     }
+//     
+//     console.log('[Eitje API] Fetched', Array.isArray(data) ? data.length : 'not array', 'availability shifts');
+//     return data;
+//   } catch (error) {
+//     handleApiError(error, 'availability_shifts');
+//   }
+// }
 
-export async function fetchEitjeLeaveRequests(
-  baseUrl: string,
-  credentials: EitjeCredentials,
-  startDate: string,
-  endDate: string
-) {
-  console.log('[Eitje API] Fetching leave requests:', { startDate, endDate });
-  
-  // DEFENSIVE: Validate inputs
-  validateBaseUrl(baseUrl);
-  validateCredentials(credentials);
-  validateDateRange(startDate, endDate, 7); // Max 7 days for shifts
-  
-  try {
-    const response = await axios({
-      method: 'GET',
-      url: `${baseUrl}/leave_requests`,
-      headers: createHeaders(credentials),
-      data: { 
-        filters: { 
-          start_date: startDate, 
-          end_date: endDate, 
-          date_filter_type: 'resource_date' 
-        } 
-      },
-      timeout: 30000
-    });
-    
-    const data = response.data.items || response.data;
-    
-    if (!Array.isArray(data)) {
-      console.warn('[Eitje API] Leave requests response is not an array:', typeof data);
-    }
-    
-    console.log('[Eitje API] Fetched', Array.isArray(data) ? data.length : 'not array', 'leave requests');
-    return data;
-  } catch (error) {
-    handleApiError(error, 'leave_requests');
-  }
-}
+// export async function fetchEitjeLeaveRequests(
+//   baseUrl: string,
+//   credentials: EitjeCredentials,
+//   startDate: string,
+//   endDate: string
+// ) {
+//   console.log('[Eitje API] Fetching leave requests:', { startDate, endDate });
+//   
+//   // DEFENSIVE: Validate inputs
+//   validateBaseUrl(baseUrl);
+//   validateCredentials(credentials);
+//   validateDateRange(startDate, endDate, 7); // Max 7 days for shifts
+//   
+//   try {
+//     const response = await axios({
+//       method: 'GET',
+//       url: `${baseUrl}/leave_requests`,
+//       headers: createHeaders(credentials),
+//       data: { 
+//         filters: { 
+//           start_date: startDate, 
+//           end_date: endDate, 
+//           date_filter_type: 'resource_date' 
+//         } 
+//       },
+//       timeout: 30000
+//     });
+//     
+//     const data = response.data.items || response.data;
+//     
+//     if (!Array.isArray(data)) {
+//       console.warn('[Eitje API] Leave requests response is not an array:', typeof data);
+//     }
+//     
+//     console.log('[Eitje API] Fetched', Array.isArray(data) ? data.length : 'not array', 'leave requests');
+//     return data;
+//   } catch (error) {
+//     handleApiError(error, 'leave_requests');
+//   }
+// }
 
-export async function fetchEitjeEvents(
-  baseUrl: string,
-  credentials: EitjeCredentials,
-  startDate: string,
-  endDate: string
-) {
-  console.log('[Eitje API] Fetching events:', { startDate, endDate });
-  
-  // DEFENSIVE: Validate inputs
-  validateBaseUrl(baseUrl);
-  validateCredentials(credentials);
-  validateDateRange(startDate, endDate, 90); // Max 90 days for events
-  
-  try {
-    // DEFENSIVE: Events endpoint uses POST method
-    const response = await axios({
-      method: 'POST',
-      url: `${baseUrl}/events`,
-      headers: createHeaders(credentials),
-      data: { 
-        filters: { 
-          start_date: startDate, 
-          end_date: endDate, 
-          date_filter_type: 'resource_date' 
-        } 
-      },
-      timeout: 30000
-    });
-    
-    const data = response.data.items || response.data;
-    
-    if (!Array.isArray(data)) {
-      console.warn('[Eitje API] Events response is not an array:', typeof data);
-    }
-    
-    console.log('[Eitje API] Fetched', Array.isArray(data) ? data.length : 'not array', 'events');
-    return data;
-  } catch (error) {
-    handleApiError(error, 'events');
-  }
-}
+// export async function fetchEitjeEvents(
+//   baseUrl: string,
+//   credentials: EitjeCredentials,
+//   startDate: string,
+//   endDate: string
+// ) {
+//   console.log('[Eitje API] Fetching events:', { startDate, endDate });
+//   
+//   // DEFENSIVE: Validate inputs
+//   validateBaseUrl(baseUrl);
+//   validateCredentials(credentials);
+//   validateDateRange(startDate, endDate, 90); // Max 90 days for events
+//   
+//   try {
+//     // DEFENSIVE: Events endpoint uses POST method
+//     const response = await axios({
+//       method: 'POST',
+//       url: `${baseUrl}/events`,
+//       headers: createHeaders(credentials),
+//       data: { 
+//         filters: { 
+//           start_date: startDate, 
+//           end_date: endDate, 
+//           date_filter_type: 'resource_date' 
+//         } 
+//       },
+//       timeout: 30000
+//     });
+//     
+//     const data = response.data.items || response.data;
+//     
+//     if (!Array.isArray(data)) {
+//       console.warn('[Eitje API] Events response is not an array:', typeof data);
+//     }
+//     
+//     console.log('[Eitje API] Fetched', Array.isArray(data) ? data.length : 'not array', 'events');
+//     return data;
+//   } catch (error) {
+//     handleApiError(error, 'events');
+//   }
+// }

@@ -5,11 +5,10 @@ import {
   fetchEitjeUsers,
   fetchEitjeShiftTypes,
   fetchEitjeTimeRegistrationShifts,
-  fetchEitjePlanningShifts,
   fetchEitjeRevenueDays,
-  fetchEitjeAvailabilityShifts,
-  fetchEitjeLeaveRequests,
-  fetchEitjeEvents,
+  // fetchEitjeAvailabilityShifts, // NOT NEEDED - Commented out per user request
+  // fetchEitjeLeaveRequests, // NOT NEEDED - Commented out per user request
+  // fetchEitjeEvents, // NOT NEEDED - Commented out per user request
   getEitjeCredentials
 } from '@/lib/eitje/api-service';
 
@@ -80,7 +79,6 @@ export async function GET(request: NextRequest) {
         category: 'labor_data',
         requiresDates: true,
         maxDays: 7,
-        fn: () => fetchEitjePlanningShifts(baseUrl, credentials, '2024-10-24', '2024-10-25')
       },
       {
         name: 'revenue_days',
@@ -91,33 +89,34 @@ export async function GET(request: NextRequest) {
         maxDays: 90,
         fn: () => fetchEitjeRevenueDays(baseUrl, credentials, '2024-10-24', '2024-10-25')
       },
-      {
-        name: 'availability_shifts',
-        displayName: 'Availability Shifts',
-        description: 'Employee availability for shifts',
-        category: 'labor_data',
-        requiresDates: true,
-        maxDays: 7,
-        fn: () => fetchEitjeAvailabilityShifts(baseUrl, credentials, '2024-10-24', '2024-10-25')
-      },
-      {
-        name: 'leave_requests',
-        displayName: 'Leave Requests',
-        description: 'Employee leave and time-off requests',
-        category: 'labor_data',
-        requiresDates: true,
-        maxDays: 7,
-        fn: () => fetchEitjeLeaveRequests(baseUrl, credentials, '2024-10-24', '2024-10-25')
-      },
-      {
-        name: 'events',
-        displayName: 'Events',
-        description: 'Alternative shift data endpoint using POST method',
-        category: 'labor_data',
-        requiresDates: true,
-        maxDays: 90,
-        fn: () => fetchEitjeEvents(baseUrl, credentials, '2024-10-24', '2024-10-25')
-      }
+      // NOT NEEDED - Commented out per user request
+      // {
+      //   name: 'availability_shifts',
+      //   displayName: 'Availability Shifts',
+      //   description: 'Employee availability for shifts',
+      //   category: 'labor_data',
+      //   requiresDates: true,
+      //   maxDays: 7,
+      //   fn: () => fetchEitjeAvailabilityShifts(baseUrl, credentials, '2024-10-24', '2024-10-25')
+      // },
+      // {
+      //   name: 'leave_requests',
+      //   displayName: 'Leave Requests',
+      //   description: 'Employee leave and time-off requests',
+      //   category: 'labor_data',
+      //   requiresDates: true,
+      //   maxDays: 7,
+      //   fn: () => fetchEitjeLeaveRequests(baseUrl, credentials, '2024-10-24', '2024-10-25')
+      // },
+      // {
+      //   name: 'events',
+      //   displayName: 'Events',
+      //   description: 'Alternative shift data endpoint using POST method',
+      //   category: 'labor_data',
+      //   requiresDates: true,
+      //   maxDays: 90,
+      //   fn: () => fetchEitjeEvents(baseUrl, credentials, '2024-10-24', '2024-10-25')
+      // }
     ];
     
     // DEFENSIVE: Test all endpoints with individual error handling

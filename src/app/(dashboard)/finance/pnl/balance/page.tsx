@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { calculateMonthlyPnL, getAvailableCategories, type PnLData, type PnLCalculation } from '@/lib/finance/pnl-calculations';
+import { calculateMonthlyPnL, getAvailableCategories, type PnLData } from '@/lib/finance/pnl-calculations';
 
 // PnLData interface is now imported from pnl-calculations
 
@@ -18,6 +18,8 @@ interface ProcessedPnLData {
   isExpanded: boolean;
   isSubcategory: boolean;
   isMissing?: boolean; // Flag for missing categories
+  isCollapsible?: boolean; // Flag for collapsible categories
+  parentCategory?: string; // Parent category for subcategories
 }
 
 interface ValidationResult {
@@ -44,32 +46,244 @@ const MONTHS = [
 ];
 
 const LOCATIONS = [
-  { value: 'All', label: 'All' },
-  { value: 'Kinsbergen', label: 'Kinsbergen' },
-  { value: 'BarBea Labour', label: 'BarBea Labour' },
-  { value: "l'Amour-Toujour", label: "l'Amour-Toujour" }
+  { value: 'all', label: 'All' },
+  { value: '550e8400-e29b-41d4-a716-446655440001', label: 'Van Kinsbergen' },
+  { value: '550e8400-e29b-41d4-a716-446655440002', label: 'Bar Bea' },
+  { value: '550e8400-e29b-41d4-a716-446655440003', label: "L'Amour Toujours" }
 ];
 
 const COGS_CATEGORIES = [
+  // REVENUE CALCULATIONS
   {
-    category: 'Netto-omzet',
-    subcategories: ['Netto-omzet groepen']
+    category: 'Netto-omzet groepen',
+    subcategories: [
+      'Netto-omzet uit leveringen geproduceerde goederen',
+      'Netto-omzet uit verkoop van handelsgoederen'
+    ],
+    isCollapsible: true
   },
+  {
+    category: 'Netto-omzet uit leveringen geproduceerde goederen',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Netto-omzet groepen'
+  },
+  {
+    category: 'Netto-omzet uit verkoop van handelsgoederen',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Netto-omzet groepen'
+  },
+  
+  // COST OF SALES COGS
   {
     category: 'Kostprijs van de omzet',
-    subcategories: ['Inkoopwaarde handelsgoederen']
+    subcategories: [
+      'Inkoopwaarde handelsgoederen'
+    ],
+    isCollapsible: true
   },
   {
-    category: 'Lasten uit hoofde van personeelsbeloningen',
-    subcategories: ['Lonen en salarissen', 'Sociale lasten', 'Pensioenlasten', 'Overige lasten uit hoofde van personeelsbeloningen']
+    category: 'Inkoopwaarde handelsgoederen',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Kostprijs van de omzet'
   },
+  
+  // LABOR COST COGS
+  {
+    category: 'Total Labor',
+    subcategories: [
+      'Labor - Contract',
+      'Labor - Flex',
+      'Labor - Other'
+    ],
+    isCollapsible: true
+  },
+  {
+    category: 'Labor - Contract',
+    subcategories: [
+      'Lonen en salarissen',
+      'Overige lasten uit hoofde van personeelsbeloningen',
+      'Pensioenlasten',
+      'Sociale lasten'
+    ],
+    isSubcategory: true,
+    parentCategory: 'Total Labor'
+  },
+  {
+    category: 'Labor - Flex',
+    subcategories: [
+      'Werkkostenregeling - detail'
+    ],
+    isSubcategory: true,
+    parentCategory: 'Total Labor'
+  },
+  {
+    category: 'Labor - Other',
+    subcategories: [
+      'Overige personeelsgerelateerde kosten'
+    ],
+    isSubcategory: true,
+    parentCategory: 'Total Labor'
+  },
+  {
+    category: 'Lonen en salarissen',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Labor - Contract'
+  },
+  {
+    category: 'Overige lasten uit hoofde van personeelsbeloningen',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Labor - Contract'
+  },
+  {
+    category: 'Pensioenlasten',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Labor - Contract'
+  },
+  {
+    category: 'Sociale lasten',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Labor - Contract'
+  },
+  {
+    category: 'Werkkostenregeling - detail',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Labor - Flex'
+  },
+  {
+    category: 'Overige personeelsgerelateerde kosten',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Labor - Other'
+  },
+  
+  // OTHER_UNDEFINED COGS
+  {
+    category: 'Overige bedrijfskosten',
+    subcategories: [
+      'Accountants- en advieskosten',
+      'Administratieve lasten',
+      'Andere kosten',
+      'Assurantiekosten',
+      'Autokosten',
+      'Exploitatie- en machinekosten',
+      'Huisvestingskosten',
+      'Kantoorkosten',
+      'Verkoop gerelateerde kosten'
+    ],
+    isCollapsible: true
+  },
+  {
+    category: 'Accountants- en advieskosten',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Overige bedrijfskosten'
+  },
+  {
+    category: 'Administratieve lasten',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Overige bedrijfskosten'
+  },
+  {
+    category: 'Andere kosten',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Overige bedrijfskosten'
+  },
+  {
+    category: 'Assurantiekosten',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Overige bedrijfskosten'
+  },
+  {
+    category: 'Autokosten',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Overige bedrijfskosten'
+  },
+  {
+    category: 'Exploitatie- en machinekosten',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Overige bedrijfskosten'
+  },
+  {
+    category: 'Huisvestingskosten',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Overige bedrijfskosten'
+  },
+  {
+    category: 'Kantoorkosten',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Overige bedrijfskosten'
+  },
+  {
+    category: 'Verkoop gerelateerde kosten',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Overige bedrijfskosten'
+  },
+  
+  // DEPRECIATION
   {
     category: 'Afschrijvingen op immateriële en materiële vaste activa',
-    subcategories: ['Afschrijvingen op immateriële vaste activa', 'Afschrijvingen op materiële vaste activa']
+    subcategories: [
+      'Afschrijvingen op immateriële vaste activa',
+      'Afschrijvingen op materiële vaste activa'
+    ],
+    isCollapsible: true
   },
   {
+    category: 'Afschrijvingen op immateriële vaste activa',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Afschrijvingen op immateriële en materiële vaste activa'
+  },
+  {
+    category: 'Afschrijvingen op materiële vaste activa',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Afschrijvingen op immateriële en materiële vaste activa'
+  },
+  
+  // FINANCIAL
+  {
     category: 'Financiële baten en lasten',
-    subcategories: ['Rentebaten en soortgelijke opbrengsten', 'Rentelasten en soortgelijke kosten']
+    subcategories: [
+      'Rentebaten en soortgelijke opbrengsten',
+      'Rentelasten en soortgelijke kosten',
+      'Opbrengst van vorderingen die tot de vaste activa behoren en van effecten'
+    ],
+    isCollapsible: true
+  },
+  {
+    category: 'Rentebaten en soortgelijke opbrengsten',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Financiële baten en lasten'
+  },
+  {
+    category: 'Rentelasten en soortgelijke kosten',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Financiële baten en lasten'
+  },
+  {
+    category: 'Opbrengst van vorderingen die tot de vaste activa behoren en van effecten',
+    subcategories: [],
+    isSubcategory: true,
+    parentCategory: 'Financiële baten en lasten'
   }
 ];
 
@@ -81,7 +295,7 @@ export default function PnLBalancePage() {
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [availableMonths, setAvailableMonths] = useState<number[]>([]);
+  const [availableMonths, setAvailableMonths] = useState<number[]>([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
 
   // Load P&L data
   const loadPnLData = useCallback(async () => {
@@ -114,6 +328,15 @@ export default function PnLBalancePage() {
 
       const rawData: PnLData[] = result.data || [];
       
+      // Check if database is down and show warning
+      if (result.meta?.warning) {
+        console.warn('Database warning:', result.meta.warning);
+        setError(`Database temporarily unavailable: ${result.meta.warning}`);
+      } else if (rawData.length === 0) {
+        // No data found for the selected year/location
+        setError(`No P&L data found for ${selectedYear}. Please check if data has been imported for this year.`);
+      }
+      
       // Extract available months from the data
       const months = [...new Set(rawData.map(item => item.month))].sort((a, b) => a - b);
       setAvailableMonths(months);
@@ -141,11 +364,12 @@ export default function PnLBalancePage() {
     const availableCategories = getAvailableCategories(rawData);
     console.log('[P&L Debug] Available categories in data:', availableCategories);
 
+    // Process main categories first
     COGS_CATEGORIES.forEach(categoryConfig => {
-      const hasData = availableCategories.includes(categoryConfig.category);
+      // Skip subcategories here, they'll be processed separately
+      if (categoryConfig.isSubcategory) return;
       
-      // Add main category (even if no data, to show missing categories)
-      const mainCategoryData = rawData.filter(d => d.category === categoryConfig.category && !d.subcategory);
+      // Add main category
       const mainCategory: ProcessedPnLData = {
         category: categoryConfig.category,
         subcategory: null,
@@ -153,46 +377,98 @@ export default function PnLBalancePage() {
         total: 0,
         isExpanded: false,
         isSubcategory: false,
-        isMissing: !hasData // Flag missing categories
+        isCollapsible: categoryConfig.isCollapsible || false
       };
 
-      // Calculate amounts for each month
+      // Calculate amounts for each month by summing all subcategories
       MONTHS.forEach(month => {
-        const monthData = mainCategoryData.find(d => d.month === month.value);
-        mainCategory.amounts[month.value] = monthData?.amount || 0;
-        mainCategory.total += monthData?.amount || 0;
+        let monthlyTotal = 0;
+        
+        // Sum all subcategories for this main category
+        if (categoryConfig.subcategories) {
+          categoryConfig.subcategories.forEach(subcategoryName => {
+            const subcategoryData = rawData.filter(d => 
+              d.category === subcategoryName && d.month === month.value
+            );
+            monthlyTotal += subcategoryData.reduce((sum, d) => sum + (d.amount || 0), 0);
+          });
+        }
+        
+        // Also check if the main category itself has data
+        const mainCategoryData = rawData.filter(d => 
+          d.category === categoryConfig.category && d.month === month.value && !d.subcategory
+        );
+        monthlyTotal += mainCategoryData.reduce((sum, d) => sum + (d.amount || 0), 0);
+        
+        mainCategory.amounts[month.value] = monthlyTotal;
+        mainCategory.total += monthlyTotal;
       });
 
       processed.push(mainCategory);
 
-      // Add subcategories if they exist and main category has data
-      if (hasData) {
+      // Add subcategories
+      if (categoryConfig.subcategories) {
         categoryConfig.subcategories.forEach(subcategoryName => {
-          const subcategoryData = rawData.filter(d => 
-            d.category === categoryConfig.category && d.subcategory === subcategoryName
-          );
-          
           const subcategory: ProcessedPnLData = {
-            category: categoryConfig.category,
-            subcategory: subcategoryName,
+            category: subcategoryName,
+            subcategory: null,
             amounts: {},
             total: 0,
             isExpanded: false,
-            isSubcategory: true
+            isSubcategory: true,
+            parentCategory: categoryConfig.category,
+            isCollapsible: true
           };
 
+          // Calculate amounts for each month
           MONTHS.forEach(month => {
-            const monthData = subcategoryData.find(d => d.month === month.value);
-            subcategory.amounts[month.value] = monthData?.amount || 0;
-            subcategory.total += monthData?.amount || 0;
+            let monthlyTotal = 0;
+            
+            // Check if subcategory has its own data
+            const subcategoryData = rawData.filter(d => 
+              d.category === subcategoryName && d.month === month.value
+            );
+            monthlyTotal += subcategoryData.reduce((sum, d) => sum + (d.amount || 0), 0);
+            
+            subcategory.amounts[month.value] = monthlyTotal;
+            subcategory.total += monthlyTotal;
           });
 
           processed.push(subcategory);
+
+          // Add sub-subcategories if they exist
+          const subcategoryConfig = COGS_CATEGORIES.find(c => c.category === subcategoryName);
+          if (subcategoryConfig && subcategoryConfig.subcategories) {
+            subcategoryConfig.subcategories.forEach(subSubcategoryName => {
+              const subSubcategory: ProcessedPnLData = {
+                category: subcategoryName,
+                subcategory: subSubcategoryName,
+                amounts: {},
+                total: 0,
+                isExpanded: false,
+                isSubcategory: true,
+                parentCategory: subcategoryName
+              };
+
+              // Calculate amounts for each month
+              MONTHS.forEach(month => {
+                const subSubcategoryData = rawData.filter(d => 
+                  d.category === subcategoryName && d.subcategory === subSubcategoryName && d.month === month.value
+                );
+                const monthlyTotal = subSubcategoryData.reduce((sum, d) => sum + (d.amount || 0), 0);
+                
+                subSubcategory.amounts[month.value] = monthlyTotal;
+                subSubcategory.total += monthlyTotal;
+              });
+
+              processed.push(subSubcategory);
+            });
+          }
         });
       }
     });
 
-    // Add calculated "Resultaat" (Profit/Loss) row using calculation service
+    // Add calculated "Resultaat" (Profit/Loss) row
     const resultaat: ProcessedPnLData = {
       category: 'Resultaat',
       subcategory: null,
@@ -201,20 +477,20 @@ export default function PnLBalancePage() {
       isExpanded: false,
       isSubcategory: false
     };
-
-    // Calculate Resultaat for each month using the calculation service
+    
+    // Calculate Resultaat for each month
     MONTHS.forEach(month => {
-      const monthCalculation = calculateMonthlyPnL(rawData, month.value);
-      resultaat.amounts[month.value] = monthCalculation.resultaat;
-      resultaat.total += monthCalculation.resultaat;
+      const monthlyPnL = calculateMonthlyPnL(rawData, month.value);
+      resultaat.amounts[month.value] = monthlyPnL.resultaat;
+      resultaat.total += monthlyPnL.resultaat;
       
       // Debug logging for January 2025
       if (month.value === 1) {
         console.log(`[P&L Debug] January 2025 Calculation:`, {
-          revenue: monthCalculation.revenue,
-          costs: monthCalculation.costs,
-          resultaat: monthCalculation.resultaat,
-          validation: monthCalculation.validation
+          revenue: monthlyPnL.revenue,
+          costs: monthlyPnL.costs,
+          resultaat: monthlyPnL.resultaat,
+          validation: monthlyPnL.validation
         });
       }
     });
@@ -472,64 +748,100 @@ export default function PnLBalancePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pnlData.map((item, index) => (
-                  <TableRow 
-                    key={`${item.category}-${item.subcategory || 'main'}`}
-                    className={`
-                      ${item.category === 'Resultaat' ? 'font-bold bg-muted' : ''}
-                      ${item.isSubcategory ? 'bg-muted/50' : ''}
-                      ${item.isMissing ? 'bg-red-50 border-l-4 border-red-400' : ''}
-                    `}
-                  >
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        {item.subcategory ? (
-                          <>
-                            <span className="w-4" /> {/* Indent subcategories */}
-                            <span className="text-sm text-muted-foreground">{item.subcategory}</span>
-                          </>
-                        ) : (
-                          <>
-                            {(() => {
-                              const categoryConfig = COGS_CATEGORIES.find(c => c.category === item.category);
-                              const hasSubcategories = categoryConfig?.subcategories && categoryConfig.subcategories.length > 0;
-                              return hasSubcategories && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0"
-                                  onClick={() => toggleExpansion(index)}
-                                >
-                                  {item.isExpanded ? (
-                                    <ChevronDown className="h-4 w-4" />
-                                  ) : (
-                                    <ChevronRight className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              );
-                            })()}
-                            <span className={item.category === 'Resultaat' ? 'font-bold' : ''}>
-                              {item.category}
-                              {item.isMissing && (
-                                <span className="ml-2 text-red-500 text-xs font-medium">
-                                  (MISSING DATA)
-                                </span>
+                {pnlData.map((item, index) => {
+                  // Skip subcategories that should be hidden when parent is collapsed
+                  if (item.isSubcategory && item.parentCategory) {
+                    const parentIndex = pnlData.findIndex(p => p.category === item.parentCategory && !p.isSubcategory);
+                    if (parentIndex !== -1 && !pnlData[parentIndex].isExpanded) {
+                      return null;
+                    }
+                  }
+                  
+                  // Skip sub-subcategories that should be hidden when parent is collapsed
+                  if (item.isSubcategory && item.subcategory && item.parentCategory) {
+                    const parentSubcategoryIndex = pnlData.findIndex(p => p.category === item.parentCategory && !p.subcategory);
+                    if (parentSubcategoryIndex !== -1 && !pnlData[parentSubcategoryIndex].isExpanded) {
+                      return null;
+                    }
+                  }
+
+                  // Determine indentation level
+                  let indentLevel = 0;
+                  if (item.isSubcategory && item.parentCategory) {
+                    indentLevel = 1;
+                    if (item.subcategory) {
+                      indentLevel = 2;
+                    }
+                  }
+
+                  return (
+                    <TableRow 
+                      key={`${item.category}-${item.subcategory || 'main'}`}
+                      className={`
+                        ${item.category === 'Resultaat' ? 'font-bold bg-muted' : ''}
+                        ${item.isSubcategory ? 'bg-muted/50' : ''}
+                        ${item.isMissing ? 'bg-red-50 border-l-4 border-red-400' : ''}
+                      `}
+                    >
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {/* Indentation */}
+                          {indentLevel > 0 && <span className={`w-${indentLevel * 4}`} />}
+                          
+                          {/* Collapse/Expand button for main categories */}
+                          {!item.isSubcategory && item.isCollapsible && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => toggleExpansion(index)}
+                            >
+                              {item.isExpanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
                               )}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                    {MONTHS.filter(month => availableMonths.includes(month.value)).map(month => (
-                      <TableCell key={month.value} className="text-right">
-                        {formatCurrency(item.amounts[month.value] || 0)}
+                            </Button>
+                          )}
+                          
+                          {/* Collapse/Expand button for subcategories */}
+                          {item.isSubcategory && item.isCollapsible && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => toggleExpansion(index)}
+                            >
+                              {item.isExpanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </Button>
+                          )}
+                          
+                          {/* Category name */}
+                          <span className={item.category === 'Resultaat' ? 'font-bold' : ''}>
+                            {item.subcategory || item.category}
+                            {item.isMissing && (
+                              <span className="ml-2 text-red-500 text-xs font-medium">
+                                (MISSING DATA)
+                              </span>
+                            )}
+                          </span>
+                        </div>
                       </TableCell>
-                    ))}
-                    <TableCell className="text-right font-bold">
-                      {formatCurrency(item.total)}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                      {MONTHS.filter(month => availableMonths.includes(month.value)).map(month => (
+                        <TableCell key={month.value} className="text-right">
+                          {formatCurrency(item.amounts[month.value] || 0)}
+                        </TableCell>
+                      ))}
+                      <TableCell className="text-right font-bold">
+                        {formatCurrency(item.total)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
             </div>

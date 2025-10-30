@@ -18,12 +18,12 @@ export function createEitjeApiService(config: unknown) {
       import('./eitje-api-client').then(m => m.fetchEitjePlanningShifts(config.baseUrl, config.additional_config, startDate, endDate)),
     fetchRevenueDays: (startDate: string, endDate: string) => 
       import('./eitje-api-client').then(m => m.fetchEitjeRevenueDays(config.baseUrl, config.additional_config, startDate, endDate)),
-    // NEW ENDPOINTS - EXTREME DEFENSIVE MODE
-    fetchAvailabilityShifts: (startDate: string, endDate: string) => 
-      import('./eitje-api-client').then(m => m.fetchEitjeAvailabilityShifts(config.baseUrl, config.additional_config, startDate, endDate)),
-    fetchLeaveRequests: (startDate: string, endDate: string) => 
-      import('./eitje-api-client').then(m => m.fetchEitjeLeaveRequests(config.baseUrl, config.additional_config, startDate, endDate)),
-    fetchEvents: (startDate: string, endDate: string) => 
-      import('./eitje-api-client').then(m => m.fetchEitjeEvents(config.baseUrl, config.additional_config, startDate, endDate))
+    // NOT NEEDED - Commented out per user request
+    // fetchAvailabilityShifts: (startDate: string, endDate: string) => 
+    //   import('./eitje-api-client').then(m => m.fetchEitjeAvailabilityShifts(config.baseUrl, config.additional_config, startDate, endDate)),
+    // fetchLeaveRequests: (startDate: string, endDate: string) => 
+    //   import('./eitje-api-client').then(m => m.fetchEitjeLeaveRequests(config.baseUrl, config.additional_config, startDate, endDate)),
+    // fetchEvents: (startDate: string, endDate: string) => 
+    //   import('./eitje-api-client').then(m => m.fetchEitjeEvents(config.baseUrl, config.additional_config, startDate, endDate))
   };
 }

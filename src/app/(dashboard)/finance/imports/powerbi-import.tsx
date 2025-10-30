@@ -147,6 +147,45 @@ export default function PowerBIImport() {
 
       toast.success(`Successfully uploaded ${totalRecords} records from ${files.length} file(s)`);
       
+      // Trigger aggregation for all affected location/year/month combinations
+      console.log('Triggering aggregation for imported data...');
+      const affectedPeriods = new Set<string>();
+      
+      for (const fileInfo of files) {
+        const locationId = fileInfo.detectedLocation!.id;
+        const year = 2025; // Default year from upload
+        const month = 9;   // Default month from upload
+        affectedPeriods.add(`${locationId}-${year}-${month}`);
+      }
+      
+      // Run aggregation for each affected period
+      for (const period of affectedPeriods) {
+        const [locationId, year, month] = period.split('-');
+        try {
+          const response = await fetch('/api/finance/pnl-aggregate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              locationId,
+              year: parseInt(year),
+              month: parseInt(month)
+            })
+          });
+          
+          if (response.ok) {
+            console.log(`Aggregation completed for location ${locationId}, year ${year}, month ${month}`);
+          } else {
+            console.error(`Aggregation failed for location ${locationId}, year ${year}, month ${month}`);
+          }
+        } catch (error) {
+          console.error(`Error triggering aggregation for ${period}:`, error);
+        }
+      }
+      
+      toast.success(`Data uploaded and aggregated successfully!`);
+      
       // Clear files after successful upload
       handleClear();
 

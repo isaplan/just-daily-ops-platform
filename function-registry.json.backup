@@ -1,0 +1,225 @@
+{
+  "functions": [
+    {
+      "name": "RawDataStorage",
+      "type": "component",
+      "file": "src/components/finance/RawDataStorage.tsx",
+      "purpose": "Display raw Bork API data from database",
+      "dependencies": ["supabase", "bork_sales_data table"],
+      "status": "active"
+    },
+    {
+      "name": "updateConnectionStatus",
+      "type": "service",
+      "file": "src/lib/finance/bork/connectionStatusService.ts",
+      "purpose": "Update location connection test status in database",
+      "dependencies": ["supabase RPC: update_location_connection_status"],
+      "status": "active"
+    },
+    {
+      "name": "bork-credentials-api",
+      "type": "api-route",
+      "file": "src/app/api/bork/credentials/route.ts",
+      "purpose": "Fetch Bork API credentials from unified api_credentials table",
+      "dependencies": ["api_credentials table", "provider=bork filter"],
+      "status": "active",
+      "critical_findings": [
+        "Uses api_credentials table (unified), NOT bork_api_credentials (old)",
+        "Column name is 'api_url', NOT 'base_url'",
+        "Must filter by provider='bork' to get Bork credentials"
+      ]
+    },
+    {
+      "name": "bork-sync-api",
+      "type": "api-route", 
+      "file": "src/app/api/bork/sync/route.ts",
+      "purpose": "Sync Bork API data for date ranges",
+      "dependencies": ["bork-api-client", "database-service", "batch-processor"],
+      "status": "active",
+      "critical_findings": [
+        "Date format must be YYYYMMDD for Bork API",
+        "Timeout increased to 55s to prevent frontend timeout",
+        "Returns detailed feedback about API failures and record counts"
+      ]
+    },
+    {
+      "name": "bork-api-client",
+      "type": "service",
+      "file": "src/lib/bork/api-client.ts", 
+      "purpose": "Make Bork API calls with timeout protection",
+      "dependencies": ["fetch with 10s timeout"],
+      "status": "active",
+      "critical_findings": [
+        "Returns empty array on API failure instead of throwing",
+        "10-second timeout prevents hanging",
+        "Handles both connection timeouts and certificate errors"
+      ]
+    },
+    {
+      "name": "retry-location-sync",
+      "type": "function",
+      "file": "src/app/(dashboard)/finance/bork-api/page.tsx",
+      "purpose": "Retry individual location sync after failure",
+      "dependencies": ["bork-sync-api", "connection credentials"],
+      "status": "active",
+      "critical_findings": [
+        "Allows retry of specific failed locations",
+        "Updates sync results in real-time",
+        "Shows loading state during retry"
+      ]
+    },
+    {
+      "name": "bork-process-batch-api",
+      "type": "api-route",
+      "file": "src/app/api/bork/process/route.ts",
+      "purpose": "Process raw Bork data in batches with fail-safe retry logic",
+      "dependencies": ["bork_sales_data table", "batch processing", "timeout protection"],
+      "status": "active",
+           "critical_findings": [
+             "Large batches cause database timeouts - process in batches of 10",
+             "Fail-safe retry logic with 3 attempts and 2-second delays",
+             "1-second delays between batches prevent database overload",
+             "10-second timeout protection per batch",
+             "Process ALL records (no LIMIT) with progress tracking",
+             "Progress logging shows batch completion percentage",
+             "Returns per-location processed counts for accurate UI display",
+             "Tracks processedByLocation object to match sync results confirmation context"
+           ]
+         },
+         {
+           "name": "cleanup-service",
+           "type": "service",
+           "file": "src/lib/bork/cleanup-service.ts",
+           "purpose": "Remove duplicate Bork sales data records, keeping only the most recent for each (location_id, date) pair",
+           "dependencies": ["supabase", "bork_sales_data table", "raw_data.raw_response[0].Date field"],
+           "status": "active",
+           "critical_findings": [
+             "Extracts date from raw_data.raw_response[0].Date field (YYYYMMDD format)",
+             "Groups records by (location_id, date) and keeps MAX(created_at)",
+             "Uses batched deletes (10 records at a time) to avoid database timeouts",
+             "100ms delays between batches prevent database overload",
+             "Two functions: cleanupDuplicatesForDateRange (targeted) and cleanupAllDuplicates (database-wide)",
+             "Safe approach: cleanup only runs AFTER successful data insertion"
+           ]
+         },
+         {
+           "name": "bork-cleanup-api",
+           "type": "api-route",
+           "file": "src/app/api/bork/cleanup/route.ts",
+           "purpose": "Weekly database-wide cleanup of duplicate Bork sales data records",
+           "dependencies": ["cleanup-service", "cleanupAllDuplicates function"],
+           "status": "active",
+           "critical_findings": [
+             "POST endpoint triggers database-wide cleanup",
+             "GET endpoint provides usage information",
+             "Returns detailed stats: recordsDeleted, duplicatesFound",
+             "Can be called manually or via cron job for weekly maintenance",
+             "Comprehensive error handling and logging"
+           ]
+         },
+         {
+           "name": "edge-functions-restored",
+           "type": "edge-functions",
+           "file": "supabase/functions/",
+           "purpose": "Primary Bork API sync mechanism using Supabase Edge Functions",
+           "dependencies": ["bork_api_credentials", "bork_api_sync_logs", "bork_sales_data"],
+           "status": "active",
+           "critical_findings": [
+             "Edge Functions handle 100k+ records without timeouts",
+             "Deno runtime provides automatic resource management",
+             "Fresh Supabase client per request prevents connection pooling issues",
+             "Database indexes are CRITICAL for performance",
+             "Sync logging to bork_api_sync_logs table provides operation history",
+             "YYYYMMDD date format required for Bork API",
+             "Frontend calls Edge Functions via supabase.functions.invoke()"
+           ]
+         },
+         {
+           "name": "bork-aggregate-api",
+           "type": "api-route",
+           "file": "src/app/api/bork/aggregate/route.ts",
+           "purpose": "Manual aggregation trigger for processed Bork data into daily summaries",
+           "dependencies": ["aggregation-service", "bork_sales_aggregated table", "RLS policies"],
+           "status": "active",
+           "critical_findings": [
+             "Supports location-specific or all-locations aggregation",
+             "Uses incremental aggregation with timestamp tracking",
+             "Returns detailed results with incremental/full mode detection",
+             "Requires RLS policies to be configured for bork_sales_aggregated table",
+             "Handles both manual triggers and auto-refresh scenarios"
+           ]
+         },
+         {
+           "name": "sales-page-refresh-button",
+           "type": "component",
+           "file": "src/app/(dashboard)/finance/sales/page.tsx",
+           "purpose": "Manual refresh button with loading states and auto-refresh mechanism",
+           "dependencies": ["bork-aggregate-api", "React hooks", "UI components"],
+           "status": "active",
+           "critical_findings": [
+             "Manual refresh button with loading spinner and disabled state",
+             "Auto-refresh runs every 5 minutes in background",
+             "Toggle switch to enable/disable auto-refresh",
+             "Last refresh time indicator with visual feedback",
+             "Only reloads page if new aggregated data is found"
+           ]
+         },
+         {
+           "name": "aggregation-service",
+           "type": "service",
+           "file": "src/lib/bork/aggregation-service.ts",
+           "purpose": "Transform raw sales data into daily aggregated summaries with VAT breakdown",
+           "dependencies": ["bork_sales_data table", "bork_sales_aggregated table", "timestamp tracking"],
+           "status": "active",
+           "critical_findings": [
+             "Incremental aggregation using last_location_aggregation timestamp",
+             "Only processes dates with updated raw data for efficiency",
+             "Calculates VAT breakdown (9% food, 21% drinks), product counts, categories",
+             "Handles both single-date and date-range aggregation",
+             "Fallback to full aggregation if timestamp tracking fails"
+           ]
+         },
+         {
+           "name": "rls-policy-fix",
+           "type": "sql-script",
+           "file": "fix-rls-policies.sql",
+           "purpose": "Fix Row Level Security policies for bork_sales_aggregated table",
+           "dependencies": ["Supabase dashboard execution"],
+           "status": "pending",
+           "critical_findings": [
+             "Required for aggregation service to insert data",
+             "Creates policies for authenticated, service_role, and anon users",
+             "Must be executed manually in Supabase dashboard",
+             "Critical blocker for hybrid aggregation system"
+           ]
+         }
+    },
+  ],
+  "database_schema": {
+    "active_tables": {
+      "api_credentials": {
+        "purpose": "Unified credentials for all API providers",
+        "columns": ["id", "provider", "location_id", "api_key", "api_url", "is_active"],
+        "filter": "provider='bork'",
+        "status": "active"
+      }
+    },
+    "deprecated_tables": {
+      "bork_api_credentials": {
+        "purpose": "Old Bork-specific credentials table",
+        "status": "deprecated",
+        "migration": "20251025000000_drop_old_bork_credentials.sql"
+      }
+    }
+  },
+  "critical_lessons": [
+    "ALWAYS check database schema first - there were TWO credential tables",
+    "Column names matter - 'api_url' vs 'base_url' caused API failures", 
+    "Hardcoded fallbacks hide real issues - remove them to see actual problems",
+    "Document all findings immediately to avoid repeating mistakes",
+    "RLS policies are CRITICAL for aggregation - must be configured for new tables",
+    "Hybrid systems provide maximum flexibility - automatic + manual + auto-refresh",
+    "Incremental aggregation is essential for performance with large datasets",
+    "Visual feedback prevents user confusion during long-running operations"
+  ]
+}

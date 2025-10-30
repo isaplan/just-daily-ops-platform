@@ -29,19 +29,44 @@ export async function GET(request: NextRequest) {
 
     console.log(`[API /finance/pnl-test-aggregation] Found ${rawData.length} raw records`);
 
-    // Test aggregation logic using gl_account
-    const revenue = 0; // TODO: Get from actual revenue data
-    const opbrengst = 0; // TODO: Get from actual opbrengst data
-    
-    const costs = {
-      kostprijs: sumByGlAccount(rawData, 'Kostprijs van de omzet'),
-      personeel: 0, // TODO: Get from actual personnel data
-      overige: sumByGlAccount(rawData, 'Overige bedrijfskosten'),
-      afschrijvingen: sumByGlAccount(rawData, 'Afschrijvingen op immateriële en materiële vaste activa'),
-      financieel: 0 // TODO: Get from actual financial data
-    };
+        // Test aggregation logic using COMPLETE category mapping
+        const revenue = 
+          sumByCategory(rawData, 'Netto-omzet uit leveringen geproduceerde goederen') +
+          sumByCategory(rawData, 'Netto-omzet uit verkoop van handelsgoederen') +
+          sumByCategory(rawData, 'Netto-omzet groepen');
+        
+        const opbrengst = sumByCategory(rawData, 'Opbrengst van vorderingen die tot de vaste activa behoren en van effecten');
+        
+        const costs = {
+          kostprijs: sumByCategory(rawData, 'Inkoopwaarde handelsgoederen'),
+          personeel: 
+            sumByCategory(rawData, 'Lonen en salarissen') +
+            sumByCategory(rawData, 'Overige lasten uit hoofde van personeelsbeloningen') +
+            sumByCategory(rawData, 'Overige personeelsgerelateerde kosten') +
+            sumByCategory(rawData, 'Pensioenlasten') +
+            sumByCategory(rawData, 'Sociale lasten') +
+            sumByCategory(rawData, 'Werkkostenregeling - detail'),
+          overige: 
+            sumByCategory(rawData, 'Accountants- en advieskosten') +
+            sumByCategory(rawData, 'Administratieve lasten') +
+            sumByCategory(rawData, 'Andere kosten') +
+            sumByCategory(rawData, 'Assurantiekosten') +
+            sumByCategory(rawData, 'Autokosten') +
+            sumByCategory(rawData, 'Exploitatie- en machinekosten') +
+            sumByCategory(rawData, 'Huisvestingskosten') +
+            sumByCategory(rawData, 'Kantoorkosten') +
+            sumByCategory(rawData, 'Verkoop gerelateerde kosten'),
+          afschrijvingen: 
+            sumByCategory(rawData, 'Afschrijvingen op immateriële vaste activa') +
+            sumByCategory(rawData, 'Afschrijvingen op materiële vaste activa'),
+          financieel: 
+            sumByCategory(rawData, 'Rentelasten en soortgelijke kosten') +
+            sumByCategory(rawData, 'Rentebaten en soortgelijke opbrengsten') +
+            sumByCategory(rawData, 'Rente belastingen')
+        };
 
     const total_costs = Object.values(costs).reduce((sum, val) => sum + val, 0);
+    // Note: costs are already negative in the database, so we add them instead of subtracting
     const resultaat = revenue + opbrengst + total_costs;
 
     // Get unique gl_accounts and categories
@@ -77,6 +102,12 @@ export async function GET(request: NextRequest) {
       error: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
+}
+
+function sumByCategory(data: any[], category: string): number {
+  return data
+    .filter(record => record.category === category)
+    .reduce((sum, record) => sum + (record.amount || 0), 0);
 }
 
 function sumByGlAccount(data: any[], glAccount: string): number {
