@@ -78,16 +78,16 @@ const COGS_CATEGORIES = [
   
   // LABOR COST COGS
   {
-    category: 'Total Labor',
+    category: 'Arbeidskosten',
     subcategories: [
-      'Labor - Contract',
-      'Labor - Flex',
-      'Labor - Other'
+      'Contract Arbeid',
+      'Flex Arbeid',
+      'Overige Arbeid'
     ],
     isCollapsible: true
   },
   {
-    category: 'Labor - Contract',
+    category: 'Contract Arbeid',
     subcategories: [
       'Lonen en salarissen',
       'Overige lasten uit hoofde van personeelsbeloningen',
@@ -95,59 +95,59 @@ const COGS_CATEGORIES = [
       'Sociale lasten'
     ],
     isSubcategory: true,
-    parentCategory: 'Total Labor'
+    parentCategory: 'Arbeidskosten'
   },
   {
-    category: 'Labor - Flex',
+    category: 'Flex Arbeid',
     subcategories: [
       'Werkkostenregeling - detail'
     ],
     isSubcategory: true,
-    parentCategory: 'Total Labor'
+    parentCategory: 'Arbeidskosten'
   },
   {
-    category: 'Labor - Other',
+    category: 'Overige Arbeid',
     subcategories: [
       'Overige personeelsgerelateerde kosten'
     ],
     isSubcategory: true,
-    parentCategory: 'Total Labor'
+    parentCategory: 'Arbeidskosten'
   },
   {
     category: 'Lonen en salarissen',
     subcategories: [],
     isSubcategory: true,
-    parentCategory: 'Labor - Contract'
+    parentCategory: 'Contract Arbeid'
   },
   {
     category: 'Overige lasten uit hoofde van personeelsbeloningen',
     subcategories: [],
     isSubcategory: true,
-    parentCategory: 'Labor - Contract'
+    parentCategory: 'Contract Arbeid'
   },
   {
     category: 'Pensioenlasten',
     subcategories: [],
     isSubcategory: true,
-    parentCategory: 'Labor - Contract'
+    parentCategory: 'Contract Arbeid'
   },
   {
     category: 'Sociale lasten',
     subcategories: [],
     isSubcategory: true,
-    parentCategory: 'Labor - Contract'
+    parentCategory: 'Contract Arbeid'
   },
   {
     category: 'Werkkostenregeling - detail',
     subcategories: [],
     isSubcategory: true,
-    parentCategory: 'Labor - Flex'
+    parentCategory: 'Flex Arbeid'
   },
   {
     category: 'Overige personeelsgerelateerde kosten',
     subcategories: [],
     isSubcategory: true,
-    parentCategory: 'Labor - Other'
+    parentCategory: 'Overige Arbeid'
   },
   
   // OTHER_UNDEFINED COGS
