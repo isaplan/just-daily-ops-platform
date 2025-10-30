@@ -591,7 +591,7 @@ export default function PnLBalancePage() {
   }, [selectedYear, selectedLocation, loadPnLData]);
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6 p-6">
       {/* Page Header */}
       <div className="flex justify-between items-start">
         <div>

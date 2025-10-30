@@ -16,9 +16,9 @@ export default function DashboardLayout({
 }) {
   return (
     <Providers>
-      <div className="flex h-screen">
+      <div className="flex h-screen w-full">
         <AppSidebar />
-        <SidebarInset>
+        <SidebarInset className="flex-1 min-w-0">
           <header className="sticky top-0 z-50 flex h-16 shrink-0 items-center justify-between border-b-2 border-black bg-white px-4">
             <div className="flex items-center gap-4">
               <SidebarTrigger className="-ml-1" />
@@ -51,8 +51,10 @@ export default function DashboardLayout({
               </Avatar>
             </div>
           </header>
-          <main className="flex-1 overflow-auto">
-            {children}
+          <main className="flex-1 overflow-auto min-w-0">
+            <div className="w-full">
+              {children}
+            </div>
           </main>
         </SidebarInset>
       </div>

@@ -103,6 +103,10 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 0 0% 20%;
     --sidebar-border: 0 0% 90%;
     --sidebar-ring: 142 76% 36%;
+    
+    /* Sidebar width variables */
+    --sidebar-width: 16rem;
+    --sidebar-width-icon: 3rem;
   }
 
 
@@ -149,6 +153,10 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 217 33% 17%;
     --sidebar-ring: 217 91% 60%;
+    
+    /* Sidebar width variables */
+    --sidebar-width: 16rem;
+    --sidebar-width-icon: 3rem;
   }
 
   .theme-terminal {
@@ -199,6 +207,10 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 0 0% 5%;
     --sidebar-border: 0 0% 0%;
     --sidebar-ring: 120 100% 30%;
+    
+    /* Sidebar width variables */
+    --sidebar-width: 16rem;
+    --sidebar-width-icon: 3rem;
   }
   :root {
     --sidebar-background: 0 0% 98%;

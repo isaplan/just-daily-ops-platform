@@ -22,7 +22,7 @@ export default function DailyOpsLayout({
   const pathname = usePathname();
 
   return (
-    <div className="space-y-6">
+    <div className="w-full p-6 space-y-6">
       {/* Parent Navigation */}
       <Card>
         <CardHeader>
