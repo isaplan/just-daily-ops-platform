@@ -162,7 +162,7 @@ export default function FinancePnL() {
 
   return (
     <div className={cn(
-      "container mx-auto py-6 space-y-6 transition-all duration-300",
+      "w-full p-6 space-y-6 transition-all duration-300",
       isCategoryFilterOpen && "mr-[500px] sm:mr-[540px]"
     )}>
       {/* Sticky Header */}

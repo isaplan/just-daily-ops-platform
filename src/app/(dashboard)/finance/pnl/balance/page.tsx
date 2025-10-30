@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ChevronDown, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { calculateMonthlyPnL, getAvailableCategories, type PnLData } from '@/lib/finance/pnl-calculations';
+import { LanguageSwitcher } from '@/components/ui/language-switcher';
 
 // PnLData interface is now imported from pnl-calculations
 
@@ -30,27 +32,9 @@ interface ValidationResult {
   missingCategories: string[];
 }
 
-const MONTHS = [
-  { value: 1, label: 'Jan' },
-  { value: 2, label: 'Feb' },
-  { value: 3, label: 'Maa' },
-  { value: 4, label: 'Apr' },
-  { value: 5, label: 'Mei' },
-  { value: 6, label: 'Jun' },
-  { value: 7, label: 'Jul' },
-  { value: 8, label: 'Aug' },
-  { value: 9, label: 'Sep' },
-  { value: 10, label: 'Oct' },
-  { value: 11, label: 'Nov' },
-  { value: 12, label: 'Dec' }
-];
+// MONTHS will be defined inside the component to use translations
 
-const LOCATIONS = [
-  { value: 'all', label: 'All' },
-  { value: '550e8400-e29b-41d4-a716-446655440001', label: 'Van Kinsbergen' },
-  { value: '550e8400-e29b-41d4-a716-446655440002', label: 'Bar Bea' },
-  { value: '550e8400-e29b-41d4-a716-446655440003', label: "L'Amour Toujours" }
-];
+// LOCATIONS will be defined inside the component to use translations
 
 const COGS_CATEGORIES = [
   // REVENUE CALCULATIONS
@@ -66,13 +50,15 @@ const COGS_CATEGORIES = [
     category: 'Netto-omzet uit leveringen geproduceerde goederen',
     subcategories: [],
     isSubcategory: true,
-    parentCategory: 'Netto-omzet groepen'
+    parentCategory: 'Netto-omzet groepen',
+    isCollapsible: true
   },
   {
     category: 'Netto-omzet uit verkoop van handelsgoederen',
     subcategories: [],
     isSubcategory: true,
-    parentCategory: 'Netto-omzet groepen'
+    parentCategory: 'Netto-omzet groepen',
+    isCollapsible: true
   },
   
   // COST OF SALES COGS
@@ -92,16 +78,16 @@ const COGS_CATEGORIES = [
   
   // LABOR COST COGS
   {
-    category: 'Total Labor',
+    category: 'Arbeidskosten',
     subcategories: [
-      'Labor - Contract',
-      'Labor - Flex',
-      'Labor - Other'
+      'Contract Arbeid',
+      'Flex Arbeid',
+      'Overige Arbeid'
     ],
     isCollapsible: true
   },
   {
-    category: 'Labor - Contract',
+    category: 'Contract Arbeid',
     subcategories: [
       'Lonen en salarissen',
       'Overige lasten uit hoofde van personeelsbeloningen',
@@ -109,59 +95,59 @@ const COGS_CATEGORIES = [
       'Sociale lasten'
     ],
     isSubcategory: true,
-    parentCategory: 'Total Labor'
+    parentCategory: 'Arbeidskosten'
   },
   {
-    category: 'Labor - Flex',
+    category: 'Flex Arbeid',
     subcategories: [
       'Werkkostenregeling - detail'
     ],
     isSubcategory: true,
-    parentCategory: 'Total Labor'
+    parentCategory: 'Arbeidskosten'
   },
   {
-    category: 'Labor - Other',
+    category: 'Overige Arbeid',
     subcategories: [
       'Overige personeelsgerelateerde kosten'
     ],
     isSubcategory: true,
-    parentCategory: 'Total Labor'
+    parentCategory: 'Arbeidskosten'
   },
   {
     category: 'Lonen en salarissen',
     subcategories: [],
     isSubcategory: true,
-    parentCategory: 'Labor - Contract'
+    parentCategory: 'Contract Arbeid'
   },
   {
     category: 'Overige lasten uit hoofde van personeelsbeloningen',
     subcategories: [],
     isSubcategory: true,
-    parentCategory: 'Labor - Contract'
+    parentCategory: 'Contract Arbeid'
   },
   {
     category: 'Pensioenlasten',
     subcategories: [],
     isSubcategory: true,
-    parentCategory: 'Labor - Contract'
+    parentCategory: 'Contract Arbeid'
   },
   {
     category: 'Sociale lasten',
     subcategories: [],
     isSubcategory: true,
-    parentCategory: 'Labor - Contract'
+    parentCategory: 'Contract Arbeid'
   },
   {
     category: 'Werkkostenregeling - detail',
     subcategories: [],
     isSubcategory: true,
-    parentCategory: 'Labor - Flex'
+    parentCategory: 'Flex Arbeid'
   },
   {
     category: 'Overige personeelsgerelateerde kosten',
     subcategories: [],
     isSubcategory: true,
-    parentCategory: 'Labor - Other'
+    parentCategory: 'Overige Arbeid'
   },
   
   // OTHER_UNDEFINED COGS
@@ -288,6 +274,8 @@ const COGS_CATEGORIES = [
 ];
 
 export default function PnLBalancePage() {
+  const { t, ready } = useTranslation('common');
+  
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(1);
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
@@ -295,69 +283,34 @@ export default function PnLBalancePage() {
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const [availableMonths, setAvailableMonths] = useState<number[]>([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
 
-  // Load P&L data
-  const loadPnLData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      const params = new URLSearchParams({
-        year: selectedYear.toString(),
-        location: selectedLocation
-      });
+  // Define translated arrays with fallbacks
+  const MONTHS = useMemo(() => [
+    { value: 1, label: ready ? t('pnl.table.january') : 'Jan' },
+    { value: 2, label: ready ? t('pnl.table.february') : 'Feb' },
+    { value: 3, label: ready ? t('pnl.table.march') : 'Mar' },
+    { value: 4, label: ready ? t('pnl.table.april') : 'Apr' },
+    { value: 5, label: ready ? t('pnl.table.may') : 'May' },
+    { value: 6, label: ready ? t('pnl.table.june') : 'Jun' },
+    { value: 7, label: ready ? t('pnl.table.july') : 'Jul' },
+    { value: 8, label: ready ? t('pnl.table.august') : 'Aug' },
+    { value: 9, label: ready ? t('pnl.table.september') : 'Sep' },
+    { value: 10, label: ready ? t('pnl.table.october') : 'Oct' },
+    { value: 11, label: ready ? t('pnl.table.november') : 'Nov' },
+    { value: 12, label: ready ? t('pnl.table.december') : 'Dec' }
+  ], [t, ready]);
 
-      const apiUrl = `/api/finance/pnl-data?${params}`;
-      console.log('Making API call to:', apiUrl);
-      const response = await fetch(apiUrl);
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      console.log('API result:', result);
-
-      if (!result.success) {
-        console.error('API returned success: false', result);
-        throw new Error(result.error || 'Failed to load P&L data');
-      }
-
-      const rawData: PnLData[] = result.data || [];
-      
-      // Check if database is down and show warning
-      if (result.meta?.warning) {
-        console.warn('Database warning:', result.meta.warning);
-        setError(`Database temporarily unavailable: ${result.meta.warning}`);
-      } else if (rawData.length === 0) {
-        // No data found for the selected year/location
-        setError(`No P&L data found for ${selectedYear}. Please check if data has been imported for this year.`);
-      }
-      
-      // Extract available months from the data
-      const months = [...new Set(rawData.map(item => item.month))].sort((a, b) => a - b);
-      setAvailableMonths(months);
-      
-      const processedData = processPnLData(rawData);
-      setPnlData(processedData);
-
-      // Validate the data
-      const validation = validateBalance(processedData);
-      setValidationResult(validation);
-
-    } catch (err) {
-      console.error('Error loading P&L data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load P&L data');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedYear, selectedLocation]);
+  const LOCATIONS = useMemo(() => [
+    { value: 'all', label: ready ? t('pnl.locations.all') : 'All Locations' },
+    { value: '550e8400-e29b-41d4-a716-446655440001', label: ready ? t('pnl.locations.kinsbergen') : 'Van Kinsbergen' },
+    { value: '550e8400-e29b-41d4-a716-446655440002', label: ready ? t('pnl.locations.barbea') : 'Bar Bea' },
+    { value: '550e8400-e29b-41d4-a716-446655440003', label: ready ? t('pnl.locations.lamour') : 'L\'Amour Toujours' }
+  ], [t, ready]);
 
   // Process raw P&L data into structured format using calculation service
-  const processPnLData = (rawData: PnLData[]): ProcessedPnLData[] => {
+  const processPnLData = useCallback((rawData: PnLData[]): ProcessedPnLData[] => {
     const processed: ProcessedPnLData[] = [];
 
     // Get available categories from the data
@@ -436,10 +389,19 @@ export default function PnLBalancePage() {
 
           processed.push(subcategory);
 
-          // Add sub-subcategories if they exist
+          // Add sub-subcategories
           const subcategoryConfig = COGS_CATEGORIES.find(c => c.category === subcategoryName);
-          if (subcategoryConfig && subcategoryConfig.subcategories) {
-            subcategoryConfig.subcategories.forEach(subSubcategoryName => {
+          // Use configured list when provided, otherwise derive dynamically from rawData
+          const subSubList = (subcategoryConfig && subcategoryConfig.subcategories && subcategoryConfig.subcategories.length > 0)
+            ? subcategoryConfig.subcategories
+            : Array.from(new Set(
+                rawData
+                  .filter(d => d.category === subcategoryName && d.subcategory)
+                  .map(d => d.subcategory as string)
+              ));
+
+          if (subSubList && subSubList.length > 0) {
+            subSubList.forEach(subSubcategoryName => {
               const subSubcategory: ProcessedPnLData = {
                 category: subcategoryName,
                 subcategory: subSubcategoryName,
@@ -498,7 +460,66 @@ export default function PnLBalancePage() {
     processed.push(resultaat);
 
     return processed;
-  };
+  }, [MONTHS]);
+
+  // Load P&L data
+  const loadPnLData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const params = new URLSearchParams({
+        year: selectedYear.toString(),
+        location: selectedLocation
+      });
+
+      const apiUrl = `/api/finance/pnl-data?${params}`;
+      console.log('Making API call to:', apiUrl);
+      const response = await fetch(apiUrl);
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('API result:', result);
+
+      if (!result.success) {
+        console.error('API returned success: false', result);
+        throw new Error(result.error || 'Failed to load P&L data');
+      }
+
+      const rawData: PnLData[] = result.data || [];
+      
+      // Check if database is down and show non-blocking warning
+      if (result.meta?.warning) {
+        console.warn('Database warning:', result.meta.warning);
+        setWarning(ready ? t('pnl.alerts.databaseWarning') : 'Database temporarily unavailable. Showing mock data for testing.');
+      } else if (rawData.length === 0) {
+        // No data found for the selected year/location
+        setError(ready ? t('pnl.alerts.noData') : 'No P&L data available for the selected criteria.');
+      }
+      
+      // Extract available months from the data
+      const months = [...new Set(rawData.map(item => item.month))].sort((a, b) => a - b);
+      setAvailableMonths(months);
+      
+      const processedData = processPnLData(rawData);
+      setPnlData(processedData);
+
+      // Validate the data
+      const validation = validateBalance(processedData);
+      setValidationResult(validation);
+
+    } catch (err) {
+      console.error('Error loading P&L data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load P&L data');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedYear, selectedLocation, processPnLData, t, ready]);
 
   // Validate balance with 0.5% error margin
   const validateBalance = (data: ProcessedPnLData[]): ValidationResult => {
@@ -570,24 +591,27 @@ export default function PnLBalancePage() {
   }, [selectedYear, selectedLocation, loadPnLData]);
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6 p-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold">Profit & Loss Balance</h1>
-        <p className="text-muted-foreground">
-          Monthly P&L balance tables with expandable COGS categories
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold">{ready ? t('pnl.title') : 'P&L Balance'}</h1>
+          <p className="text-muted-foreground">
+            {ready ? t('pnl.description') : 'Monthly P&L balance tables with expandable COGS categories'}
+          </p>
+        </div>
+        <LanguageSwitcher />
       </div>
 
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle>Filters</CardTitle>
+          <CardTitle>{ready ? t('pnl.filters.year') : 'Year'} & {ready ? t('pnl.filters.location') : 'Location'}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Year Buttons */}
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">Year:</span>
+            <span className="text-sm font-medium text-muted-foreground">{ready ? t('pnl.filters.year') : 'Year'}:</span>
             <div className="flex gap-2">
               <Button
                 variant={selectedYear === 2024 ? 'default' : 'outline'}
@@ -625,7 +649,7 @@ export default function PnLBalancePage() {
 
           {/* Location Buttons */}
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-muted-foreground">Location:</span>
+            <span className="text-sm font-medium text-muted-foreground">{ready ? t('pnl.filters.location') : 'Location'}:</span>
             <div className="flex gap-2">
               {LOCATIONS.map(location => (
                 <Button
@@ -648,10 +672,10 @@ export default function PnLBalancePage() {
               onClick={() => {
                 setSelectedYear(2025);
                 setSelectedMonth(availableMonths.length > 0 ? availableMonths[0] : 1);
-                setSelectedLocation('All');
+                setSelectedLocation('all');
               }}
             >
-              Clear
+              {ready ? t('pnl.filters.clear') : 'Clear'}
             </Button>
           </div>
         </CardContent>
@@ -713,7 +737,13 @@ export default function PnLBalancePage() {
         </Alert>
       )}
 
-      {/* Error Alert */}
+      {/* Warning / Error Alerts */}
+      {warning && (
+        <Alert variant="default">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>{warning}</AlertDescription>
+        </Alert>
+      )}
       {error && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
@@ -724,12 +754,12 @@ export default function PnLBalancePage() {
       {/* P&L Balance Table */}
       <Card>
         <CardHeader>
-          <CardTitle>P&L Balance Table - {selectedYear}</CardTitle>
+          <CardTitle>{ready ? t('pnl.title') : 'P&L Balance'} - {selectedYear}</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center items-center h-40">
-              <div className="text-muted-foreground">Loading P&L data...</div>
+              <div className="text-muted-foreground">{ready ? t('pnl.alerts.loading') : 'Loading P&L data...'}</div>
             </div>
           ) : error ? (
             <div className="text-red-500 text-center p-4">{error}</div>
@@ -738,13 +768,13 @@ export default function PnLBalancePage() {
               <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[300px]">Category</TableHead>
+                  <TableHead className="w-[300px]">{ready ? t('pnl.table.category') : 'Category'}</TableHead>
                   {MONTHS.filter(month => availableMonths.includes(month.value)).map(month => (
                     <TableHead key={month.value} className="text-center min-w-[100px]">
                       {month.label}
                     </TableHead>
                   ))}
-                  <TableHead className="text-center min-w-[100px] font-bold">Totaal</TableHead>
+                  <TableHead className="text-center min-w-[100px] font-bold">{ready ? t('pnl.table.total') : 'Total'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
