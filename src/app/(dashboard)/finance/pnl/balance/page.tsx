@@ -346,14 +346,43 @@ export default function PnLBalancePage() {
       MONTHS.forEach(month => {
         let monthlyTotal = 0;
         
-        // Sum all subcategories for this main category
-        if (categoryConfig.subcategories) {
+        // For labor categories (Arbeidskosten, Contract Arbeid, Flex Arbeid, Overige Arbeid),
+        // we need to aggregate from actual database categories (the sub-subcategories)
+        const isLaborCategory = categoryConfig.category === 'Arbeidskosten' || 
+                                categoryConfig.category === 'Contract Arbeid' || 
+                                categoryConfig.category === 'Flex Arbeid' ||
+                                categoryConfig.category === 'Overige Arbeid';
+        
+        if (isLaborCategory && categoryConfig.subcategories) {
+          // Aggregate from nested subcategories (actual database category names)
           categoryConfig.subcategories.forEach(subcategoryName => {
-            const subcategoryData = rawData.filter(d => 
-              d.category === subcategoryName && d.month === month.value
-            );
-            monthlyTotal += subcategoryData.reduce((sum, d) => sum + (d.amount || 0), 0);
+            const subcategoryConfig = COGS_CATEGORIES.find(c => c.category === subcategoryName);
+            if (subcategoryConfig && subcategoryConfig.subcategories && subcategoryConfig.subcategories.length > 0) {
+              // Aggregate from sub-subcategories (actual database categories like 'Lonen en salarissen')
+              subcategoryConfig.subcategories.forEach(dbCategoryName => {
+                const dbCategoryData = rawData.filter(d => 
+                  d.category === dbCategoryName && d.month === month.value
+                );
+                monthlyTotal += dbCategoryData.reduce((sum, d) => sum + (d.amount || 0), 0);
+              });
+            } else {
+              // If the subcategory itself is a database category (no further nesting)
+              const subcategoryData = rawData.filter(d => 
+                d.category === subcategoryName && d.month === month.value
+              );
+              monthlyTotal += subcategoryData.reduce((sum, d) => sum + (d.amount || 0), 0);
+            }
           });
+        } else {
+          // Standard aggregation: sum all subcategories for this main category
+          if (categoryConfig.subcategories) {
+            categoryConfig.subcategories.forEach(subcategoryName => {
+              const subcategoryData = rawData.filter(d => 
+                d.category === subcategoryName && d.month === month.value
+              );
+              monthlyTotal += subcategoryData.reduce((sum, d) => sum + (d.amount || 0), 0);
+            });
+          }
         }
         
         // Also check if the main category itself has data
@@ -386,11 +415,31 @@ export default function PnLBalancePage() {
           MONTHS.forEach(month => {
             let monthlyTotal = 0;
             
-            // Check if subcategory has its own data
-            const subcategoryData = rawData.filter(d => 
-              d.category === subcategoryName && d.month === month.value
-            );
-            monthlyTotal += subcategoryData.reduce((sum, d) => sum + (d.amount || 0), 0);
+            // For labor subcategories (Contract Arbeid, Flex Arbeid, Overige Arbeid),
+            // aggregate from their actual database categories (sub-subcategories)
+            const isLaborSubcategory = subcategoryName === 'Contract Arbeid' || 
+                                      subcategoryName === 'Flex Arbeid' ||
+                                      subcategoryName === 'Overige Arbeid';
+            
+            if (isLaborSubcategory) {
+              // Find the subcategory config to get its subcategories (actual DB categories)
+              const subcategoryConfig = COGS_CATEGORIES.find(c => c.category === subcategoryName);
+              if (subcategoryConfig && subcategoryConfig.subcategories) {
+                // Aggregate from actual database categories
+                subcategoryConfig.subcategories.forEach(dbCategoryName => {
+                  const dbCategoryData = rawData.filter(d => 
+                    d.category === dbCategoryName && d.month === month.value
+                  );
+                  monthlyTotal += dbCategoryData.reduce((sum, d) => sum + (d.amount || 0), 0);
+                });
+              }
+            } else {
+              // Standard: check if subcategory has its own data
+              const subcategoryData = rawData.filter(d => 
+                d.category === subcategoryName && d.month === month.value
+              );
+              monthlyTotal += subcategoryData.reduce((sum, d) => sum + (d.amount || 0), 0);
+            }
             
             subcategory.amounts[month.value] = monthlyTotal;
             subcategory.total += monthlyTotal;
