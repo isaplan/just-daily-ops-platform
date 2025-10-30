@@ -18,16 +18,25 @@ interface DocFile {
 const docFiles: DocFile[] = [
   { path: "docs/README.md", title: "Documentation Index", route: "/docs" },
   { path: "docs/finance/README.md", title: "Finance Overview", route: "/docs/finance" },
-  { path: "docs/finance/database.md", title: "Finance Database", route: "/docs/finance/database" },
-  { path: "docs/finance/pages.md", title: "Finance Pages", route: "/docs/finance/pages" },
-  { path: "docs/finance/components.md", title: "Finance Components", route: "/docs/finance/components" },
-  { path: "docs/finance/api-endpoints.md", title: "Finance API Endpoints", route: "/docs/finance/api-endpoints" },
-  { path: "docs/finance/data-flow.md", title: "Finance Data Flow", route: "/docs/finance/data-flow" },
+  { path: "docs/finance/database.md", title: "Database", route: "/docs/finance/database" },
+  { path: "docs/finance/pages.md", title: "Pages", route: "/docs/finance/pages" },
+  { path: "docs/finance/components.md", title: "Components", route: "/docs/finance/components" },
+  { path: "docs/finance/api-endpoints.md", title: "API Endpoints", route: "/docs/finance/api-endpoints" },
+  { path: "docs/finance/data-flow.md", title: "Data Flow", route: "/docs/finance/data-flow" },
 ];
 
 export default function DocsPage() {
   const pathname = usePathname();
-  const currentDoc = docFiles.find(doc => doc.route === pathname) || docFiles[0];
+  
+  // Find current doc based on pathname, handling nested routes
+  const currentDoc = docFiles.find(doc => {
+    if (pathname === doc.route) return true;
+    // Handle finance sub-routes
+    if (pathname.startsWith("/docs/finance") && doc.route.startsWith("/docs/finance")) {
+      return pathname === doc.route;
+    }
+    return false;
+  }) || (pathname === "/docs" ? docFiles[0] : docFiles.find(doc => doc.route === "/docs/finance/README.md".replace("docs/", "/docs/")) || docFiles[0]);
   const [content, setContent] = useState<string>("");
   const [loading, setLoading] = useState(true);
 

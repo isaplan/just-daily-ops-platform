@@ -1,4 +1,4 @@
-import DocsPage from "../../page";
+import DocsPage from "../page";
 
 export default function FinanceDocsPage() {
   return <DocsPage />;
