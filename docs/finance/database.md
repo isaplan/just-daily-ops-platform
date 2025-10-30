@@ -14,6 +14,13 @@
   - `year`, `month`, `location_id`, `import_id`
 - **Usage**: Source data for aggregation; not recommended for direct queries in UI
 - **Endpoint**: `/api/finance/pnl-data?year=2025&location=all`
+- **Related Pages**:
+  - **Import**: [`/finance/imports/powerbi-import`](../../src/app/(dashboard)/finance/imports/powerbi-import.tsx) - PowerBI Excel file upload
+- **Related Components**:
+  - [`PowerBIImport`](../../src/app/(dashboard)/finance/imports/powerbi-import.tsx) - Import interface
+- **Related Services**:
+  - [`powerbi/orchestrator.ts`](../../src/lib/finance/powerbi/orchestrator.ts) - Import orchestration
+  - [`powerbi/aggregation-service.ts`](../../src/lib/finance/powerbi/aggregation-service.ts) - Aggregation processing
 
 ### Aggregated Tables
 
@@ -33,6 +40,15 @@
 - **Unique Constraint**: `(location_id, year, month)`
 - **Endpoint**: `/api/finance/pnl-aggregated-data?year=2025&location=all&month=1`
 - **Usage**: **PRIMARY SOURCE** for P&L Balance page - no calculations needed!
+- **Related Pages**:
+  - **P&L Balance**: [`/finance/pnl/balance`](../../src/app/(dashboard)/finance/pnl/balance/page.tsx) - Monthly P&L balance table
+  - **P&L Analysis**: [`/finance/pnl`](../../src/app/(dashboard)/finance/pnl/page.tsx) - P&L analysis with filters
+  - **Finance Dashboard**: [`/finance`](../../src/app/(dashboard)/finance/page.tsx) - Finance overview
+- **Related Components**:
+  - Uses `LanguageSwitcher` for i18n support
+- **Related Services**:
+  - [`powerbi/aggregation-service.ts`](../../src/lib/finance/powerbi/aggregation-service.ts) - Calculates and stores aggregated data
+  - [`pnl-calculations.ts`](../../src/lib/finance/pnl-calculations.ts) - Calculation utilities
 
 #### `powerbi_pnl_aggregated_subcategories`
 - **Purpose**: Detailed subcategory breakdowns linked to aggregated records
@@ -45,6 +61,10 @@
 - **Unique Constraint**: `(aggregated_id, subcategory)`
 - **Endpoint**: `/api/finance/pnl-aggregated-subcategories?aggregated_id=...`
 - **Usage**: For detailed breakdowns when main category is expanded
+- **Related Pages**:
+  - **P&L Balance**: [`/finance/pnl/balance`](../../src/app/(dashboard)/finance/pnl/balance/page.tsx) - Shows subcategories when expanded
+- **Related Components**:
+  - Expandable rows in P&L Balance table
 
 #### `powerbi_pnl_aggregated_data`
 - **Purpose**: Alternative aggregated table (may be deprecated in favor of `powerbi_pnl_aggregated`)
