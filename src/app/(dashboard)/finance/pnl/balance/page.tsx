@@ -164,7 +164,7 @@ const COGS_CATEGORIES = [
       'Kantoorkosten',
       'Verkoop gerelateerde kosten'
     ],
-    isCollapsible: true
+    isCollapsible: false // Don't show sub-categories
   },
   {
     category: 'Accountants- en advieskosten',
@@ -228,7 +228,7 @@ const COGS_CATEGORIES = [
       'Afschrijvingen op immateriële vaste activa',
       'Afschrijvingen op materiële vaste activa'
     ],
-    isCollapsible: true
+    isCollapsible: false // Don't show sub-categories
   },
   {
     category: 'Afschrijvingen op immateriële vaste activa',
@@ -251,7 +251,7 @@ const COGS_CATEGORIES = [
       'Rentelasten en soortgelijke kosten',
       'Opbrengst van vorderingen die tot de vaste activa behoren en van effecten'
     ],
-    isCollapsible: true
+    isCollapsible: false // Don't show sub-categories
   },
   {
     category: 'Rentebaten en soortgelijke opbrengsten',
@@ -368,8 +368,8 @@ export default function PnLBalancePage() {
 
       processed.push(mainCategory);
 
-      // Add subcategories
-      if (categoryConfig.subcategories) {
+      // Add subcategories only if category is collapsible (user wants to see them)
+      if (categoryConfig.subcategories && categoryConfig.isCollapsible !== false) {
         categoryConfig.subcategories.forEach(subcategoryName => {
           const subcategory: ProcessedPnLData = {
             category: subcategoryName,
@@ -467,6 +467,49 @@ export default function PnLBalancePage() {
     });
 
     processed.push(resultaat);
+
+    // Add any additional categories from raw data that weren't in COGS_CATEGORIES
+    const processedCategoryNames = new Set(processed.map(p => p.category));
+    const allRawCategories = new Set(rawData.map(d => d.category).filter(Boolean));
+    
+    allRawCategories.forEach(categoryName => {
+      // Skip if already processed
+      if (processedCategoryNames.has(categoryName)) return;
+      
+      // Skip if it's a configured subcategory (check if it's in any category's subcategories array)
+      const isConfiguredSubcategory = COGS_CATEGORIES.some(c => 
+        c.subcategories && c.subcategories.includes(categoryName)
+      );
+      if (isConfiguredSubcategory) return;
+      
+      // Add the category with its data
+      const additionalCategory: ProcessedPnLData = {
+        category: categoryName,
+        subcategory: null,
+        amounts: {},
+        total: 0,
+        isExpanded: false,
+        isSubcategory: false,
+        isCollapsible: false
+      };
+      
+      MONTHS.forEach(month => {
+        const categoryData = rawData.filter(d => 
+          d.category === categoryName && 
+          d.month === month.value &&
+          !d.subcategory // Only include top-level category data
+        );
+        const monthlyTotal = categoryData.reduce((sum, d) => sum + (d.amount || 0), 0);
+        additionalCategory.amounts[month.value] = monthlyTotal;
+        additionalCategory.total += monthlyTotal;
+      });
+      
+      // Only add if there's data
+      if (additionalCategory.total !== 0) {
+        processed.push(additionalCategory);
+        processedCategoryNames.add(categoryName);
+      }
+    });
 
     return processed;
   }, [MONTHS]);
