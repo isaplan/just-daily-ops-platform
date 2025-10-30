@@ -493,13 +493,17 @@ export default function PnLBalancePage() {
 
       const rawData: PnLData[] = result.data || [];
       
-      // Check if database is down and show non-blocking warning
-      if (result.meta?.warning) {
-        console.warn('Database warning:', result.meta.warning);
-        setWarning(ready ? t('pnl.alerts.databaseWarning') : 'Database temporarily unavailable. Showing mock data for testing.');
-      } else if (rawData.length === 0) {
-        // No data found for the selected year/location
-        setError(ready ? t('pnl.alerts.noData') : 'No P&L data available for the selected criteria.');
+      // Clear any previous warnings when we get live data
+      if (result.meta?.isLiveData) {
+        setWarning(null);
+        console.log('[P&L Balance] Using live data from database');
+      }
+      
+      // Only show error if there's actually an error, not just empty data
+      if (rawData.length === 0) {
+        // No data found for the selected year/location - this is expected if no data exists
+        console.log('[P&L Balance] No data found for the selected criteria');
+        setError(null); // Don't show error for empty results - just show empty state
       }
       
       // Extract available months from the data
@@ -519,7 +523,7 @@ export default function PnLBalancePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedYear, selectedLocation, processPnLData, t, ready]);
+  }, [selectedYear, selectedLocation, processPnLData]);
 
   // Validate balance with 0.5% error margin
   const validateBalance = (data: ProcessedPnLData[]): ValidationResult => {

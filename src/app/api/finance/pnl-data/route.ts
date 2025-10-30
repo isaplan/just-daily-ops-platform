@@ -14,7 +14,9 @@ interface MockPnLData {
 
 /**
  * Generate mock P&L data for testing when database is unavailable
+ * NOTE: Currently not used - using live data only
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function generateMockPnLData(year: number, location: string) {
   const categories = [
     'Netto-omzet groepen',
@@ -117,40 +119,12 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // DEFENSIVE: Create Supabase client with timeout
+    // Create Supabase client
     console.log('[API /finance/pnl-data] Creating Supabase client...');
     const supabase = await createClient();
     console.log('[API /finance/pnl-data] Supabase client created successfully');
 
-    // DEFENSIVE: Test database connection with timeout
-    console.log('[API /finance/pnl-data] Testing database connection...');
-    const connectionTest = await Promise.race([
-      supabase.from('powerbi_pnl_data').select('count', { count: 'exact', head: true }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Database connection timeout')), 10000))
-    ]).catch(error => {
-      console.error('[API /finance/pnl-data] Database connection failed:', error);
-      return { error: error.message };
-    });
-
-    if (connectionTest && typeof connectionTest === 'object' && 'error' in connectionTest) {
-      console.error('[API /finance/pnl-data] Database is down, returning mock data for testing');
-      
-      // Generate mock data for testing the P&L structure
-      const mockData = generateMockPnLData(year, location);
-      
-      return NextResponse.json({
-        success: true,
-        data: mockData,
-        meta: {
-          year,
-          location,
-          recordCount: mockData.length,
-          warning: 'Database temporarily unavailable. Showing mock data for testing.'
-        }
-      });
-    }
-
-    // DEFENSIVE: Build query with proper filtering
+    // Build query with proper filtering - directly query live data
     let query = supabase
       .from('powerbi_pnl_data')
       .select('category, subcategory, gl_account, amount, month, location_id, year, import_id')
@@ -197,35 +171,29 @@ export async function GET(request: NextRequest) {
     }
 
     const data = allData;
-    const error: string | null = null;
     console.log('[API /finance/pnl-data] Paginated query completed. Total records:', data.length);
 
-    if (error) {
-      console.error('[API /finance/pnl-data] Database error:', error);
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to fetch P&L data',
-        details: 'Database error'
-      }, { status: 500 });
-    }
+    console.log(`[API /finance/pnl-data] Successfully fetched ${data?.length || 0} P&L records for year ${year}, location ${location}`);
 
-    console.log(`[API /finance/pnl-data] Fetched ${data?.length || 0} P&L records for year ${year}, location ${location}`);
-
+    // Return live data - if no data found, return empty array (not mock data)
     return NextResponse.json({
       success: true,
       data: data || [],
       meta: {
         year,
         location,
-        recordCount: data?.length || 0
+        recordCount: data?.length || 0,
+        isLiveData: true
       }
     });
 
   } catch (error) {
-    console.error('[API /finance/pnl-data] Error:', error);
+    console.error('[API /finance/pnl-data] Error fetching live data:', error);
+    
+    // Only return error, don't fall back to mock data - user wants live data
     return NextResponse.json({
       success: false,
-      error: 'Failed to fetch P&L data',
+      error: 'Failed to fetch P&L data from database',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
