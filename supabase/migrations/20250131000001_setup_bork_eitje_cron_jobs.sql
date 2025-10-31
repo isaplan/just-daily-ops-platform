@@ -41,7 +41,7 @@ BEGIN
 END $$;
 
 -- Create Eitje incremental sync cron job (runs every hour)
--- This will sync the last 7 days of data to catch any gaps
+-- This will sync yesterday's data (edge function handles date calculation automatically)
 SELECT cron.schedule(
   'eitje-incremental-sync-hourly',
   '0 * * * *', -- Every hour at minute 0
@@ -50,7 +50,7 @@ SELECT cron.schedule(
     net.http_post(
       url:='https://cajxmwyiwrhzryvawjkm.supabase.co/functions/v1/eitje-incremental-sync',
       headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhanhtd3lpd3JoenJ5dmF3amttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkxNzA3ODYsImV4cCI6MjA3NDc0Njc4Nn0.fxTY36IVlMiocfwx6R7DoViIOgq-U-EFxtbz9Y_3wsQ"}'::jsonb,
-      body:='{"sync_type": "incremental", "days_back": 7}'::jsonb
+      body:='{}'::jsonb
     ) as request_id;
   $$
 );
@@ -104,7 +104,7 @@ BEGIN
         net.http_post(
           url:='https://cajxmwyiwrhzryvawjkm.supabase.co/functions/v1/eitje-incremental-sync',
           headers:='{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhanhtd3lpd3JoenJ5dmF3amttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkxNzA3ODYsImV4cCI6MjA3NDc0Njc4Nn0.fxTY36IVlMiocfwx6R7DoViIOgq-U-EFxtbz9Y_3wsQ"}'::jsonb,
-          body:='{"sync_type": "incremental", "days_back": 7}'::jsonb
+          body:='{}'::jsonb
         ) as request_id;
       $$
     );
