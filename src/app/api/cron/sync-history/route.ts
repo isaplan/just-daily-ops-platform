@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
 
     // Build query for api_sync_logs
-    // Start with basic columns that should always exist
+    // Start with minimal columns that should always exist, then add optional ones
+    // Handle schema variations - some columns may not exist in all environments
     let query = supabase
       .from('api_sync_logs')
       .select(`
@@ -22,7 +23,6 @@ export async function GET(request: NextRequest) {
         location_id,
         sync_type,
         status,
-        records_inserted,
         error_message,
         started_at,
         completed_at,
@@ -31,8 +31,50 @@ export async function GET(request: NextRequest) {
           name
         )
       `);
+    
+    // Try to add optional columns if they exist
+    // Test for records_inserted and records_fetched
+    let hasRecordsInserted = false;
+    let hasRecordsFetched = false;
+    
+    try {
+      const testResult = await supabase
+        .from('api_sync_logs')
+        .select('records_inserted, records_fetched')
+        .limit(1);
+      
+      if (!testResult.error && testResult.data && testResult.data.length > 0) {
+        hasRecordsInserted = 'records_inserted' in (testResult.data[0] || {});
+        hasRecordsFetched = 'records_fetched' in (testResult.data[0] || {});
+      }
+    } catch (e) {
+      console.log('[API /cron/sync-history] Could not check records columns');
+    }
 
-    // Try to add provider column if it exists (test by trying to select it)
+    // Build final select query with all available columns
+    let selectFields = `
+      id,
+      location_id,
+      sync_type,
+      status,
+      error_message,
+      started_at,
+      completed_at,
+      metadata,
+      locations:location_id (
+        name
+      )
+    `;
+    
+    // Add optional columns if they exist
+    if (hasRecordsInserted) {
+      selectFields = selectFields.replace('metadata,', 'records_inserted, metadata,');
+    }
+    if (hasRecordsFetched) {
+      selectFields = selectFields.replace('metadata,', 'records_fetched, metadata,');
+    }
+    
+    // Try to add provider column if it exists
     let hasProviderColumn = false;
     try {
       const testResult = await supabase
@@ -42,26 +84,10 @@ export async function GET(request: NextRequest) {
       
       if (!testResult.error) {
         hasProviderColumn = true;
-        // Rebuild query with provider column
-        query = supabase
-          .from('api_sync_logs')
-          .select(`
-            id,
-            provider,
-            location_id,
-            sync_type,
-            status,
-            records_inserted,
-            error_message,
-            started_at,
-            completed_at,
-            metadata,
-            locations:location_id (
-              name
-            )
-          `);
+        selectFields = selectFields.replace('id,', 'id, provider,');
         
         // Apply provider filter if column exists
+        query = supabase.from('api_sync_logs').select(selectFields);
         if (provider) {
           query = query.eq('provider', provider);
         } else {
@@ -69,9 +95,11 @@ export async function GET(request: NextRequest) {
         }
       } else {
         console.log('[API /cron/sync-history] provider column not found, will infer from other fields');
+        query = supabase.from('api_sync_logs').select(selectFields);
       }
     } catch (e) {
       console.log('[API /cron/sync-history] Could not check provider column, will infer from other fields');
+      query = supabase.from('api_sync_logs').select(selectFields);
     }
 
     // Get all sync logs (we'll filter by recent activity - cron jobs run hourly)
@@ -143,7 +171,7 @@ export async function GET(request: NextRequest) {
         syncType: log.sync_type,
         status: log.status,
         success: log.status === 'completed',
-        recordsInserted: log.records_inserted || 0,
+        recordsInserted: log.records_inserted ?? log.metadata?.records_inserted ?? log.metadata?.recordsInserted ?? 0,
         errorMessage: log.error_message,
         startedAt: log.started_at,
         completedAt: log.completed_at,
