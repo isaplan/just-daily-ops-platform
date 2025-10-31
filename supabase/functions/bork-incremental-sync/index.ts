@@ -129,12 +129,35 @@ Deno.serve(async (req) => {
           });
         } else {
           console.log(`[bork-incremental-sync] Successfully synced ${location.name}:`, syncResult);
+          
+          // Automatically aggregate the data after successful sync
+          try {
+            console.log(`[bork-incremental-sync] Triggering automatic aggregation for ${location.name}...`);
+            const { data: aggregateResult, error: aggregateError } = await supabase.functions.invoke('bork-aggregate-data', {
+              body: {
+                locationId: location.id,
+                startDate: syncDate,
+                endDate: syncDate
+              }
+            });
+
+            if (aggregateError) {
+              console.warn(`[bork-incremental-sync] Aggregation failed for ${location.name}:`, aggregateError);
+            } else {
+              console.log(`[bork-incremental-sync] Successfully aggregated data for ${location.name}:`, aggregateResult);
+            }
+          } catch (aggError: any) {
+            console.warn(`[bork-incremental-sync] Aggregation error for ${location.name}:`, aggError?.message || aggError);
+            // Don't fail the sync if aggregation fails
+          }
+          
           results.push({
             locationId: location.id,
             locationName: location.name,
             status: 'success',
             recordsFetched: syncResult.recordsFetched || 0,
-            recordsInserted: syncResult.recordsInserted || 0
+            recordsInserted: syncResult.recordsInserted || 0,
+            aggregated: true
           });
         }
       } catch (err: any) {

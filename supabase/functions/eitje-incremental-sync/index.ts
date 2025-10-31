@@ -92,6 +92,27 @@ Deno.serve(async (req) => {
             records: data.records_inserted
           });
           console.log(`[eitje-incremental-sync] ${endpoint}: ${data.records_inserted} records`);
+
+          // Automatically aggregate the data after successful sync
+          try {
+            console.log(`[eitje-incremental-sync] Triggering automatic aggregation for ${endpoint}...`);
+            const { data: aggregateResult, error: aggregateError } = await supabaseClient.functions.invoke('eitje-aggregate-data', {
+              body: {
+                endpoint,
+                startDate: dateStr,
+                endDate: dateStr
+              }
+            });
+
+            if (aggregateError) {
+              console.warn(`[eitje-incremental-sync] Aggregation failed for ${endpoint}:`, aggregateError);
+            } else {
+              console.log(`[eitje-incremental-sync] Successfully aggregated ${endpoint}:`, aggregateResult);
+            }
+          } catch (aggError: any) {
+            console.warn(`[eitje-incremental-sync] Aggregation error for ${endpoint}:`, aggError?.message || aggError);
+            // Don't fail the sync if aggregation fails
+          }
         }
       } catch (endpointError) {
         console.error(`[eitje-incremental-sync] Error syncing ${endpoint}:`, endpointError);
