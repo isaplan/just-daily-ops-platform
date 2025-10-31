@@ -14,11 +14,11 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
 
     // Build query for api_sync_logs
+    // Start with basic columns that should always exist
     let query = supabase
       .from('api_sync_logs')
       .select(`
         id,
-        provider,
         location_id,
         sync_type,
         status,
@@ -30,8 +30,49 @@ export async function GET(request: NextRequest) {
         locations:location_id (
           name
         )
-      `)
-      .in('provider', provider ? [provider] : ['bork', 'eitje']);
+      `);
+
+    // Try to add provider column if it exists (test by trying to select it)
+    let hasProviderColumn = false;
+    try {
+      const testResult = await supabase
+        .from('api_sync_logs')
+        .select('provider')
+        .limit(1);
+      
+      if (!testResult.error) {
+        hasProviderColumn = true;
+        // Rebuild query with provider column
+        query = supabase
+          .from('api_sync_logs')
+          .select(`
+            id,
+            provider,
+            location_id,
+            sync_type,
+            status,
+            records_inserted,
+            error_message,
+            started_at,
+            completed_at,
+            metadata,
+            locations:location_id (
+              name
+            )
+          `);
+        
+        // Apply provider filter if column exists
+        if (provider) {
+          query = query.eq('provider', provider);
+        } else {
+          query = query.in('provider', ['bork', 'eitje']);
+        }
+      } else {
+        console.log('[API /cron/sync-history] provider column not found, will infer from other fields');
+      }
+    } catch (e) {
+      console.log('[API /cron/sync-history] Could not check provider column, will infer from other fields');
+    }
 
     // Get all sync logs (we'll filter by recent activity - cron jobs run hourly)
     // Note: sync_trigger column may not exist in all schemas, so we get all and filter in code
@@ -77,23 +118,41 @@ export async function GET(request: NextRequest) {
     }
 
     // Format results
-    const history = filteredLogs.map((log: any) => ({
-      id: log.id,
-      provider: log.provider,
-      location: log.locations?.name || log.location_id,
-      locationId: log.location_id,
-      syncType: log.sync_type,
-      status: log.status,
-      success: log.status === 'completed',
-      recordsInserted: log.records_inserted || 0,
-      errorMessage: log.error_message,
-      startedAt: log.started_at,
-      completedAt: log.completed_at,
-      duration: log.completed_at && log.started_at
-        ? new Date(log.completed_at).getTime() - new Date(log.started_at).getTime()
-        : null,
-      metadata: log.metadata
-    }));
+    const history = filteredLogs.map((log: any) => {
+      // Infer provider from metadata or sync_type if provider column doesn't exist
+      let inferredProvider: 'bork' | 'eitje' | 'unknown' = 'unknown';
+      if (log.provider) {
+        inferredProvider = log.provider;
+      } else if (log.sync_type) {
+        // Try to infer from sync_type
+        const syncType = String(log.sync_type).toLowerCase();
+        if (syncType.includes('bork')) {
+          inferredProvider = 'bork';
+        } else if (syncType.includes('eitje')) {
+          inferredProvider = 'eitje';
+        }
+      } else if (log.metadata?.provider) {
+        inferredProvider = log.metadata.provider;
+      }
+      
+      return {
+        id: log.id,
+        provider: inferredProvider,
+        location: log.locations?.name || log.location_id,
+        locationId: log.location_id,
+        syncType: log.sync_type,
+        status: log.status,
+        success: log.status === 'completed',
+        recordsInserted: log.records_inserted || 0,
+        errorMessage: log.error_message,
+        startedAt: log.started_at,
+        completedAt: log.completed_at,
+        duration: log.completed_at && log.started_at
+          ? new Date(log.completed_at).getTime() - new Date(log.started_at).getTime()
+          : null,
+        metadata: log.metadata
+      };
+    });
 
     // cronStatus is already set above
 
