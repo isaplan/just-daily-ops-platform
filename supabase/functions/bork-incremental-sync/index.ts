@@ -21,11 +21,34 @@ Deno.serve(async (req) => {
     const { data: syncConfig, error: configError } = await supabase
       .from('bork_sync_config')
       .select('*')
-      .single();
+      .maybeSingle();
 
     if (configError) {
       console.error('[bork-incremental-sync] Error fetching sync config:', configError);
       throw new Error(`Failed to fetch sync config: ${configError.message}`);
+    }
+
+    // Create default config if none exists
+    if (!syncConfig) {
+      const defaultConfig = {
+        mode: 'paused',
+        interval_minutes: 60,
+        enabled_locations: []
+      };
+      
+      const { error: insertError } = await supabase
+        .from('bork_sync_config')
+        .insert(defaultConfig);
+      
+      if (insertError) {
+        console.error('[bork-incremental-sync] Failed to create default config:', insertError);
+      }
+      
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Default config created',
+        mode: 'paused'
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     console.log('[bork-incremental-sync] Sync config:', syncConfig);
@@ -129,6 +152,28 @@ Deno.serve(async (req) => {
           });
         } else {
           console.log(`[bork-incremental-sync] Successfully synced ${location.name}:`, syncResult);
+          
+          // Automatically trigger aggregation after successful sync
+          try {
+            console.log(`[bork-incremental-sync] Triggering automatic aggregation for ${location.name}...`);
+            const aggResult = await supabase.functions.invoke('bork-aggregate-data', {
+              body: {
+                locationId: location.id,
+                startDate: syncDate,
+                endDate: syncDate
+              }
+            });
+
+            if (aggResult.error) {
+              console.warn(`[bork-incremental-sync] Aggregation error for ${location.name}:`, aggResult.error);
+            } else {
+              console.log(`[bork-incremental-sync] Aggregation completed for ${location.name}`);
+            }
+          } catch (aggError: any) {
+            console.warn(`[bork-incremental-sync] Aggregation failed for ${location.name}:`, aggError?.message || aggError);
+            // Don't fail the sync if aggregation fails
+          }
+
           results.push({
             locationId: location.id,
             locationName: location.name,

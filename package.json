@@ -10,6 +10,7 @@
     "compliance:check": "node .ai-compliance-functions/ai-compliance-checker.js",
     "compliance:auto": "node .ai-compliance-functions/auto-compliance.js",
     "compliance:dashboard": "node .ai-compliance-functions/ai-compliance-dashboard.js",
+    "compliance:test": "node .ai-compliance-functions/periodic-test-monitor.js",
     "docs:update": "node scripts/docs/update-finance-docs.js",
     "docs:update:finance": "node scripts/docs/update-finance-docs.js"
   },
