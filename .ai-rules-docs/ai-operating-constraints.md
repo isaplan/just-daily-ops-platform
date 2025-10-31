@@ -70,18 +70,42 @@ This prevents AI from violating rules and destroying working code.
 - **NO LOOPHOLES** - All rules are unbreakable
 - **ASK FIRST** - Always ask before making ANY changes
 
-### **🚫 MANDATORY PRE-ACTION VALIDATOR**
-Before ANY action:
-1. **Check function-registry.json** - Is this function completed?
-2. **Ask user for clarification** - What exactly do you want?
-3. **Show proposed changes** - Get approval before applying
-4. **Make minimal changes** - Only what was specifically requested
+### **🚫 MANDATORY PRE-EXECUTION CHECK (CURSOR TOOL LEVEL ENFORCEMENT)**
+**This check MUST run before ANY tool execution that modifies code.**
+
+Before ANY code modification action:
+1. **Run Pre-Execution Check Script** - Execute `node .ai-compliance-functions/pre-execution-check.js "<task description>"` 
+   - Script checks for existing code that can accomplish the task
+   - Script validates against function-registry.json
+   - Script estimates change size
+   
+2. **Parse Check Output** - Read the JSON output between `===PRE-EXECUTION-CHECK===` and `===END-PRE-CHECK===` delimiters
+   - Status: `PASS` = proceed, `WARN` = show warnings, `BLOCK` = STOP
+   - Existing code: Review listed files before creating new code
+   - Violations: Fix violations before proceeding
+   
+3. **If Status = BLOCK:**
+   - **STOP** immediately - Do NOT execute any modification tools
+   - Report violations to user
+   - Wait for user decision before proceeding
+   
+4. **If Status = WARN:**
+   - Show warnings (existing code found, etc.)
+   - Ask user for confirmation to proceed
+   - Wait for confirmation before proceeding
+   
+5. **If Status = PASS:**
+   - Proceed with caution
+   - Use existing code if found (extend, don't rebuild)
+   - Make minimal changes (only what's needed)
+
+**ENFORCEMENT:** This pre-check must pass BEFORE any `search_replace`, `write_file`, or other modification tools execute. Exit code 1 = BLOCK, exit code 0 = PASS.
 
 ### **🔐 HARD BLOCK SYSTEM**
 - **NEVER replace entire files** - Only modify specific lines
 - **NEVER delete existing functionality** - Only add or modify
 - **NEVER rebuild working code** - Only incremental changes
-- **MAXIMUM 10 lines** of code changes per request
+- **MAXIMUM 100 lines** of code changes per request (matches modular rule)
 - **ALWAYS preserve existing work** - Never destroy what exists
 
 ### **⚡ RUNTIME ENFORCEMENT**
@@ -89,6 +113,41 @@ Before ANY action:
 - **ASK FOR EXPLICIT PERMISSION** to continue
 - **EXPLAIN WHAT WENT WRONG** and how to fix it
 - **NO EXCEPTIONS** - Rules cannot be bypassed
+
+### **🔍 MANDATORY POST-EXECUTION CHECK (CURSOR TOOL LEVEL ENFORCEMENT)**
+**This check MUST run after ANY tool execution that modifies code.**
+
+After ANY code modification action completes:
+
+1. **Run Post-Execution Check Script** - Execute `node .ai-compliance-functions/post-execution-check.js [modified files]`
+   - Script validates actual lines changed (must be ≤ 100 per file)
+   - Script checks for registry violations
+   - Script detects full file replacements
+   - Script detects excessive deletions
+   
+2. **Parse Check Output** - Read the JSON output between `===POST-EXECUTION-CHECK===` and `===END-POST-CHECK===` delimiters
+   - Status: `PASS` = no violations, `VIOLATIONS` = violations found
+   - Summary: Total files modified, lines changed, violation counts
+   - Violations: List of all violations with severity
+   - Fixes: Suggested fixes for each violation
+   
+3. **If Violations Detected:**
+   - **REPORT IMMEDIATELY** to user with:
+     - List of all violations (critical, high, medium)
+     - Suggested fixes for each
+     - Required actions
+   - **ASK USER** to choose:
+     - Fix violations now
+     - Continue as-is (user acknowledges violations)
+     - Revert changes
+   - **STOP** until user decides
+   
+4. **If No Violations:**
+   - Confirm work completed successfully
+   - Summarize what was changed
+   - Continue with workflow
+
+**ENFORCEMENT:** This post-check must run AFTER any code modification tools complete. Violations must be reported to user before continuing. Exit code 1 = violations found, exit code 0 = pass.
 
 ## 📋 **CORE RULES ENFORCEMENT**
 
@@ -294,12 +353,37 @@ Policy: One mode only (DEFENSIVE). One model per task; escalate only if blocked.
 - Open branches guard: if >5 feature branches exist, system asks to prioritize merges before opening a new one.
 - Keywords to merge (explicit approval required): "merge to dev", "promote to development", "mark done and merge".
 
-### 🔐 Hard Enforcement Checks (Cannot Bypass)
-Before any action other than reading context, the assistant MUST verify:
-1) Active mode == DEFENSIVE and a selected target branch exists.
-2) Current task has an approved Plan (Sonnet 4.5) with affected files.
-3) Operation matches the approved plan; otherwise STOP and ask.
-4) For code changes, commit gates run: typecheck, lint; only approved files in diff.
-5) Post‑edit, run Verify Gate; on failure → rollback and STOP.
+### 🔐 Hard Enforcement Checks at Cursor Tool Level (Cannot Bypass)
+
+**PRE-EXECUTION GATE (Blocks tool execution):**
+Before any tool that modifies code (`search_replace`, `write_file`, etc.):
+1) **Pre-Execution Check** - Run `node .ai-compliance-functions/pre-execution-check.js "<task>"` and parse JSON output
+2) **Registry Check** - Verify function not marked "completed" + "do not touch"  
+3) **Size Check** - Verify planned changes ≤ 100 lines (estimated)
+4) **Existing Code Check** - Use existing code if found, don't rebuild
+5) **Status Validation** - If status = BLOCK → **BLOCK tool execution** → Report to user → Wait for approval
+6) **Mode Check** - Verify DEFENSIVE mode active
+
+**POST-EXECUTION GATE (Reports violations):**
+After any tool that modifies code completes:
+1) **Post-Execution Check** - Run `node .ai-compliance-functions/post-execution-check.js [files]` and parse JSON output
+2) **Size Violation Check** - Count actual lines changed (must be ≤ 100 per file)
+3) **Code Reuse Check** - Verify existing code was used when possible
+4) **Preservation Check** - Verify no existing functionality was deleted
+5) **Registry Violation Check** - Verify no completed functions were modified
+6) **Violation Reporting** - If violations detected → **Report to user immediately** → Suggest fixes → Wait for user decision
+
+**IMPLEMENTATION STATUS:**
+- Pre/post-check scripts are implemented and available
+- Enforcement relies on AI compliance (scripts must be run manually)
+- True tool-level enforcement would require Cursor/VSCode extension (not yet implemented)
+- Scripts output structured JSON that AI must parse and act on
+
+**WORKFLOW:**
+1. User requests code change
+2. AI runs pre-execution-check.js → Parses output → Acts on status
+3. AI executes code modification tools (if pre-check passed)
+4. AI runs post-execution-check.js → Parses output → Reports violations
+5. AI waits for user decision if violations found
 
 If any check fails, assistant MUST NOT proceed and MUST ask for guidance.

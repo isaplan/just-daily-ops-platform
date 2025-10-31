@@ -15,21 +15,32 @@ export function I18nProvider({ children }: I18nProviderProps) {
   useEffect(() => {
     setIsClient(true);
     // Wait for i18n to be ready before rendering
-    i18n.on('initialized', () => {
+    const handleInitialized = () => {
       setIsReady(true);
-    });
+    };
+    
+    i18n.on('initialized', handleInitialized);
     
     // If already initialized, set ready immediately
     if (i18n.isInitialized) {
       setIsReady(true);
     }
+    
+    // Cleanup listener
+    return () => {
+      i18n.off('initialized', handleInitialized);
+    };
   }, []);
 
-  if (!isClient || !isReady) {
-    // Return children without i18n during SSR and until i18n is ready
+  // Always render children wrapped in I18nextProvider to avoid Suspense hydration issues
+  // The provider handles the initialization internally
+  if (!isClient) {
+    // During SSR, render without i18n provider
     return <>{children}</>;
   }
 
+  // On client, always render with I18nextProvider (even if not ready yet)
+  // This ensures consistent React tree structure and avoids Suspense boundary issues
   return (
     <I18nextProvider i18n={i18n}>
       {children}

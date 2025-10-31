@@ -12,6 +12,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Save, TestTube, RefreshCw, Database, Settings, CheckCircle, XCircle, Clock, BarChart3 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { EitjeCronjobConfig } from '@/components/finance/EitjeCronjobConfig';
+import { CronSyncHistory } from '@/components/finance/CronSyncHistory';
 
 interface EitjeCredentials {
   id?: string;
@@ -114,10 +116,10 @@ export default function EitjeSettingsPage() {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.credentials) {
-          console.log('Loaded credentials from database:', data.credentials);
+          // Credentials loaded
           setCredentials(data.credentials);
         } else {
-          console.log('No credentials found in database, using defaults');
+          // No credentials found, using defaults
         }
       } else {
         console.log('Failed to load credentials, using defaults');
@@ -140,7 +142,7 @@ export default function EitjeSettingsPage() {
       const data = await response.json();
       
       if (data.success) {
-        console.log('Credentials saved successfully');
+        // Credentials saved successfully
         setConnectionStatus('unknown'); // Reset connection status
       } else {
         console.error('Failed to save credentials:', data.error);
@@ -293,7 +295,7 @@ export default function EitjeSettingsPage() {
       });
       
       setMonthlyProgress(newMonthlyProgress);
-      console.log('Monthly progress loaded for all months:', newMonthlyProgress);
+      // Monthly progress loaded
     } catch (error) {
       console.error('Failed to load progress:', error);
     } finally {
@@ -330,7 +332,7 @@ export default function EitjeSettingsPage() {
               lastSync: data.data.lastSync
             };
             
-            console.log(`[loadMonthProgress] ${endpoint} for ${year}-${month}: rawDataCount=${data.data.rawDataCount}, status=${status}`);
+            // Progress data loaded for endpoint
           } else {
             console.warn(`[loadMonthProgress] ${endpoint} for ${year}-${month}: API returned success=false`);
             endpointData[endpoint] = {
@@ -363,7 +365,7 @@ export default function EitjeSettingsPage() {
       const startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
       const endDate = new Date(year, month, 0).toISOString().split('T')[0]; // Last day of month
       
-      console.log(`Syncing ${year} month ${month} (${startDate} to ${endDate})`);
+      // Syncing month
       
       // Sync master data endpoints (no date restrictions)
       const masterEndpoints = ['environments', 'teams', 'users', 'shift_types'];
@@ -382,7 +384,7 @@ export default function EitjeSettingsPage() {
 
         const data = await response.json();
         if (data.success) {
-          console.log(`${endpoint} synced: ${data.result.recordsProcessed} records`);
+          // Endpoint synced successfully
         } else {
           console.error(`${endpoint} sync failed:`, data.error);
         }
@@ -393,14 +395,14 @@ export default function EitjeSettingsPage() {
       const daysDiff = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
       
       if (daysDiff > 7) {
-        console.log(`Date range is ${daysDiff} days, chunking into 7-day periods for data endpoints...`);
+        // Chunking large date range
         const chunks = chunkDateRange(startDate, endDate);
         
         for (const endpoint of dataEndpoints) {
           let totalRecords = 0;
           for (let i = 0; i < chunks.length; i++) {
             const chunk = chunks[i];
-            console.log(`Syncing ${endpoint} chunk ${i + 1}/${chunks.length}: ${chunk.start} to ${chunk.end}`);
+            // Syncing chunk
             
             const response = await fetch('/api/eitje/sync', {
               method: 'POST',
@@ -416,12 +418,12 @@ export default function EitjeSettingsPage() {
             const data = await response.json();
             if (data.success) {
               totalRecords += data.result.recordsProcessed || 0;
-              console.log(`${endpoint} chunk ${i + 1} completed: ${data.result.recordsProcessed} records`);
+              // Chunk completed
             } else {
               console.error(`${endpoint} chunk ${i + 1} failed:`, data.error);
             }
           }
-          console.log(`${endpoint} total synced: ${totalRecords} records across ${chunks.length} chunks`);
+          // Total records synced across chunks
         }
       } else {
         // Single sync for 7 days or less
@@ -439,7 +441,7 @@ export default function EitjeSettingsPage() {
 
           const data = await response.json();
           if (data.success) {
-            console.log(`${endpoint} synced: ${data.result.recordsProcessed} records`);
+            // Endpoint synced
           } else {
             console.error(`${endpoint} sync failed:`, data.error);
           }
@@ -450,7 +452,7 @@ export default function EitjeSettingsPage() {
       setSyncedMonths(prev => new Set([...prev, monthKey]));
       
       // Auto-process the synced data into aggregated tables
-      console.log(`Processing aggregated data for ${year} month ${month}...`);
+      // Processing aggregated data
       try {
         const processResponse = await fetch('/api/eitje/process', {
           method: 'POST',
@@ -465,7 +467,7 @@ export default function EitjeSettingsPage() {
         
         const processData = await processResponse.json();
         if (processData.success) {
-          console.log(`Processing completed: ${processData.result.recordsProcessed} records processed`);
+          // Processing completed
         } else {
           console.error('Processing failed:', processData.error);
         }
@@ -483,12 +485,12 @@ export default function EitjeSettingsPage() {
           ...prev,
           [monthKey]: monthProgress
         }));
-        console.log(`Progress data refreshed for ${year} month ${month}:`, monthProgress);
+        // Progress data refreshed
       } else {
         console.warn(`Failed to load progress data for ${year} month ${month}`);
       }
       
-      console.log(`${year} month ${month} sync and processing completed`);
+      // Sync and processing completed
       
     } catch (error) {
       console.error(`${year} month ${month} sync failed:`, error);
@@ -505,10 +507,10 @@ export default function EitjeSettingsPage() {
   const handleResyncMonth = async (month: number, year: number = 2024) => {
     setIsSyncing(true);
     try {
-      console.log(`Resyncing ${year} month ${month}...`);
+      // Resyncing month
       // Same logic as sync but with resync messaging
       await handleSyncMonth(month, year);
-      console.log(`${year} month ${month} resync completed`);
+      // Resync completed
     } catch (error) {
       console.error(`${year} month ${month} resync failed:`, error);
     } finally {
@@ -534,7 +536,7 @@ export default function EitjeSettingsPage() {
       const data = await response.json();
       
       if (data.success) {
-        console.log('Raw data processed successfully:', data.result);
+        // Raw data processed successfully
         await loadRawData(); // Refresh data
       } else {
         console.error('Failed to process raw data:', data.error);
@@ -563,7 +565,7 @@ export default function EitjeSettingsPage() {
       const data = await response.json();
       
       if (data.success) {
-        console.log(`Endpoint ${endpointName} test successful:`, data.result);
+        // Endpoint test successful
         alert(`✅ ${endpointName} test successful!\n\nResponse time: ${data.result.responseTime}ms\nData count: ${data.result.dataCount || 'N/A'}`);
       } else {
         console.error(`Endpoint ${endpointName} test failed:`, data.error);
@@ -594,7 +596,7 @@ export default function EitjeSettingsPage() {
       const data = await response.json();
       
       if (data.success) {
-        console.log(`Endpoint ${endpointName} sync successful:`, data.result);
+        // Endpoint sync successful
         alert(`✅ ${endpointName} sync successful!\n\nRecords processed: ${data.result.recordsProcessed}\nRecords added: ${data.result.recordsAdded}\nErrors: ${data.result.errors}`);
       } else {
         console.error(`Endpoint ${endpointName} sync failed:`, data.error);
@@ -620,7 +622,7 @@ export default function EitjeSettingsPage() {
       const data = await response.json();
       
       if (data.success) {
-        console.log('All endpoints test completed:', data.results);
+        // All endpoints test completed
         const results = data.results;
         const successful = Object.values(results).filter((r: any) => r.success).length;
         const total = Object.keys(results).length;
@@ -674,6 +676,7 @@ export default function EitjeSettingsPage() {
           {/* <TabsTrigger value="sync">Data Sync</TabsTrigger> - Replaced by Progress tab */}
           <TabsTrigger value="progress">Progress</TabsTrigger>
           <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
+          <TabsTrigger value="cronjob">Cronjob</TabsTrigger>
           {/* <TabsTrigger value="raw-data">Raw Data</TabsTrigger> - Replaced by Progress tab */}
           {/* <TabsTrigger value="processing">Data Processing</TabsTrigger> - Replaced by Progress tab */}
         </TabsList>
@@ -1298,6 +1301,12 @@ export default function EitjeSettingsPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Cronjob Tab */}
+        <TabsContent value="cronjob" className="space-y-6">
+          <EitjeCronjobConfig />
+          <CronSyncHistory provider="eitje" limit={10} />
         </TabsContent>
 
         {/* Data Processing Tab - REPLACED BY PROGRESS TAB */}

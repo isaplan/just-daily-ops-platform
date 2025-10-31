@@ -82,15 +82,37 @@ Deno.serve(async (req) => {
     });
 
     // Fetch global Eitje API credentials
-    const { data: credentials } = await supabaseClient
+    // Handle multiple credentials by taking the first active one
+    console.log('[eitje-api-sync] Fetching credentials...');
+    const { data: credentialsList, error: credError } = await supabaseClient
       .from('api_credentials')
       .select('*')
       .eq('provider', 'eitje')
       .eq('is_active', true)
-      .single();
+      .limit(1);
+    
+    if (credError) {
+      console.error('[eitje-api-sync] Error fetching credentials:', JSON.stringify(credError, null, 2));
+      throw new Error(`Failed to fetch credentials: ${credError.message || 'Unknown error'}`);
+    }
+    
+    console.log('[eitje-api-sync] Credentials query result:', {
+      hasData: !!credentialsList,
+      dataLength: credentialsList?.length || 0,
+      firstCredId: credentialsList?.[0]?.id || 'none'
+    });
+    
+    const credentials = credentialsList && Array.isArray(credentialsList) && credentialsList.length > 0 
+      ? credentialsList[0] 
+      : null;
 
-    if (!credentials) {
-      throw new Error('No active Eitje API credentials found');
+    if (!credentials || !credentials.id) {
+      console.error('[eitje-api-sync] No active Eitje API credentials found', {
+        credentialsListLength: credentialsList?.length || 0,
+        credentialsType: typeof credentials,
+        credentialsIsNull: credentials === null
+      });
+      throw new Error('No active Eitje API credentials found. Please configure credentials in the UI.');
     }
 
     console.log('[eitje-api-sync] Using credential ID:', credentials.id);
@@ -260,19 +282,36 @@ Deno.serve(async (req) => {
     };
 
     // Create sync log
-    const { data: syncLog } = await supabaseClient
+    // Use minimal payload - only include columns that definitely exist
+    const syncLogPayload: any = {
+      sync_type: endpoint,
+      status: 'pending'
+    };
+    
+    // Only add optional fields if they exist (don't fail if they don't)
+    // These are tried in order of preference
+    if (location_id) {
+      syncLogPayload.location_id = location_id;
+    }
+    
+    const { data: syncLogData, error: syncLogError } = await supabaseClient
       .from('api_sync_logs')
-      .insert({
-        provider: 'eitje',
-        sync_type: endpoint,
-        status: 'pending',
-        date_range_start: finalStartDate || null,
-        date_range_end: finalEndDate || null,
-        location_id: location_id || null,
-        metadata: { sync_mode, test_mode, header_strategy }
-      })
+      .insert(syncLogPayload)
       .select()
       .single();
+    
+    if (syncLogError) {
+      console.error('[eitje-api-sync] Failed to create sync log:', syncLogError);
+      throw new Error(`Failed to create sync log: ${syncLogError.message}`);
+    }
+    
+    if (!syncLogData || !syncLogData.id) {
+      console.error('[eitje-api-sync] Sync log was not created properly');
+      throw new Error('Failed to create sync log: No ID returned');
+    }
+    
+    const syncLog = syncLogData;
+    console.log('[eitje-api-sync] Created sync log:', syncLog.id);
 
     // Call API with retry logic for auto mode
     let eitjeResponse: Response;
@@ -474,12 +513,19 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('[eitje-api-sync] Fatal error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error('[eitje-api-sync] Fatal error:', errorMessage);
+    console.error('[eitje-api-sync] Error stack:', errorStack);
+    console.error('[eitje-api-sync] Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        details: error?.toString()
+        error: errorMessage,
+        error_type: error instanceof Error ? error.constructor.name : typeof error,
+        details: errorStack || error?.toString()
       }),
       { 
         status: 500,
