@@ -72,8 +72,14 @@ export interface RawPnLData {
  */
 const REVENUE_CATEGORIES = {
   // Netto Omzet Uit Levering Geproduceerd (Low VAT)
+  // Includes both category-level and subcategory-level matches
   netto_omzet_uit_levering: [
+    // Category-level (top-level category names from database)
+    'Netto-omzet uit leveringen geproduceerde goederen',
+    // Note: 'Netto-omzet groepen' is a parent category - don't include to avoid double counting
+    // Subcategory-level (detailed GL accounts)
     'Omzet snacks (btw laag)',
+    'Verkopen snacks (btw laag)', // Alternative naming in data
     'Omzet lunch (btw laag)', 
     'Omzet diner (btw laag)',
     'Omzet menu\'s (btw laag)',
@@ -81,18 +87,27 @@ const REVENUE_CATEGORIES = {
   ],
   
   // Netto Omzet Verkoop Handelsgoederen (Mixed VAT)
+  // Includes both category-level and subcategory-level matches
   netto_omzet_verkoop_handelsgoederen: [
+    // Category-level (top-level category names from database)
+    'Netto-omzet uit verkoop van handelsgoederen',
+    // Note: 'Netto-omzet groepen' is a parent category - don't include to avoid double counting
+    // Subcategory-level (detailed GL accounts)
     'Omzet wijnen (btw hoog)',
     'Omzet gedestilleerd (btw hoog)',
     'Omzet cocktails (btw hoog)',
     'Omzet cider (btw hoog)',
     'Omzet hoog overig (btw hoog)',
+    'Omzet hoog alcoholische warme dranken (btw hoog)', // Additional variant
     'Omzet speciaalbier fles (btw hoog)',
     'Omzet speciaalbier tap (btw hoog)',
     'Omzet tap pilsner (btw hoog)',
     'Omzet koffie / thee (btw laag)',
+    'Verkopen koffie/thee(btw laag)', // Alternative naming in data
     'Omzet frisdranken (btw laag)',
+    'Omzet frisdtranken (btw laag)', // Typo variant in data
     'Omzet alcohol vrij (btw laag)',
+    'Omzet alcohol virj (btw laag)', // Typo variant in data
     'Omzet laag overig (btw laag)',
     'Omzet non food (btw hoog)'
   ]
@@ -103,7 +118,12 @@ const REVENUE_CATEGORIES = {
  */
 const COST_CATEGORIES = {
   // COST OF SALES
+  // Includes both category-level and subcategory-level matches
   inkoopwaarde_handelsgoederen: [
+    // Category-level (top-level category names from database)
+    'Inkoopwaarde handelsgoederen',
+    'Kostprijs van de omzet',
+    // Subcategory-level (detailed GL accounts)
     'Inkopen bieren fles (btw hoog)',
     'Inkopen sterke dranken (btw hoog)',
     'Inkopen wijnen (btw hoog)',
@@ -122,7 +142,12 @@ const COST_CATEGORIES = {
   ],
   
   // LABOR COST COGS - COMPLETE MAPPING
+  // Includes both category-level and subcategory-level matches
   lonen_en_salarissen: [
+    // Category-level (top-level category names from database)
+    'Lonen en salarissen',
+    'Arbeidskosten',
+    // Subcategory-level (detailed GL accounts)
     // Keuken Salaris Kosten
     'Bruto Salarissen Keuken',
     'Doorberekende loonkosten keuken',
@@ -168,7 +193,11 @@ const COST_CATEGORIES = {
   ],
   
   // HOUSING COSTS - SEPARATE CATEGORY (€151,408 missing)
+  // HOUSING COSTS - Includes both category-level and subcategory-level matches
   huisvestingskosten: [
+    // Category-level (top-level category names from database)
+    'Huisvestingskosten',
+    // Subcategory-level (detailed GL accounts)
     'Elektra',
     'Huur gebouwen',
     'Huur',
@@ -180,8 +209,11 @@ const COST_CATEGORIES = {
     'Overige huisvestingskosten'
   ],
   
-  // OPERATING COSTS - SEPARATE CATEGORY (€54,256 missing)
+  // OPERATING COSTS - Includes both category-level and subcategory-level matches
   exploitatie_kosten: [
+    // Category-level (top-level category names from database)
+    'Exploitatie- en machinekosten',
+    // Subcategory-level (detailed GL accounts)
     'Huur machines',
     'Kleine aanschaffingen',
     'Kleine aanschaffingen bar',
@@ -193,8 +225,11 @@ const COST_CATEGORIES = {
     'Glaswerk / bestek'
   ],
   
-  // SALES COSTS - SEPARATE CATEGORY (€18,362 missing)
+  // SALES COSTS - Includes both category-level and subcategory-level matches
   verkoop_kosten: [
+    // Category-level (top-level category names from database)
+    'Verkoop gerelateerde kosten',
+    // Subcategory-level (detailed GL accounts)
     'Decoratie',
     'Advertenties',
     'Reclame',
@@ -205,15 +240,21 @@ const COST_CATEGORIES = {
     'Overige verkoopkosten'
   ],
   
-  // CAR COSTS - SEPARATE CATEGORY (€5,219 missing)
+  // CAR COSTS - Includes both category-level and subcategory-level matches
   autokosten: [
+    // Category-level (top-level category names from database)
+    'Autokosten',
+    // Subcategory-level (detailed GL accounts)
     'Brandstoffen',
     'Onderhoud auto(`s)',
     'Leasekosten auto(`s)'
   ],
   
-  // OFFICE COSTS - SEPARATE CATEGORY (€41,309 missing)
+  // OFFICE COSTS - Includes both category-level and subcategory-level matches
   kantoorkosten: [
+    // Category-level (top-level category names from database)
+    'Kantoorkosten',
+    // Subcategory-level (detailed GL accounts)
     'Kantoorbenodigdheden',
     'Kosten automatisering',
     'Telecommunicatie',
@@ -222,33 +263,50 @@ const COST_CATEGORIES = {
     'Contributies-abonnementen'
   ],
   
-  // INSURANCE COSTS - SEPARATE CATEGORY (€1,500 missing)
+  // INSURANCE COSTS - Includes both category-level and subcategory-level matches
   assurantiekosten: [
+    // Category-level (top-level category names from database)
+    'Assurantiekosten',
+    // Subcategory-level (detailed GL accounts)
     'Overige verzekeringen'
   ],
   
-  // ACCOUNTING COSTS - SEPARATE CATEGORY (€27,333 missing)
+  // ACCOUNTING COSTS - Includes both category-level and subcategory-level matches
   accountantskosten: [
+    // Category-level (top-level category names from database)
+    'Accountants- en advieskosten',
+    // Subcategory-level (detailed GL accounts)
     'Salarisadministratie',
     'Administratiekosten',
     'Advieskosten',
     'Juridische advieskosten'
   ],
   
-  // ADMIN COSTS - SEPARATE CATEGORY (€2,307 missing)
+  // ADMIN COSTS - Includes both category-level and subcategory-level matches
   administratieve_lasten: [
+    // Category-level (top-level category names from database)
+    'Administratieve lasten',
+    // Subcategory-level (detailed GL accounts)
     'Boetes',
     'Kosten betalingsverkeer'
   ],
   
-  // OTHER COSTS - SEPARATE CATEGORY (€665 missing)
+  // OTHER COSTS - Includes both category-level and subcategory-level matches
   andere_kosten: [
+    // Category-level (top-level category names from database)
+    'Andere kosten',
+    // Subcategory-level (detailed GL accounts)
     'Kleine aanschaffingen',
     'Kosten betalingsverkeer Formitable B.V.'
   ],
   
-  // DEPRECIATION - COMPLETE MAPPING (€295,021 missing)
+  // DEPRECIATION - Includes both category-level and subcategory-level matches
   afschrijvingen: [
+    // Category-level (top-level category names from database)
+    'Afschrijvingen op immateriële en materiële vaste activa',
+    'Afschrijvingen op immateriële vaste activa',
+    'Afschrijvingen op materiële vaste activa',
+    // Subcategory-level (detailed GL accounts)
     'Afschrijvingen op immateriële vaste activa',
     'Afschrijvingen op materiële vaste activa',
     'Afschrijvingskosten goodwill',
@@ -257,8 +315,11 @@ const COST_CATEGORIES = {
     'Afschrijvingskosten transportmiddelen'
   ],
   
-  // FINANCIAL COSTS - COMPLETE MAPPING (€39,753 missing)
+  // FINANCIAL COSTS - Includes both category-level and subcategory-level matches
   financiele_baten_lasten: [
+    // Category-level (top-level category names from database)
+    'Financiële baten en lasten',
+    // Subcategory-level (detailed GL accounts)
     'Rentelasten en soortgelijke kosten',
     'Rentebaten en soortgelijke opbrengsten',
     'Rente Rabobank lening 0050083496',
@@ -269,8 +330,11 @@ const COST_CATEGORIES = {
     'Rente belastingen'
   ],
   
-  // REVENUE FROM RECEIVABLES (€5,400 missing)
+  // REVENUE FROM RECEIVABLES - Includes both category-level and subcategory-level matches
   opbrengst_vorderingen: [
+    // Category-level (top-level category names from database)
+    'Opbrengst van vorderingen die tot de vaste activa behoren en van effecten',
+    // Subcategory-level (same as category in this case)
     'Opbrengst van vorderingen die tot de vaste activa behoren en van effecten'
   ]
 };
@@ -279,9 +343,14 @@ const COST_CATEGORIES = {
  * Summary COGS category mappings for high-level analysis
  */
 const SUMMARY_CATEGORIES = {
-  // Revenue splits
+  // Revenue splits - Includes both category-level and subcategory-level matches
   revenue_food: [
+    // Category-level (top-level category names from database)
+    'Netto-omzet uit leveringen geproduceerde goederen',
+    // Note: 'Netto-omzet groepen' is excluded to prevent double counting
+    // Subcategory-level (detailed GL accounts)
     'Omzet snacks (btw laag)',
+    'Verkopen snacks (btw laag)', // Alternative naming variant
     'Omzet lunch (btw laag)', 
     'Omzet diner (btw laag)',
     'Omzet menu\'s (btw laag)',
@@ -289,17 +358,25 @@ const SUMMARY_CATEGORIES = {
   ],
   
   revenue_beverage: [
+    // Category-level (top-level category names from database)
+    'Netto-omzet uit verkoop van handelsgoederen',
+    // Note: 'Netto-omzet groepen' is excluded to prevent double counting
+    // Subcategory-level (detailed GL accounts)
     'Omzet wijnen (btw hoog)',
     'Omzet gedestilleerd (btw hoog)',
     'Omzet cocktails (btw hoog)',
     'Omzet cider (btw hoog)',
     'Omzet hoog overig (btw hoog)',
+    'Omzet hoog alcoholische warme dranken (btw hoog)', // Additional variant
     'Omzet speciaalbier fles (btw hoog)',
     'Omzet speciaalbier tap (btw hoog)',
     'Omzet tap pilsner (btw hoog)',
     'Omzet koffie / thee (btw laag)',
+    'Verkopen koffie/thee(btw laag)', // Alternative naming variant
     'Omzet frisdranken (btw laag)',
+    'Omzet frisdtranken (btw laag)', // Typo variant in data
     'Omzet alcohol vrij (btw laag)',
+    'Omzet alcohol virj (btw laag)', // Typo variant in data
     'Omzet laag overig (btw laag)',
     'Omzet non food (btw hoog)'
   ],
@@ -375,14 +452,45 @@ const SUMMARY_CATEGORIES = {
 
 /**
  * Calculate summary revenue splits from raw data
+ * Handles "Netto-omzet groepen" parent category by checking subcategories
  */
 function calculateRevenueSplit(data: RawPnLData[]): {
   revenue_food: number;
   revenue_beverage: number;
   revenue_total: number;
 } {
-  const revenue_food = sumBySubcategories(data, SUMMARY_CATEGORIES.revenue_food);
-  const revenue_beverage = sumBySubcategories(data, SUMMARY_CATEGORIES.revenue_beverage);
+  // Sum from specific categories (excludes "Netto-omzet groepen" parent)
+  let revenue_food = sumBySubcategories(
+    data.filter(d => d.category !== 'Netto-omzet groepen'),
+    SUMMARY_CATEGORIES.revenue_food
+  );
+  let revenue_beverage = sumBySubcategories(
+    data.filter(d => d.category !== 'Netto-omzet groepen'),
+    SUMMARY_CATEGORIES.revenue_beverage
+  );
+  
+  // Handle "Netto-omzet groepen" parent category - split by subcategory
+  const nettoOmzetGroepen = data.filter(d => d.category === 'Netto-omzet groepen' && d.amount > 0);
+  
+  nettoOmzetGroepen.forEach(record => {
+    const subcat = record.subcategory || '';
+    // Check if subcategory matches food patterns
+    if (SUMMARY_CATEGORIES.revenue_food.some(foodCat => 
+      subcat.includes(foodCat) || 
+      subcat.includes('snacks') || 
+      subcat.includes('lunch') || 
+      subcat.includes('diner') || 
+      subcat.includes('menu') || 
+      subcat.includes('keuken')
+    )) {
+      revenue_food += record.amount;
+    } 
+    // Otherwise it's beverage
+    else {
+      revenue_beverage += record.amount;
+    }
+  });
+  
   const revenue_total = revenue_food + revenue_beverage;
   
   return {
@@ -438,15 +546,38 @@ function calculateRevenue(data: RawPnLData[]): {
   netto_omzet_verkoop_handelsgoederen: number;
   total_revenue: number;
 } {
-  const netto_omzet_uit_levering_geproduceerd = sumBySubcategories(
-    data, 
+  // Sum from specific categories (excludes "Netto-omzet groepen" parent)
+  let netto_omzet_uit_levering_geproduceerd = sumBySubcategories(
+    data.filter(d => d.category !== 'Netto-omzet groepen'),
     REVENUE_CATEGORIES.netto_omzet_uit_levering
   );
   
-  const netto_omzet_verkoop_handelsgoederen = sumBySubcategories(
-    data, 
+  let netto_omzet_verkoop_handelsgoederen = sumBySubcategories(
+    data.filter(d => d.category !== 'Netto-omzet groepen'),
     REVENUE_CATEGORIES.netto_omzet_verkoop_handelsgoederen
   );
+  
+  // Handle "Netto-omzet groepen" parent category - split by subcategory
+  const nettoOmzetGroepen = data.filter(d => d.category === 'Netto-omzet groepen' && d.amount > 0);
+  
+  nettoOmzetGroepen.forEach(record => {
+    const subcat = record.subcategory || '';
+    // Check if subcategory matches leveringen patterns
+    if (REVENUE_CATEGORIES.netto_omzet_uit_levering.some(leverCat => 
+      subcat.includes(leverCat) || 
+      subcat.includes('snacks') || 
+      subcat.includes('lunch') || 
+      subcat.includes('diner') || 
+      subcat.includes('menu') || 
+      subcat.includes('keuken')
+    )) {
+      netto_omzet_uit_levering_geproduceerd += record.amount;
+    } 
+    // Otherwise it's handelsgoederen
+    else {
+      netto_omzet_verkoop_handelsgoederen += record.amount;
+    }
+  });
   
   const total_revenue = netto_omzet_uit_levering_geproduceerd + netto_omzet_verkoop_handelsgoederen;
   
@@ -495,11 +626,22 @@ function calculateCosts(data: RawPnLData[]): {
 }
 
 /**
- * Sum amounts by subcategory names
+ * Sum amounts by subcategory names OR category names
+ * Handles both category-level and subcategory-level data
  */
 function sumBySubcategories(data: RawPnLData[], subcategories: string[]): number {
   return data
-    .filter(d => d.subcategory && subcategories.includes(d.subcategory))
+    .filter(d => {
+      // Match subcategory if it exists
+      if (d.subcategory && subcategories.includes(d.subcategory)) {
+        return true;
+      }
+      // Match category if it exists (for top-level category amounts)
+      if (d.category && subcategories.includes(d.category)) {
+        return true;
+      }
+      return false;
+    })
     .reduce((sum, d) => sum + d.amount, 0);
 }
 
@@ -539,6 +681,7 @@ export async function aggregatePnLData(
   const costs = calculateCosts(rawData);
   
   // Calculate totals
+  // Note: costs.sumBySubcategories already sums all amounts (positive corrections reduce costs)
   const total_cost_of_sales = costs.inkoopwaarde_handelsgoederen;
   const total_labor_costs = costs.lonen_en_salarissen;
   const total_other_costs = 
@@ -553,11 +696,14 @@ export async function aggregatePnLData(
     costs.andere_kosten +
     costs.afschrijvingen +
     costs.financiele_baten_lasten;
+  
   const total_costs = total_cost_of_sales + total_labor_costs + total_other_costs;
   
   // Calculate resultaat using correct formula
+  // Formula: Resultaat = Revenue + Costs + Opbrengst_vorderingen
   // Note: costs are already negative in the database, so we add them instead of subtracting
-  const resultaat = revenue.total_revenue + total_cost_of_sales + total_labor_costs + total_other_costs + costs.opbrengst_vorderingen;
+  // Include opbrengst_vorderingen (positive revenue from receivables)
+  const resultaat = revenue.total_revenue + total_cost_of_sales + total_labor_costs + total_other_costs + (costs.opbrengst_vorderingen || 0);
   
   const aggregatedRecord = {
     location_id: locationId,
@@ -605,7 +751,7 @@ export async function aggregatePnLData(
     total_other_costs,
     total_costs,
     
-    import_id: null
+    import_id: undefined
   };
   
   // Store the aggregated data
@@ -655,7 +801,13 @@ export async function storeSubcategories(
   const supabase = await createClient();
   
   // Create subcategory records
-  const subcategoryRecords = [];
+  const subcategoryRecords: Array<{
+    aggregated_id: string;
+    main_category: string;
+    subcategory: string;
+    gl_account: string;
+    amount: number;
+  }> = [];
   
   // Revenue subcategories
   SUMMARY_CATEGORIES.revenue_food.forEach(subcategory => {
