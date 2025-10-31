@@ -12,6 +12,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Save, TestTube, RefreshCw, Database, Settings, CheckCircle, XCircle, Clock, BarChart3 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { EitjeCronjobConfig } from '@/components/finance/EitjeCronjobConfig';
+import { CronSyncHistory } from '@/components/finance/CronSyncHistory';
 
 interface EitjeCredentials {
   id?: string;
@@ -674,6 +676,7 @@ export default function EitjeSettingsPage() {
           {/* <TabsTrigger value="sync">Data Sync</TabsTrigger> - Replaced by Progress tab */}
           <TabsTrigger value="progress">Progress</TabsTrigger>
           <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
+          <TabsTrigger value="cronjob">Cronjob</TabsTrigger>
           {/* <TabsTrigger value="raw-data">Raw Data</TabsTrigger> - Replaced by Progress tab */}
           {/* <TabsTrigger value="processing">Data Processing</TabsTrigger> - Replaced by Progress tab */}
         </TabsList>
