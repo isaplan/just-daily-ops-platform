@@ -32,6 +32,8 @@ import { formatDistanceToNow, format, subDays } from 'date-fns';
 import { useToast } from "@/hooks/use-toast";
 import { RawDataStorage } from "@/components/finance/RawDataStorage";
 import { updateConnectionStatus } from "@/lib/finance/bork/connectionStatusService";
+import { CronSyncHistory } from "@/components/finance/CronSyncHistory";
+import { BorkCronjobConfig } from "@/components/finance/BorkCronjobConfig";
 
 interface ApiConnection {
   id: string;
@@ -2202,43 +2204,8 @@ export default function BorkApiConnectPage() {
 
         {/* Cronjob Tab */}
         <TabsContent value="cronjob" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Cronjob Scheduling</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Sync Frequency</Label>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">Every Hour</Button>
-                    <Button variant="outline" size="sm">Every 6 Hours</Button>
-                    <Button variant="outline" size="sm">Daily</Button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <div className="flex items-center space-x-2">
-                    <Button variant="outline" size="sm">
-                      <Play className="h-4 w-4 mr-2" />
-                      Start
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Pause className="h-4 w-4 mr-2" />
-                      Pause
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="h-[200px] flex items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <Clock className="h-12 w-12 mx-auto mb-2" />
-                  <p>Cronjob configuration interface will be implemented</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <BorkCronjobConfig />
+          <CronSyncHistory />
         </TabsContent>
 
         {/* Master Sync Tab */}

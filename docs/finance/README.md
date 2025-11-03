@@ -27,6 +27,9 @@ All finance-related API endpoints with parameters and responses.
 ### [Data Flow](./data-flow.md)
 Complete data flow from PowerBI import → aggregation → display.
 
+### [Data Mapping](./data-mapping.md)
+**SSoT** for P&L category and subcategory mappings. Critical reference for aggregation logic.
+
 ## 🔑 Key Concepts
 
 ### COGS Calculation Formula

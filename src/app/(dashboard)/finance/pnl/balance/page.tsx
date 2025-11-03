@@ -32,6 +32,15 @@ interface AggregatedPnLRecord {
   // Other Costs (negative values)
   other_costs_total?: number;
   overige_bedrijfskosten?: number;
+  huisvestingskosten?: number;
+  exploitatie_kosten?: number;
+  verkoop_kosten?: number;
+  autokosten?: number;
+  kantoorkosten?: number;
+  assurantiekosten?: number;
+  accountantskosten?: number;
+  administratieve_lasten?: number;
+  andere_kosten?: number;
   afschrijvingen?: number;
   financiele_baten_lasten?: number;
   opbrengst_vorderingen?: number;
@@ -690,7 +699,7 @@ export default function PnLBalancePage() {
       isCollapsible: true
     };
 
-    // OTHER COSTS
+    // OTHER COSTS - Main category with sub-COGS
     const overigeBedrijfskosten: ProcessedPnLData = {
       category: 'Overige bedrijfskosten',
       subcategory: null,
@@ -698,7 +707,98 @@ export default function PnLBalancePage() {
       total: 0,
       isExpanded: false,
       isSubcategory: false,
-      isCollapsible: false
+      isCollapsible: true
+    };
+
+    // Sub-COGS under Overige bedrijfskosten
+    const huisvestingskosten: ProcessedPnLData = {
+      category: 'Huisvestingskosten',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: true,
+      parentCategory: 'Overige bedrijfskosten'
+    };
+
+    const exploitatieKosten: ProcessedPnLData = {
+      category: 'Exploitatie- en machinekosten',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: true,
+      parentCategory: 'Overige bedrijfskosten'
+    };
+
+    const verkoopKosten: ProcessedPnLData = {
+      category: 'Verkoop gerelateerde kosten',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: true,
+      parentCategory: 'Overige bedrijfskosten'
+    };
+
+    const autokosten: ProcessedPnLData = {
+      category: 'Autokosten',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: true,
+      parentCategory: 'Overige bedrijfskosten'
+    };
+
+    const kantoorkosten: ProcessedPnLData = {
+      category: 'Kantoorkosten',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: true,
+      parentCategory: 'Overige bedrijfskosten'
+    };
+
+    const assurantiekosten: ProcessedPnLData = {
+      category: 'Assurantiekosten',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: true,
+      parentCategory: 'Overige bedrijfskosten'
+    };
+
+    const accountantskosten: ProcessedPnLData = {
+      category: 'Accountants- en advieskosten',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: true,
+      parentCategory: 'Overige bedrijfskosten'
+    };
+
+    const administratieveLasten: ProcessedPnLData = {
+      category: 'Administratieve lasten',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: true,
+      parentCategory: 'Overige bedrijfskosten'
+    };
+
+    const andereKosten: ProcessedPnLData = {
+      category: 'Andere kosten',
+      subcategory: null,
+      amounts: {},
+      total: 0,
+      isExpanded: false,
+      isSubcategory: true,
+      parentCategory: 'Overige bedrijfskosten'
     };
 
     const afschrijvingen: ProcessedPnLData = {
@@ -707,8 +807,8 @@ export default function PnLBalancePage() {
       amounts: {},
       total: 0,
       isExpanded: false,
-      isSubcategory: false,
-      isCollapsible: false
+      isSubcategory: true,
+      parentCategory: 'Overige bedrijfskosten'
     };
 
     const financieel: ProcessedPnLData = {
@@ -717,8 +817,8 @@ export default function PnLBalancePage() {
       amounts: {},
       total: 0,
       isExpanded: false,
-      isSubcategory: false,
-      isCollapsible: false
+      isSubcategory: true,
+      parentCategory: 'Overige bedrijfskosten'
     };
 
     // RESULTAAT
@@ -746,6 +846,15 @@ export default function PnLBalancePage() {
         contractArbeid.amounts[month.value] = 0;
         flexArbeid.amounts[month.value] = 0;
         overigeBedrijfskosten.amounts[month.value] = 0;
+        huisvestingskosten.amounts[month.value] = 0;
+        exploitatieKosten.amounts[month.value] = 0;
+        verkoopKosten.amounts[month.value] = 0;
+        autokosten.amounts[month.value] = 0;
+        kantoorkosten.amounts[month.value] = 0;
+        assurantiekosten.amounts[month.value] = 0;
+        accountantskosten.amounts[month.value] = 0;
+        administratieveLasten.amounts[month.value] = 0;
+        andereKosten.amounts[month.value] = 0;
         afschrijvingen.amounts[month.value] = 0;
         financieel.amounts[month.value] = 0;
         resultaat.amounts[month.value] = 0;
@@ -769,8 +878,29 @@ export default function PnLBalancePage() {
       const laborFlexTotal = monthData.reduce((sum: number, item) => 
         sum + (item.labor_flex || 0), 0);
       
+      // Other costs total includes all sub-COGS
       const otherTotal = monthData.reduce((sum: number, item) => 
         sum + (item.other_costs_total || 0), 0);
+      
+      // Individual sub-COGS
+      const huisvestingskostenTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.huisvestingskosten || 0), 0);
+      const exploitatieKostenTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.exploitatie_kosten || 0), 0);
+      const verkoopKostenTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.verkoop_kosten || 0), 0);
+      const autokostenTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.autokosten || 0), 0);
+      const kantoorkostenTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.kantoorkosten || 0), 0);
+      const assurantiekostenTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.assurantiekosten || 0), 0);
+      const accountantskostenTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.accountantskosten || 0), 0);
+      const administratieveLastenTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.administratieve_lasten || 0), 0);
+      const andereKostenTotal = monthData.reduce((sum: number, item) => 
+        sum + (item.andere_kosten || 0), 0);
       const afschrijvingenTotal = monthData.reduce((sum: number, item) => 
         sum + (item.afschrijvingen || 0), 0);
       const financieelTotal = monthData.reduce((sum: number, item) => 
@@ -799,8 +929,29 @@ export default function PnLBalancePage() {
       flexArbeid.amounts[month.value] = laborFlexTotal;
       flexArbeid.total += laborFlexTotal;
       
+      // Main category gets total of all sub-COGS
       overigeBedrijfskosten.amounts[month.value] = otherTotal;
       overigeBedrijfskosten.total += otherTotal;
+      
+      // Sub-COGS individual values
+      huisvestingskosten.amounts[month.value] = huisvestingskostenTotal;
+      huisvestingskosten.total += huisvestingskostenTotal;
+      exploitatieKosten.amounts[month.value] = exploitatieKostenTotal;
+      exploitatieKosten.total += exploitatieKostenTotal;
+      verkoopKosten.amounts[month.value] = verkoopKostenTotal;
+      verkoopKosten.total += verkoopKostenTotal;
+      autokosten.amounts[month.value] = autokostenTotal;
+      autokosten.total += autokostenTotal;
+      kantoorkosten.amounts[month.value] = kantoorkostenTotal;
+      kantoorkosten.total += kantoorkostenTotal;
+      assurantiekosten.amounts[month.value] = assurantiekostenTotal;
+      assurantiekosten.total += assurantiekostenTotal;
+      accountantskosten.amounts[month.value] = accountantskostenTotal;
+      accountantskosten.total += accountantskostenTotal;
+      administratieveLasten.amounts[month.value] = administratieveLastenTotal;
+      administratieveLasten.total += administratieveLastenTotal;
+      andereKosten.amounts[month.value] = andereKostenTotal;
+      andereKosten.total += andereKostenTotal;
       afschrijvingen.amounts[month.value] = afschrijvingenTotal;
       afschrijvingen.total += afschrijvingenTotal;
       financieel.amounts[month.value] = financieelTotal;
@@ -820,6 +971,16 @@ export default function PnLBalancePage() {
     processed.push(contractArbeid);
     processed.push(flexArbeid);
     processed.push(overigeBedrijfskosten);
+    // Sub-COGS under Overige bedrijfskosten
+    processed.push(huisvestingskosten);
+    processed.push(exploitatieKosten);
+    processed.push(verkoopKosten);
+    processed.push(autokosten);
+    processed.push(kantoorkosten);
+    processed.push(assurantiekosten);
+    processed.push(accountantskosten);
+    processed.push(administratieveLasten);
+    processed.push(andereKosten);
     processed.push(afschrijvingen);
     processed.push(financieel);
     processed.push(resultaat);

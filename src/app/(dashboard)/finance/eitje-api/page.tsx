@@ -1251,6 +1251,12 @@ export default function EitjeSettingsPage() {
           </Card>
         </TabsContent>
 
+        {/* Cronjob Tab */}
+        <TabsContent value="cronjob" className="space-y-6">
+          <EitjeCronjobConfig />
+          <CronSyncHistory />
+        </TabsContent>
+
         {/* Raw Data Tab - REPLACED BY PROGRESS TAB */}
         {/* <TabsContent value="raw-data">
           <Card>

@@ -11,34 +11,32 @@ import { useToast } from "@/hooks/use-toast";
 
 interface SyncConfig {
   id?: string;
-  mode: 'manual' | 'incremental' | 'backfill';
-  incremental_interval_minutes: number;
-  worker_interval_minutes: number;
-  enabled_endpoints: string[];
-  quiet_hours_start?: number;
-  quiet_hours_end?: number;
+  mode: 'active' | 'paused';
+  sync_interval_minutes: number;
+  sync_hour: number;
+  enabled_locations: string[];
 }
 
-export function EitjeCronjobConfig() {
+export function BorkCronjobConfig() {
   const { toast } = useToast();
   const [config, setConfig] = useState<SyncConfig>({
-    mode: 'manual',
-    incremental_interval_minutes: 60,
-    worker_interval_minutes: 5,
-    enabled_endpoints: ['time_registration_shifts', 'planning_shifts', 'revenue_days'],
-    quiet_hours_start: 22,
-    quiet_hours_end: 6
+    mode: 'paused',
+    sync_interval_minutes: 1440,
+    sync_hour: 6,
+    enabled_locations: []
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [locations, setLocations] = useState<Array<{ id: string; name: string }>>([]);
 
   useEffect(() => {
     loadConfig();
+    loadLocations();
   }, []);
 
   const loadConfig = async () => {
     try {
-      const response = await fetch('/api/eitje/sync-config');
+      const response = await fetch('/api/bork/sync-config');
       const result = await response.json();
       
       if (result.success && result.data) {
@@ -56,10 +54,23 @@ export function EitjeCronjobConfig() {
     }
   };
 
+  const loadLocations = async () => {
+    try {
+      const response = await fetch('/api/locations');
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setLocations(result.data);
+      }
+    } catch (error) {
+      console.error('Error loading locations:', error);
+    }
+  };
+
   const saveConfig = async () => {
     setSaving(true);
     try {
-      const response = await fetch('/api/eitje/sync-config', {
+      const response = await fetch('/api/bork/sync-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config)
@@ -70,7 +81,7 @@ export function EitjeCronjobConfig() {
       if (result.success) {
         toast({
           title: "Success",
-          description: `Sync ${config.mode === 'incremental' ? 'activated' : 'paused'} successfully`,
+          description: `Sync ${config.mode === 'active' ? 'activated' : 'paused'} successfully`,
         });
       } else {
         throw new Error(result.error || 'Failed to save config');
@@ -89,16 +100,22 @@ export function EitjeCronjobConfig() {
   const toggleMode = () => {
     setConfig(prev => ({
       ...prev,
-      mode: prev.mode === 'incremental' ? 'manual' : 'incremental'
+      mode: prev.mode === 'active' ? 'paused' : 'active'
     }));
   };
+
+  const syncFrequencies = [
+    { value: 60, label: 'Every Hour' },
+    { value: 360, label: 'Every 6 Hours' },
+    { value: 1440, label: 'Daily' }
+  ];
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Cronjob Scheduling</CardTitle>
         <CardDescription>
-          Configure automated Eitje data synchronization
+          Configure automated Bork data synchronization
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -112,16 +129,16 @@ export function EitjeCronjobConfig() {
             <div className="space-y-2">
               <Label>Status</Label>
               <div className="flex items-center gap-3">
-                <Badge variant={config.mode === 'incremental' ? 'default' : 'secondary'}>
-                  {config.mode === 'incremental' ? 'Active (Incremental)' : 'Manual'}
+                <Badge variant={config.mode === 'active' ? 'default' : 'secondary'}>
+                  {config.mode === 'active' ? 'Active' : 'Paused'}
                 </Badge>
                 <Button
-                  variant={config.mode === 'incremental' ? 'destructive' : 'default'}
+                  variant={config.mode === 'active' ? 'destructive' : 'default'}
                   size="sm"
                   onClick={toggleMode}
                   disabled={saving}
                 >
-                  {config.mode === 'incremental' ? (
+                  {config.mode === 'active' ? (
                     <>
                       <Pause className="h-4 w-4 mr-2" />
                       Pause
@@ -129,24 +146,21 @@ export function EitjeCronjobConfig() {
                   ) : (
                     <>
                       <Play className="h-4 w-4 mr-2" />
-                      Start Incremental
+                      Start
                     </>
                   )}
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Incremental mode enables hourly cron jobs to sync yesterday's data
-              </p>
             </div>
 
-            {/* Incremental Interval */}
+            {/* Sync Frequency */}
             <div className="space-y-2">
-              <Label>Incremental Sync Interval (minutes)</Label>
+              <Label>Sync Frequency</Label>
               <Select
-                value={config.incremental_interval_minutes.toString()}
+                value={config.sync_interval_minutes.toString()}
                 onValueChange={(value) => setConfig(prev => ({
                   ...prev,
-                  incremental_interval_minutes: parseInt(value)
+                  sync_interval_minutes: parseInt(value)
                 }))}
                 disabled={saving}
               >
@@ -154,48 +168,43 @@ export function EitjeCronjobConfig() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="60">Every Hour (60 min)</SelectItem>
-                  <SelectItem value="120">Every 2 Hours (120 min)</SelectItem>
-                  <SelectItem value="360">Every 6 Hours (360 min)</SelectItem>
+                  {syncFrequencies.map(freq => (
+                    <SelectItem key={freq.value} value={freq.value.toString()}>
+                      {freq.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Note: Cron job runs hourly. This setting affects sync window size.
+                Note: Cron job runs hourly. Frequency setting affects sync range.
               </p>
             </div>
 
-            {/* Enabled Endpoints */}
-            <div className="space-y-2">
-              <Label>Enabled Endpoints</Label>
+            {/* Sync Hour (for daily syncs) */}
+            {config.sync_interval_minutes >= 1440 && (
               <div className="space-y-2">
-                {['time_registration_shifts', 'planning_shifts', 'revenue_days'].map(endpoint => (
-                  <div key={endpoint} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id={`endpoint-${endpoint}`}
-                      checked={config.enabled_endpoints.includes(endpoint)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setConfig(prev => ({
-                            ...prev,
-                            enabled_endpoints: [...prev.enabled_endpoints, endpoint]
-                          }));
-                        } else {
-                          setConfig(prev => ({
-                            ...prev,
-                            enabled_endpoints: prev.enabled_endpoints.filter(e => e !== endpoint)
-                          }));
-                        }
-                      }}
-                      className="rounded border-gray-300"
-                    />
-                    <Label htmlFor={`endpoint-${endpoint}`} className="font-normal">
-                      {endpoint.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </Label>
-                  </div>
-                ))}
+                <Label>Sync Hour (UTC)</Label>
+                <Select
+                  value={config.sync_hour.toString()}
+                  onValueChange={(value) => setConfig(prev => ({
+                    ...prev,
+                    sync_hour: parseInt(value)
+                  }))}
+                  disabled={saving}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <SelectItem key={i} value={i.toString()}>
+                        {String(i).padStart(2, '0')}:00
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
+            )}
 
             {/* Save Button */}
             <div className="flex justify-end">
