@@ -34,6 +34,10 @@ export default function DashboardLayout({
             </div>
             
             <div className="flex items-center gap-4">
+              <div className="text-xs bg-muted px-2 py-1 rounded border border-border">
+                <span className="text-muted-foreground">Theme: </span>
+                <span className="font-semibold">My Theme 3</span>
+              </div>
               <Link href="/finance">
                 <Button variant="ghost" size="sm" className="gap-2 shadow-none">
                   <LayoutDashboard className="h-4 w-4" />

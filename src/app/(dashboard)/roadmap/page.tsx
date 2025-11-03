@@ -1,334 +1,427 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Map, 
-  CheckCircle, 
-  Clock, 
-  AlertCircle, 
-  Star,
-  ThumbsUp,
-  MessageCircle,
-  Calendar,
-  Target,
-  Users
-} from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { RoadmapItemCard } from "@/components/roadmap/RoadmapItemCard";
+import { RoadmapFormSheet } from "@/components/roadmap/RoadmapFormSheet";
+import { DndContext, DragEndEvent, DragStartEvent, useDroppable } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { useUserRole } from "@/hooks/useUserRole";
+import { toast } from "sonner";
 
 interface RoadmapItem {
   id: string;
   title: string;
-  description: string;
-  status: "completed" | "in-progress" | "planned" | "cancelled";
-  priority: "high" | "medium" | "low";
-  category: string;
-  votes: number;
-  comments: number;
-  due_date?: string;
-  assignee?: string;
+  description: string | null;
+  user_story: string | null;
+  expected_results: string | null;
+  display_order: number;
+  is_active: boolean;
+  department: string;
+  category: string | null;
+  triggers: string[];
+  status?: string | null;
+  have_state?: string | null;
 }
 
-export default function RoadmapPage() {
-  const [selectedTab, setSelectedTab] = useState("all");
-  const [selectedCategory, setSelectedCategory] = useState("all");
+const STATUSES = ["doing", "next-up", "someday", "inbox"] as const;
+const STATUS_LABELS: Record<string, string> = {
+  doing: "Doing",
+  "next-up": "Next Up",
+  someday: "Someday",
+  inbox: "Inbox",
+};
 
-  // Mock roadmap data
-  const roadmapItems: RoadmapItem[] = [
-    {
-      id: "1",
-      title: "Advanced Analytics Dashboard",
-      description: "Implement AI-powered insights and predictive analytics for financial data",
-      status: "in-progress",
-      priority: "high",
-      category: "Analytics",
-      votes: 24,
-      comments: 8,
-      due_date: "2024-02-15",
-      assignee: "Dev Team"
-    },
-    {
-      id: "2",
-      title: "Mobile App for Staff",
-      description: "Native mobile app for staff to view schedules, clock in/out, and access reports",
-      status: "planned",
-      priority: "high",
-      category: "Mobile",
-      votes: 18,
-      comments: 12,
-      due_date: "2024-03-01",
-      assignee: "Mobile Team"
-    },
-    {
-      id: "3",
-      title: "Real-time Inventory Tracking",
-      description: "Live inventory updates with automatic reorder points and supplier integration",
-      status: "planned",
-      priority: "medium",
-      category: "Inventory",
-      votes: 15,
-      comments: 5,
-      due_date: "2024-04-01"
-    },
-    {
-      id: "4",
-      title: "Multi-location Support",
-      description: "Enhanced support for managing multiple restaurant locations with consolidated reporting",
-      status: "completed",
-      priority: "high",
-      category: "Core",
-      votes: 32,
-      comments: 15,
-      due_date: "2024-01-10",
-      assignee: "Backend Team"
-    },
-    {
-      id: "5",
-      title: "API Rate Limiting",
-      description: "Implement rate limiting and throttling for external API integrations",
-      status: "in-progress",
-      priority: "medium",
-      category: "Infrastructure",
-      votes: 8,
-      comments: 3,
-      due_date: "2024-02-01",
-      assignee: "DevOps Team"
-    }
-  ];
+const HAVE_STATES = ["Must", "Should", "Could", "Want"] as const;
+const HAVE_STATE_LABELS: Record<string, string> = {
+  Must: "Must Have",
+  Should: "Should Have",
+  Could: "Could Have",
+  Want: "Want",
+};
 
-  const categories = ["all", "Analytics", "Mobile", "Inventory", "Core", "Infrastructure"];
-  const statuses = ["all", "completed", "in-progress", "planned", "cancelled"];
+function DroppableColumn({
+  id,
+  label,
+  items,
+  onEdit,
+  canManage,
+  onStatusChange,
+  onHaveStateChange,
+  viewType,
+}: {
+  id: string;
+  label: string;
+  items: RoadmapItem[];
+  onEdit: (item: RoadmapItem) => void;
+  canManage: boolean;
+  onStatusChange?: () => void;
+  onHaveStateChange?: () => void;
+  viewType: "status" | "have_state";
+}) {
+  const { setNodeRef } = useDroppable({ id });
 
-  const filteredItems = roadmapItems.filter(item => {
-    const statusMatch = selectedTab === "all" || item.status === selectedTab;
-    const categoryMatch = selectedCategory === "all" || item.category === selectedCategory;
-    return statusMatch && categoryMatch;
-  });
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "completed":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case "in-progress":
-        return <Clock className="h-4 w-4 text-blue-500" />;
-      case "planned":
-        return <Target className="h-4 w-4 text-yellow-500" />;
-      case "cancelled":
-        return <AlertCircle className="h-4 w-4 text-red-500" />;
-      default:
-        return <Clock className="h-4 w-4 text-gray-500" />;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "completed":
-        return <Badge variant="default" className="bg-green-100 text-green-800">Completed</Badge>;
-      case "in-progress":
-        return <Badge variant="secondary" className="bg-blue-100 text-blue-800">In Progress</Badge>;
-      case "planned":
-        return <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Planned</Badge>;
-      case "cancelled":
-        return <Badge variant="destructive">Cancelled</Badge>;
-      default:
-        return <Badge variant="outline">Unknown</Badge>;
-    }
-  };
-
-  const getPriorityBadge = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return <Badge variant="destructive">High</Badge>;
-      case "medium":
-        return <Badge variant="secondary" className="bg-orange-100 text-orange-800">Medium</Badge>;
-      case "low":
-        return <Badge variant="outline">Low</Badge>;
-      default:
-        return <Badge variant="outline">Unknown</Badge>;
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short", 
-      day: "numeric"
-    });
-  };
+  // Don't render empty swimlanes
+  if (items.length === 0) return null;
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Product Roadmap</h1>
-          <p className="text-muted-foreground">Track feature development and vote on upcoming features</p>
+    <div ref={setNodeRef} className="w-full bg-muted/30 rounded-lg p-4 mb-6">
+      <div className="font-semibold text-lg mb-4 flex items-center gap-2">
+        {label}
+        <span className="text-sm font-normal text-muted-foreground">({items.length})</span>
+      </div>
+      <SortableContext items={items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+        <div className="space-y-3">
+          {items.map((item) => {
+            const currentValue = viewType === "status" 
+              ? (item.status || "inbox")
+              : (item.have_state || "Want");
+            
+            return (
+              <SortableItem
+                key={item.id}
+                item={item}
+                status={item.status || "inbox"}
+                currentValue={currentValue}
+                onEdit={() => onEdit(item)}
+                canManage={canManage}
+                onStatusChange={onStatusChange}
+                onHaveStateChange={onHaveStateChange}
+              />
+            );
+          })}
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <MessageCircle className="h-4 w-4 mr-2" />
-            Submit Feedback
-          </Button>
-          <Button size="sm">
-            <Star className="h-4 w-4 mr-2" />
-            Suggest Feature
-          </Button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Status</label>
-              <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-                <TabsList>
-                  {statuses.map((status) => (
-                    <TabsTrigger key={status} value={status}>
-                      {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1).replace("-", " ")}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </Tabs>
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Category</label>
-              <div className="flex flex-wrap gap-2">
-                {categories.map((category) => (
-                  <Button
-                    key={category}
-                    variant={selectedCategory === category ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedCategory(category)}
-                  >
-                    {category === "all" ? "All" : category}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Roadmap Items */}
-      <div className="space-y-4">
-        {filteredItems.map((item) => (
-          <Card key={item.id}>
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    {getStatusIcon(item.status)}
-                    <h3 className="text-lg font-semibold">{item.title}</h3>
-                    {getStatusBadge(item.status)}
-                    {getPriorityBadge(item.priority)}
-                  </div>
-                  <p className="text-muted-foreground mb-4">{item.description}</p>
-                  
-                  <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-                    <div className="flex items-center space-x-1">
-                      <ThumbsUp className="h-4 w-4" />
-                      <span>{item.votes} votes</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <MessageCircle className="h-4 w-4" />
-                      <span>{item.comments} comments</span>
-                    </div>
-                    {item.due_date && (
-                      <div className="flex items-center space-x-1">
-                        <Calendar className="h-4 w-4" />
-                        <span>Due {formatDate(item.due_date)}</span>
-                      </div>
-                    )}
-                    {item.assignee && (
-                      <div className="flex items-center space-x-1">
-                        <Users className="h-4 w-4" />
-                        <span>{item.assignee}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Button variant="outline" size="sm">
-                    <ThumbsUp className="h-4 w-4 mr-2" />
-                    Vote
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    <MessageCircle className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Timeline View */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Timeline View</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[400px] flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <Map className="h-12 w-12 mx-auto mb-2" />
-              <p>Timeline visualization will be implemented</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center">
-              <h3 className="text-2xl font-bold text-green-600">
-                {roadmapItems.filter(item => item.status === "completed").length}
-              </h3>
-              <p className="text-sm text-muted-foreground">Completed</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center">
-              <h3 className="text-2xl font-bold text-blue-600">
-                {roadmapItems.filter(item => item.status === "in-progress").length}
-              </h3>
-              <p className="text-sm text-muted-foreground">In Progress</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center">
-              <h3 className="text-2xl font-bold text-yellow-600">
-                {roadmapItems.filter(item => item.status === "planned").length}
-              </h3>
-              <p className="text-sm text-muted-foreground">Planned</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center">
-              <h3 className="text-2xl font-bold">
-                {roadmapItems.reduce((sum, item) => sum + item.votes, 0)}
-              </h3>
-              <p className="text-sm text-muted-foreground">Total Votes</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      </SortableContext>
     </div>
   );
 }
 
+function SortableItem({
+  item,
+  status,
+  currentValue,
+  onEdit,
+  canManage,
+  onStatusChange,
+  onHaveStateChange,
+}: {
+  item: RoadmapItem;
+  status: string;
+  currentValue: string;
+  onEdit: () => void;
+  canManage: boolean;
+  onStatusChange?: () => void;
+  onHaveStateChange?: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <RoadmapItemCard 
+        item={item} 
+        status={status} 
+        onEdit={onEdit} 
+        canManage={canManage} 
+        listeners={listeners}
+        onStatusChange={onStatusChange}
+        onHaveStateChange={onHaveStateChange}
+      />
+    </div>
+  );
+}
+
+export default function RoadmapPage() {
+  const [items, setItems] = useState<RoadmapItem[]>([]);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<RoadmapItem | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [viewType, setViewType] = useState<"status" | "have_state">("status");
+  const { isOwner } = useUserRole();
+
+  const fetchItems = async () => {
+    const { data, error } = await supabase
+      .from("roadmap_items")
+      .select("*")
+      .order("display_order", { ascending: true });
+
+    if (!error && data) {
+      setItems(data as RoadmapItem[]);
+    }
+  };
+
+  useEffect(() => {
+    fetchItems();
+
+    const subscription = supabase
+      .channel("roadmap_items_changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "roadmap_items" }, fetchItems)
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Group items by status or have_state based on view type
+  const itemsByStatus = STATUSES.reduce((acc, status) => {
+    acc[status] = items
+      .filter((item) => (item.status || "inbox") === status)
+      .sort((a, b) => a.display_order - b.display_order);
+    return acc;
+  }, {} as Record<string, RoadmapItem[]>);
+
+  const itemsByHaveState = HAVE_STATES.reduce((acc, haveState) => {
+    acc[haveState] = items
+      .filter((item) => (item.have_state || "Want") === haveState)
+      .sort((a, b) => a.display_order - b.display_order);
+    return acc;
+  }, {} as Record<string, RoadmapItem[]>);
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Find the item being dragged
+    const activeItem = items.find((item) => item.id === activeId);
+    if (!activeItem) return;
+
+    if (viewType === "status") {
+      // STATUS VIEW - handle status-based drag-drop
+      const overStatus = STATUSES.find((status) => overId === status);
+      
+      if (overStatus) {
+        // Dropped on a column - change status
+        const { error } = await supabase
+          .from("roadmap_items")
+          .update({
+            status: overStatus,
+            is_active: overStatus === "doing",
+          })
+          .eq("id", activeId);
+
+        if (error) {
+          toast.error("Failed to update status");
+        } else {
+          toast.success(`Moved to ${STATUS_LABELS[overStatus]}`);
+          fetchItems();
+        }
+        return;
+      }
+
+      // Dropped on another item - reorder within same status or move to new status
+      const overItem = items.find((item) => item.id === overId);
+      if (!overItem) return;
+
+      const activeStatus = activeItem.status || "inbox";
+      const overItemStatus = overItem.status || "inbox";
+
+      if (activeStatus === overItemStatus) {
+        // Same column - reorder
+        const statusItems = itemsByStatus[activeStatus];
+        const oldIndex = statusItems.findIndex((item) => item.id === activeId);
+        const newIndex = statusItems.findIndex((item) => item.id === overId);
+
+        if (oldIndex === newIndex) return;
+
+        const reorderedItems = [...statusItems];
+        const [moved] = reorderedItems.splice(oldIndex, 1);
+        reorderedItems.splice(newIndex, 0, moved);
+
+        // Update display_order for all items in this status
+        const updates = reorderedItems.map((item, index) => ({
+          id: item.id,
+          display_order: index,
+        }));
+
+        for (const update of updates) {
+          await supabase.from("roadmap_items").update({ display_order: update.display_order }).eq("id", update.id);
+        }
+
+        toast.success("Reordered");
+        fetchItems();
+      } else {
+        // Different column - change status and move to top
+        const overStatusItems = itemsByStatus[overItemStatus];
+        const newDisplayOrder = overStatusItems.length > 0 ? Math.max(...overStatusItems.map(i => i.display_order)) + 1 : 0;
+
+        const { error } = await supabase
+          .from("roadmap_items")
+          .update({
+            status: overItemStatus,
+            is_active: overItemStatus === "doing",
+            display_order: newDisplayOrder,
+          })
+          .eq("id", activeId);
+
+        if (error) {
+          toast.error("Failed to move item");
+        } else {
+          toast.success(`Moved to ${STATUS_LABELS[overItemStatus]}`);
+          fetchItems();
+        }
+      }
+    } else {
+      // HAVE_STATE VIEW - handle have_state-based drag-drop
+      const overHaveState = HAVE_STATES.find((state) => overId === state);
+      
+      if (overHaveState) {
+        // Dropped on a column - change have_state
+        const { error } = await supabase
+          .from("roadmap_items")
+          .update({ have_state: overHaveState })
+          .eq("id", activeId);
+
+        if (error) {
+          toast.error("Failed to update have state");
+        } else {
+          toast.success(`Moved to ${HAVE_STATE_LABELS[overHaveState]}`);
+          fetchItems();
+        }
+        return;
+      }
+
+      // Dropped on another item - reorder within same have_state or move to new have_state
+      const overItem = items.find((item) => item.id === overId);
+      if (!overItem) return;
+
+      const activeHaveState = activeItem.have_state || "Want";
+      const overItemHaveState = overItem.have_state || "Want";
+
+      if (activeHaveState === overItemHaveState) {
+        // Same column - reorder
+        const haveStateItems = itemsByHaveState[activeHaveState];
+        const oldIndex = haveStateItems.findIndex((item) => item.id === activeId);
+        const newIndex = haveStateItems.findIndex((item) => item.id === overId);
+
+        if (oldIndex === newIndex) return;
+
+        const reorderedItems = [...haveStateItems];
+        const [moved] = reorderedItems.splice(oldIndex, 1);
+        reorderedItems.splice(newIndex, 0, moved);
+
+        // Update display_order for all items in this have_state
+        const updates = reorderedItems.map((item, index) => ({
+          id: item.id,
+          display_order: index,
+        }));
+
+        for (const update of updates) {
+          await supabase.from("roadmap_items").update({ display_order: update.display_order }).eq("id", update.id);
+        }
+
+        toast.success("Reordered");
+        fetchItems();
+      } else {
+        // Different column - change have_state and move to top
+        const overHaveStateItems = itemsByHaveState[overItemHaveState];
+        const newDisplayOrder = overHaveStateItems.length > 0 ? Math.max(...overHaveStateItems.map(i => i.display_order)) + 1 : 0;
+
+        const { error } = await supabase
+          .from("roadmap_items")
+          .update({
+            have_state: overItemHaveState,
+            display_order: newDisplayOrder,
+          })
+          .eq("id", activeId);
+
+        if (error) {
+          toast.error("Failed to move item");
+        } else {
+          toast.success(`Moved to ${HAVE_STATE_LABELS[overItemHaveState]}`);
+          fetchItems();
+        }
+      }
+    }
+  };
+
+  const handleEdit = (item: RoadmapItem) => {
+    setEditingItem(item);
+    setSheetOpen(true);
+  };
+
+  const handleAddNew = () => {
+    setEditingItem(null);
+    setSheetOpen(true);
+  };
+
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Product Roadmap</h1>
+          <p className="text-muted-foreground">
+            Drag items between columns to change {viewType === "status" ? "status" : "have state"} • Use dropdown to update
+          </p>
+        </div>
+        {isOwner() && (
+          <Button onClick={handleAddNew}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Roadmap Item
+          </Button>
+        )}
+      </div>
+
+      <div className="flex gap-4 items-center mb-4">
+        <Tabs value={viewType} onValueChange={(value) => setViewType(value as "status" | "have_state")}>
+          <TabsList>
+            <TabsTrigger value="status">Status</TabsTrigger>
+            <TabsTrigger value="have_state">Have State</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="space-y-0">
+          {viewType === "status" 
+            ? STATUSES.map((status) => (
+                <DroppableColumn
+                  key={status}
+                  id={status}
+                  label={STATUS_LABELS[status]}
+                  items={itemsByStatus[status] || []}
+                  onEdit={handleEdit}
+                  canManage={isOwner()}
+                  onStatusChange={fetchItems}
+                  onHaveStateChange={fetchItems}
+                  viewType="status"
+                />
+              ))
+            : HAVE_STATES.map((haveState) => (
+                <DroppableColumn
+                  key={haveState}
+                  id={haveState}
+                  label={HAVE_STATE_LABELS[haveState]}
+                  items={itemsByHaveState[haveState] || []}
+                  onEdit={handleEdit}
+                  canManage={isOwner()}
+                  onStatusChange={fetchItems}
+                  onHaveStateChange={fetchItems}
+                  viewType="have_state"
+                />
+              ))
+          }
+        </div>
+      </DndContext>
+
+      <RoadmapFormSheet open={sheetOpen} onOpenChange={setSheetOpen} item={editingItem} />
+    </div>
+  );
+}
