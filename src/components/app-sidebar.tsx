@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -31,6 +32,11 @@ import {
   Map,
   Menu,
   X,
+  ChevronRight,
+  Clock,
+  DollarSign as DollarSignIcon,
+  UserCheck,
+  Building2,
 } from "lucide-react";
 import {
   Sidebar,
@@ -43,14 +49,29 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useDepartment } from "@/contexts/DepartmentContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { LucideIcon } from "lucide-react";
 
-const ordersItems = [
+// Type definitions for menu items
+type MenuItem = {
+  title: string;
+  url: string;
+  icon: LucideIcon;
+  isCollapsible?: boolean;
+  children?: MenuItem[];
+};
+
+const ordersItems: MenuItem[] = [
   { title: "Create Order", url: "/create-order", icon: ShoppingCart },
   { title: "Check Order", url: "/check-order", icon: ClipboardCheck },
   { title: "Send Order", url: "/send-order", icon: Send },
@@ -58,7 +79,7 @@ const ordersItems = [
   { title: "Returns", url: "/returns", icon: RotateCcw },
 ];
 
-const stockItems = [
+const stockItems: MenuItem[] = [
   { title: "Stock Levels", url: "/stock", icon: Package },
   { title: "Monthly Stock Count", url: "/monthly-stock-count", icon: ClipboardList },
   { title: "Sales Import", url: "/sales-import", icon: TrendingUp },
@@ -68,24 +89,34 @@ const stockItems = [
   { title: "Product Recipes", url: "/recipes", icon: Utensils },
 ];
 
-const operationsItems = [
+const operationsItems: MenuItem[] = [
   { title: "Combined Products", url: "/combined-products", icon: TrendingUp },
   { title: "Daily Waste", url: "/waste", icon: Trash2 },
   { title: "Menu Builder", url: "/menu/builder", icon: Utensils },
 ];
 
-const financeItems = [
+// View Data child items
+const viewDataItems: MenuItem[] = [
+  { title: "Hours", url: "/finance/data/eitje-data/hours", icon: Clock },
+  { title: "Labor Costs", url: "/finance/data/eitje-data/labor-costs", icon: DollarSignIcon },
+  { title: "Sales by Bork", url: "/finance/data/eitje-data/finance", icon: TrendingUp },
+  { title: "Data Imported", url: "/finance/data/eitje-data/data-imported", icon: Database },
+  { title: "Workers", url: "/finance/data/eitje-data/workers", icon: UserCheck },
+  { title: "Locations & Teams", url: "/finance/data/eitje-data/locations-teams", icon: Building2 },
+];
+
+const financeItems: MenuItem[] = [
   { title: "Profit & Loss", url: "/finance/pnl", icon: DollarSign },
   { title: "P&L Balance", url: "/finance/pnl/balance", icon: BarChartBig },
   { title: "Sales", url: "/finance/sales", icon: TrendingUp },
   { title: "Labor", url: "/finance/labor", icon: Users },
   { title: "Analytics & AI", url: "/finance/analytics", icon: BarChart3 },
-  { title: "View Data", url: "/finance/data", icon: Database },
+  { title: "View Data", url: "/finance/data", icon: Database, isCollapsible: true, children: viewDataItems },
   { title: "Financial Insights", url: "/finance/insights", icon: Sparkles },
   { title: "Financial Reports", url: "/finance/reports", icon: FileText },
 ];
 
-const adminItems = [
+const adminItems: MenuItem[] = [
   { title: "Suppliers", url: "/suppliers", icon: Truck },
   { title: "Locations", url: "/locations", icon: MapPin },
   { title: "Reports", url: "/reports", icon: BarChart3 },
@@ -101,6 +132,26 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
 
   const isActive = (path: string) => pathname === path;
+  
+  // Check if any child route is active (for auto-expanding collapsible items)
+  const isChildActive = (children: MenuItem[] | undefined) => {
+    return children?.some((child) => pathname.startsWith(child.url)) || false;
+  };
+  
+  // State for collapsible "View Data" menu
+  const viewDataItem = financeItems.find(item => item.isCollapsible);
+  const shouldBeOpen = viewDataItem?.children ? isChildActive(viewDataItem.children) : false;
+  const [isViewDataOpen, setIsViewDataOpen] = useState(shouldBeOpen);
+  
+  // Auto-expand "View Data" if any child route is active
+  useEffect(() => {
+    const item = financeItems.find(item => item.isCollapsible);
+    if (item?.children) {
+      const isActive = isChildActive(item.children);
+      setIsViewDataOpen(isActive);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   const departmentConfig = {
     orders: {
@@ -127,6 +178,12 @@ export function AppSidebar() {
       items: financeItems,
       dashboard: "/departments/finance",
     },
+    "back-office": {
+      color: "border-purple-400",
+      label: "Back-Office Department",
+      items: [],
+      dashboard: "/departments/back-office",
+    },
   };
 
   const currentConfig = departmentConfig[department];
@@ -138,60 +195,18 @@ export function AppSidebar() {
         {!collapsed && (
           <div className="p-4 space-y-2 border-b-2 border-black">
             <p className="text-xs text-muted-foreground mb-2">Switch Department</p>
-            <div className="grid grid-cols-2 gap-1">
-              <Button
-                size="sm"
-                variant={department === "orders" ? "default" : "ghost"}
-                onClick={() => setDepartment("orders")}
-                className={cn(
-                  "text-xs h-8 border-2 border-black",
-                  department === "orders" 
-                    ? "bg-accent text-accent-foreground hover:bg-accent/90" 
-                    : "bg-transparent text-foreground hover:bg-muted"
-                )}
-              >
-                Orders
-              </Button>
-              <Button
-                size="sm"
-                variant={department === "stock" ? "default" : "ghost"}
-                onClick={() => setDepartment("stock")}
-                className={cn(
-                  "text-xs h-8 border-2 border-black",
-                  department === "stock" 
-                    ? "bg-accent text-accent-foreground hover:bg-accent/90" 
-                    : "bg-transparent text-foreground hover:bg-muted"
-                )}
-              >
-                Stock
-              </Button>
-              <Button
-                size="sm"
-                variant={department === "operations" ? "default" : "ghost"}
-                onClick={() => setDepartment("operations")}
-                className={cn(
-                  "text-xs h-8 border-2 border-black",
-                  department === "operations" 
-                    ? "bg-accent text-accent-foreground hover:bg-accent/90" 
-                    : "bg-transparent text-foreground hover:bg-muted"
-                )}
-              >
-                Operations
-              </Button>
-              <Button
-                size="sm"
-                variant={department === "finance" ? "default" : "ghost"}
-                onClick={() => setDepartment("finance")}
-                className={cn(
-                  "text-xs h-8 border-2 border-black",
-                  department === "finance" 
-                    ? "bg-accent text-accent-foreground hover:bg-accent/90" 
-                    : "bg-transparent text-foreground hover:bg-muted"
-                )}
-              >
-                Finance
-              </Button>
-            </div>
+            <Select value={department} onValueChange={(value) => setDepartment(value as typeof department)}>
+              <SelectTrigger className="w-full h-9 border-2 border-black">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="orders">Orders</SelectItem>
+                <SelectItem value="stock">Stock</SelectItem>
+                <SelectItem value="operations">Operations</SelectItem>
+                <SelectItem value="finance">Finance</SelectItem>
+                <SelectItem value="back-office">Back-Office</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         )}
 
@@ -231,16 +246,59 @@ export function AppSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {currentConfig.items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                    <Link href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {currentConfig.items.map((item) => {
+                // Render collapsible item if it has children
+                if (item.isCollapsible && item.children) {
+                  const isOpen = item.title === "View Data" ? isViewDataOpen : false;
+                  const isParentActive = isActive(item.url) || isChildActive(item.children);
+                  
+                  return (
+                    <Collapsible 
+                      key={item.title} 
+                      open={isOpen} 
+                      onOpenChange={item.title === "View Data" ? setIsViewDataOpen : undefined}
+                    >
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton isActive={isParentActive}>
+                            <item.icon />
+                            <span>{item.title}</span>
+                            <ChevronRight className={cn(
+                              "ml-auto transition-transform duration-200",
+                              isOpen && "rotate-90"
+                            )} />
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <SidebarMenuSub>
+                            {item.children?.map((child: MenuItem) => (
+                              <SidebarMenuSubItem key={child.title}>
+                                <SidebarMenuSubButton asChild isActive={isActive(child.url)}>
+                                  <Link href={child.url}>
+                                    <span>{child.title}</span>
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))}
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  );
+                }
+                
+                // Render regular item
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                      <Link href={item.url}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -313,6 +371,14 @@ export function AppSidebar() {
                   <Link href="/docs">
                     <FileText />
                     <span>Documentation</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive("/design-systems") || pathname.startsWith("/design-systems/")}>
+                  <Link href="/design-systems">
+                    <Palette />
+                    <span>Design Systems</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

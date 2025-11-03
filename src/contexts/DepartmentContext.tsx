@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode } from "react";
 
-type Department = "orders" | "stock" | "operations" | "finance";
+type Department = "orders" | "stock" | "operations" | "finance" | "back-office";
 
 interface DepartmentContextType {
   department: Department;
