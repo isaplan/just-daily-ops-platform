@@ -42,7 +42,7 @@ export function RoadmapItemCard({ item, status, onEdit, canManage, listeners, on
   const handleStatusChange = async (newStatus: string) => {
     const updateData: { status: string; is_active: boolean } = { 
       status: newStatus, 
-      is_active: newStatus === "doing" 
+      is_active: newStatus === "doing"
     };
     
     const { error } = await supabase
@@ -51,6 +51,7 @@ export function RoadmapItemCard({ item, status, onEdit, canManage, listeners, on
       .eq("id", item.id);
 
     if (error) {
+      console.error("Status update error:", error);
       toast.error("Failed to update status: " + error.message);
       return;
     }
@@ -58,38 +59,39 @@ export function RoadmapItemCard({ item, status, onEdit, canManage, listeners, on
     toast.success(`Status updated to ${formatStatus(newStatus)}`);
     
     // Trigger automation when status changes to "doing"
-    if (newStatus === "doing") {
-      try {
-        const response = await fetch('/api/roadmap/automate', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ roadmapItemId: item.id }),
-        });
+    // COMMENTED OUT: Branch creation automation disabled
+    // if (newStatus === "doing") {
+    //   try {
+    //     const response = await fetch('/api/roadmap/automate', {
+    //       method: 'POST',
+    //       headers: {
+    //         'Content-Type': 'application/json',
+    //       },
+    //       body: JSON.stringify({ roadmapItemId: item.id }),
+    //     });
 
-        const result = await response.json();
+    //     const result = await response.json();
 
-        if (response.ok) {
-          if (result.branchName) {
-            toast.success(
-              `Branch "${result.branchName}" created and chat context ready!`,
-              { duration: 5000 }
-            );
-          } else {
-            toast.success('Chat context file generated!', { duration: 5000 });
-          }
-          console.log('Roadmap automation:', result);
-          // Refresh to show branch name
-          onStatusChange?.();
-        } else {
-          toast.error(`Automation failed: ${result.error}`);
-        }
-      } catch (error) {
-        console.error('Failed to trigger roadmap automation:', error);
-        toast.error('Failed to create branch (roadmap item updated)', { duration: 3000 });
-      }
-    }
+    //     if (response.ok) {
+    //       if (result.branchName) {
+    //         toast.success(
+    //           `Branch "${result.branchName}" created and chat context ready!`,
+    //           { duration: 5000 }
+    //         );
+    //       } else {
+    //         toast.success('Chat context file generated!', { duration: 5000 });
+    //       }
+    //       console.log('Roadmap automation:', result);
+    //       // Refresh to show branch name
+    //       onStatusChange?.();
+    //     } else {
+    //       toast.error(`Automation failed: ${result.error}`);
+    //     }
+    //   } catch (error) {
+    //     console.error('Failed to trigger roadmap automation:', error);
+    //     toast.error('Failed to create branch (roadmap item updated)', { duration: 3000 });
+    //   }
+    // }
 
     // Trigger refresh to move item to correct swimlane
     onStatusChange?.();
@@ -133,6 +135,8 @@ export function RoadmapItemCard({ item, status, onEdit, canManage, listeners, on
         return "secondary";
       case "inbox":
         return "outline";
+      case "done":
+        return "outline";
       default:
         return "outline";
     }
@@ -154,6 +158,8 @@ export function RoadmapItemCard({ item, status, onEdit, canManage, listeners, on
         return "Someday";
       case "inbox":
         return "Inbox";
+      case "done":
+        return "Done";
       default:
         return status;
     }
@@ -213,6 +219,7 @@ export function RoadmapItemCard({ item, status, onEdit, canManage, listeners, on
                 <SelectItem value="next-up">Next Up</SelectItem>
                 <SelectItem value="someday">Someday</SelectItem>
                 <SelectItem value="inbox">Inbox</SelectItem>
+                <SelectItem value="done">Done</SelectItem>
               </SelectContent>
             </Select>
             <Select value={item.have_state || "Want"} onValueChange={handleHaveStateChange}>

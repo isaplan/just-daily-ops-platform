@@ -29,12 +29,13 @@ interface RoadmapItem {
   branch_name?: string | null;
 }
 
-const STATUSES = ["doing", "next-up", "someday", "inbox"] as const;
+const STATUSES = ["doing", "next-up", "someday", "inbox", "done"] as const;
 const STATUS_LABELS: Record<string, string> = {
   doing: "Doing",
   "next-up": "Next Up",
   someday: "Someday",
   inbox: "Inbox",
+  done: "Done",
 };
 
 const HAVE_STATES = ["Must", "Should", "Could", "Want"] as const;
@@ -155,7 +156,24 @@ export default function RoadmapPage() {
       .order("display_order", { ascending: true });
 
     if (!error && data) {
-      setItems(data as RoadmapItem[]);
+      // Sort items by have_state priority (Must > Should > Could > Want) then by display_order
+      const haveStatePriority: Record<string, number> = {
+        Must: 0,
+        Should: 1,
+        Could: 2,
+        Want: 3,
+      };
+      
+      const sortedData = [...data].sort((a, b) => {
+        const aPriority = haveStatePriority[a.have_state || "Want"] ?? 3;
+        const bPriority = haveStatePriority[b.have_state || "Want"] ?? 3;
+        if (aPriority !== bPriority) {
+          return aPriority - bPriority;
+        }
+        return a.display_order - b.display_order;
+      });
+      
+      setItems(sortedData as RoadmapItem[]);
     }
   };
 
@@ -172,11 +190,28 @@ export default function RoadmapPage() {
     };
   }, []);
 
+  // Priority order for have_state: Must > Should > Could > Want
+  const haveStatePriority: Record<string, number> = {
+    Must: 0,
+    Should: 1,
+    Could: 2,
+    Want: 3,
+  };
+
   // Group items by status or have_state based on view type
   const itemsByStatus = STATUSES.reduce((acc, status) => {
     acc[status] = items
       .filter((item) => (item.status || "inbox") === status)
-      .sort((a, b) => a.display_order - b.display_order);
+      .sort((a, b) => {
+        // First sort by have_state priority (Must Have first)
+        const aPriority = haveStatePriority[a.have_state || "Want"] ?? 3;
+        const bPriority = haveStatePriority[b.have_state || "Want"] ?? 3;
+        if (aPriority !== bPriority) {
+          return aPriority - bPriority;
+        }
+        // Then by display_order
+        return a.display_order - b.display_order;
+      });
     return acc;
   }, {} as Record<string, RoadmapItem[]>);
 

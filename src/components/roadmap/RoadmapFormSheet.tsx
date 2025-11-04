@@ -95,6 +95,7 @@ export function RoadmapFormSheet({ open, onOpenChange, item }: RoadmapFormSheetP
       triggers: triggers,
       status,
       have_state: haveState,
+      is_active: status === "doing",
     };
 
     if (item) {
@@ -105,7 +106,8 @@ export function RoadmapFormSheet({ open, onOpenChange, item }: RoadmapFormSheetP
         .eq("id", item.id);
 
       if (error) {
-        toast.error("Failed to update item");
+        console.error("Roadmap item update error:", error);
+        toast.error("Failed to update item: " + error.message);
       } else {
         toast.success("Roadmap item updated");
         onOpenChange(false);
@@ -127,7 +129,8 @@ export function RoadmapFormSheet({ open, onOpenChange, item }: RoadmapFormSheetP
         });
 
       if (error) {
-        toast.error("Failed to create item");
+        console.error("Roadmap item create error:", error);
+        toast.error("Failed to create item: " + error.message);
       } else {
         toast.success("Roadmap item created");
         onOpenChange(false);
@@ -224,6 +227,7 @@ export function RoadmapFormSheet({ open, onOpenChange, item }: RoadmapFormSheetP
                 <SelectItem value="next-up">Next Up</SelectItem>
                 <SelectItem value="someday">Someday</SelectItem>
                 <SelectItem value="inbox">Inbox</SelectItem>
+                <SelectItem value="done">Done</SelectItem>
               </SelectContent>
               </Select>
             </div>
