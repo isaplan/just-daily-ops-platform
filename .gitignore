@@ -44,3 +44,6 @@ next-env.d.ts
 .vscode-extension/node_modules/
 .vscode-extension/out/
 .vscode-extension/package-lock.json
+
+# Roadmap automation context files
+.roadmap-context/

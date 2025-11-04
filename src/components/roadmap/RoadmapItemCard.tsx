@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Edit, Trash2, GripVertical } from "lucide-react";
+import { Edit, Trash2, GripVertical, GitBranch } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -18,6 +18,7 @@ interface RoadmapItemCardProps {
     is_active: boolean;
     triggers: string[];
     have_state?: string | null;
+    branch_name?: string | null;
   };
   status: string;
   onEdit: () => void;
@@ -39,15 +40,11 @@ const haveStateColors = {
 
 export function RoadmapItemCard({ item, status, onEdit, canManage, listeners, onStatusChange, onHaveStateChange }: RoadmapItemCardProps) {
   const handleStatusChange = async (newStatus: string) => {
-    const updateData: any = { status: newStatus };
+    const updateData: { status: string; is_active: boolean } = { 
+      status: newStatus, 
+      is_active: newStatus === "doing" 
+    };
     
-    // Set is_active based on status
-    if (newStatus === "doing") {
-      updateData.is_active = true;
-    } else {
-      updateData.is_active = false;
-    }
-
     const { error } = await supabase
       .from("roadmap_items")
       .update(updateData)
@@ -55,11 +52,47 @@ export function RoadmapItemCard({ item, status, onEdit, canManage, listeners, on
 
     if (error) {
       toast.error("Failed to update status: " + error.message);
-    } else {
-      toast.success(`Status updated to ${formatStatus(newStatus)}`);
-      // Trigger refresh to move item to correct swimlane
-      onStatusChange?.();
+      return;
     }
+
+    toast.success(`Status updated to ${formatStatus(newStatus)}`);
+    
+    // Trigger automation when status changes to "doing"
+    if (newStatus === "doing") {
+      try {
+        const response = await fetch('/api/roadmap/automate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ roadmapItemId: item.id }),
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          if (result.branchName) {
+            toast.success(
+              `Branch "${result.branchName}" created and chat context ready!`,
+              { duration: 5000 }
+            );
+          } else {
+            toast.success('Chat context file generated!', { duration: 5000 });
+          }
+          console.log('Roadmap automation:', result);
+          // Refresh to show branch name
+          onStatusChange?.();
+        } else {
+          toast.error(`Automation failed: ${result.error}`);
+        }
+      } catch (error) {
+        console.error('Failed to trigger roadmap automation:', error);
+        toast.error('Failed to create branch (roadmap item updated)', { duration: 3000 });
+      }
+    }
+
+    // Trigger refresh to move item to correct swimlane
+    onStatusChange?.();
   };
 
   const handleHaveStateChange = async (newHaveState: string) => {
@@ -160,6 +193,14 @@ export function RoadmapItemCard({ item, status, onEdit, canManage, listeners, on
           <p className="text-xs text-muted-foreground mb-3">
             🤖 {item.triggers.length} AI trigger{item.triggers.length > 1 ? "s" : ""}
           </p>
+        )}
+        {item.branch_name && status === "doing" && (
+          <div className="flex items-center gap-2 mb-3">
+            <GitBranch className="h-4 w-4 text-muted-foreground" />
+            <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
+              {item.branch_name}
+            </code>
+          </div>
         )}
         {canManage && (
           <div className="flex gap-2 items-center">

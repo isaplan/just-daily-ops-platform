@@ -4,39 +4,26 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  ShoppingCart,
-  ClipboardCheck,
-  Send,
-  FileText,
-  RotateCcw,
+  LayoutDashboard,
+  Users,
+  DollarSign,
   Package,
-  BarChart3,
+  Sparkles,
+  FileText,
   Box,
   Truck,
   MapPin,
-  Activity,
-  Palette,
-  Users,
-  LayoutDashboard,
-  Utensils,
-  ClipboardList,
-  TrendingUp,
-  BarChartBig,
-  DollarSign,
-  Upload,
-  Sparkles,
-  TrendingDown,
-  Trash2,
-  Database,
-  Wifi,
-  Map,
-  Menu,
-  X,
-  ChevronRight,
-  Clock,
-  DollarSign as DollarSignIcon,
   UserCheck,
+  BarChart3,
+  TrendingUp,
+  Clock,
+  Wifi,
+  Upload,
+  Palette,
   Building2,
+  Settings,
+  Calendar,
+  ChevronRight,
 } from "lucide-react";
 import {
   Sidebar,
@@ -47,18 +34,12 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarHeader,
-  SidebarFooter,
   SidebarMenuSub,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useUserRole } from "@/hooks/useUserRole";
-import { useDepartment } from "@/contexts/DepartmentContext";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
 
@@ -71,297 +52,271 @@ type MenuItem = {
   children?: MenuItem[];
 };
 
-const ordersItems: MenuItem[] = [
-  { title: "Create Order", url: "/create-order", icon: ShoppingCart },
-  { title: "Check Order", url: "/check-order", icon: ClipboardCheck },
-  { title: "Send Order", url: "/send-order", icon: Send },
-  { title: "All Orders", url: "/ordered-list", icon: FileText },
-  { title: "Returns", url: "/returns", icon: RotateCcw },
+// Daily Ops items
+const dailyOpsItems: MenuItem[] = [
+  { title: "Labor", url: "/daily-ops/labor", icon: Users },
+  { title: "Finance", url: "/daily-ops/finance", icon: DollarSign },
+  { title: "Inventory", url: "/daily-ops/inventory", icon: Package },
+  { title: "AI & Analytics", url: "/daily-ops/ai", icon: Sparkles },
+  { title: "Reports", url: "/daily-ops/reports", icon: FileText },
 ];
 
-const stockItems: MenuItem[] = [
-  { title: "Stock Levels", url: "/stock", icon: Package },
-  { title: "Monthly Stock Count", url: "/monthly-stock-count", icon: ClipboardList },
-  { title: "Sales Import", url: "/sales-import", icon: TrendingUp },
-  { title: "Variance Analysis", url: "/variance-analysis", icon: BarChartBig },
-  { title: "Stock History", url: "/products-history", icon: BarChart3 },
-  { title: "All Products", url: "/products", icon: Box },
-  { title: "Product Recipes", url: "/recipes", icon: Utensils },
-];
-
+// Operations items
 const operationsItems: MenuItem[] = [
-  { title: "Combined Products", url: "/combined-products", icon: TrendingUp },
-  { title: "Daily Waste", url: "/waste", icon: Trash2 },
-  { title: "Menu Builder", url: "/menu/builder", icon: Utensils },
+  { title: "Products", url: "/operations/products", icon: Box },
+  { title: "Suppliers", url: "/operations/suppliers", icon: Truck },
+  { title: "Locations", url: "/operations/locations", icon: MapPin },
+  { title: "Teams", url: "/operations/teams", icon: UserCheck },
 ];
 
-// View Data child items
-const viewDataItems: MenuItem[] = [
-  { title: "Hours", url: "/finance/data/eitje-data/hours", icon: Clock },
-  { title: "Labor Costs", url: "/finance/data/eitje-data/labor-costs", icon: DollarSignIcon },
-  { title: "Sales by Bork", url: "/finance/data/eitje-data/finance", icon: TrendingUp },
-  { title: "Data Imported", url: "/finance/data/eitje-data/data-imported", icon: Database },
-  { title: "Workers", url: "/finance/data/eitje-data/workers", icon: UserCheck },
-  { title: "Locations & Teams", url: "/finance/data/eitje-data/locations-teams", icon: Building2 },
+// Data section items (with collapsible sub-items)
+const dataFinanceItems: MenuItem[] = [
+  { title: "PowerBI Data", url: "/data/finance/powerbi", icon: BarChart3 },
 ];
 
-const financeItems: MenuItem[] = [
-  { title: "Profit & Loss", url: "/finance/pnl", icon: DollarSign },
-  { title: "P&L Balance", url: "/finance/pnl/balance", icon: BarChartBig },
-  { title: "Sales", url: "/finance/sales", icon: TrendingUp },
-  { title: "Labor", url: "/finance/labor", icon: Users },
-  { title: "Analytics & AI", url: "/finance/analytics", icon: BarChart3 },
-  { title: "View Data", url: "/finance/data", icon: Database, isCollapsible: true, children: viewDataItems },
-  { title: "Financial Insights", url: "/finance/insights", icon: Sparkles },
-  { title: "Financial Reports", url: "/finance/reports", icon: FileText },
+const dataLaborItems: MenuItem[] = [
+  { title: "Hours", url: "/data/labor/hours", icon: Clock },
+  { title: "Labor Costs", url: "/data/labor/costs", icon: DollarSign },
+  { title: "Workers", url: "/data/labor/workers", icon: Users },
+  { title: "Locations & Teams", url: "/data/labor/locations-teams", icon: Building2 },
 ];
 
-const adminItems: MenuItem[] = [
-  { title: "Suppliers", url: "/suppliers", icon: Truck },
-  { title: "Locations", url: "/locations", icon: MapPin },
-  { title: "Reports", url: "/reports", icon: BarChart3 },
-  { title: "Member Activity", url: "/member-activity", icon: Activity },
-  { title: "Package Usage", url: "/cloud-admin/package-usage", icon: Package },
+const dataSalesItems: MenuItem[] = [
+  { title: "Bork Sales Data", url: "/data/sales/bork", icon: TrendingUp },
+];
+
+const dataItems: MenuItem[] = [
+  { 
+    title: "Finance", 
+    url: "/data/finance", 
+    icon: DollarSign, 
+    isCollapsible: true, 
+    children: dataFinanceItems 
+  },
+  { 
+    title: "Labor", 
+    url: "/data/labor", 
+    icon: Users, 
+    isCollapsible: true, 
+    children: dataLaborItems 
+  },
+  { 
+    title: "Sales", 
+    url: "/data/sales", 
+    icon: TrendingUp, 
+    isCollapsible: true, 
+    children: dataSalesItems 
+  },
+  { title: "Reservations", url: "/data/reservations", icon: Calendar },
+  { title: "Inventory", url: "/data/inventory", icon: Package },
+];
+
+// Settings items
+const settingsItems: MenuItem[] = [
+  { title: "Themes", url: "/settings/themes", icon: Palette },
+  { title: "Company Settings", url: "/settings/company", icon: Settings },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const pathname = usePathname();
-  const { isOwner } = useUserRole();
-  const { department, setDepartment } = useDepartment();
   const collapsed = state === "collapsed";
 
-  const isActive = (path: string) => pathname === path;
+  const isActive = (path: string) => pathname === path || pathname === `${path}/`;
   
   // Check if any child route is active (for auto-expanding collapsible items)
   const isChildActive = (children: MenuItem[] | undefined) => {
     return children?.some((child) => pathname.startsWith(child.url)) || false;
   };
   
-  // State for collapsible "View Data" menu
-  const viewDataItem = financeItems.find(item => item.isCollapsible);
-  const shouldBeOpen = viewDataItem?.children ? isChildActive(viewDataItem.children) : false;
-  const [isViewDataOpen, setIsViewDataOpen] = useState(shouldBeOpen);
+  // State for collapsible menus
+  const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
+    dataFinance: false,
+    dataLabor: false,
+    dataSales: false,
+  });
   
-  // Auto-expand "View Data" if any child route is active
+  // Auto-expand collapsible menus if any child route is active
   useEffect(() => {
-    const item = financeItems.find(item => item.isCollapsible);
-    if (item?.children) {
-      const isActive = isChildActive(item.children);
-      setIsViewDataOpen(isActive);
-    }
+    const newOpenMenus: Record<string, boolean> = {
+      dataFinance: isChildActive(dataFinanceItems),
+      dataLabor: isChildActive(dataLaborItems),
+      dataSales: isChildActive(dataSalesItems),
+    };
+    setOpenMenus((prev) => ({ ...prev, ...newOpenMenus }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  const departmentConfig = {
-    orders: {
-      color: "border-orange-400",
-      label: "Orders Department",
-      items: ordersItems,
-      dashboard: "/departments/orders",
-    },
-    stock: {
-      color: "border-green-400",
-      label: "Stock Department",
-      items: stockItems,
-      dashboard: "/departments/stock",
-    },
-    operations: {
-      color: "border-blue-400",
-      label: "Operations Department",
-      items: operationsItems,
-      dashboard: "/departments/operations",
-    },
-    finance: {
-      color: "border-red-400",
-      label: "Finance Department",
-      items: financeItems,
-      dashboard: "/departments/finance",
-    },
-    "back-office": {
-      color: "border-purple-400",
-      label: "Back-Office Department",
-      items: [],
-      dashboard: "/departments/back-office",
-    },
+  const toggleMenu = (menuKey: string) => {
+    setOpenMenus((prev) => ({ ...prev, [menuKey]: !prev[menuKey] }));
   };
 
-  const currentConfig = departmentConfig[department];
+  const renderMenuItem = (item: MenuItem, menuKey?: string) => {
+    // Render collapsible item if it has children
+    if (item.isCollapsible && item.children) {
+      const menuStateKey = menuKey || item.title.toLowerCase().replace(/\s+/g, '');
+      const isOpen = openMenus[menuStateKey] || false;
+      const isParentActive = isActive(item.url) || isChildActive(item.children);
+      
+      return (
+        <Collapsible 
+          key={item.title} 
+          open={isOpen} 
+          onOpenChange={() => toggleMenu(menuStateKey)}
+        >
+          <SidebarMenuItem>
+            <CollapsibleTrigger asChild>
+              <SidebarMenuButton isActive={isParentActive}>
+                <item.icon />
+                <span>{item.title}</span>
+                <ChevronRight className={cn(
+                  "ml-auto transition-transform duration-200",
+                  isOpen && "rotate-90"
+                )} />
+              </SidebarMenuButton>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarMenuSub>
+                {item.children?.map((child: MenuItem) => (
+                  <SidebarMenuSubItem key={child.title}>
+                    <SidebarMenuSubButton asChild isActive={isActive(child.url)}>
+                      <Link href={child.url}>
+                        <span>{child.title}</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                ))}
+              </SidebarMenuSub>
+            </CollapsibleContent>
+          </SidebarMenuItem>
+        </Collapsible>
+      );
+    }
+    
+    // Render regular item
+    return (
+      <SidebarMenuItem key={item.title}>
+        <SidebarMenuButton asChild isActive={isActive(item.url)}>
+          <Link href={item.url}>
+            <item.icon />
+            <span>{item.title}</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r-2 border-black bg-white">
       <SidebarContent className="flex flex-col">
-        {/* Department Switcher */}
-        {!collapsed && (
-          <div className="p-4 space-y-2 border-b-2 border-black">
-            <p className="text-xs text-muted-foreground mb-2">Switch Department</p>
-            <Select value={department} onValueChange={(value) => setDepartment(value as typeof department)}>
-              <SelectTrigger className="w-full h-9 border-2 border-black">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="orders">Orders</SelectItem>
-                <SelectItem value="stock">Stock</SelectItem>
-                <SelectItem value="operations">Operations</SelectItem>
-                <SelectItem value="finance">Finance</SelectItem>
-                <SelectItem value="back-office">Back-Office</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
         <div className="flex-1 overflow-y-auto">
-
-        {/* Dashboard */}
-        <SidebarGroup>
-          <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
-            Dashboard
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/finance")}>
-                  <Link href="/finance">
-                    <LayoutDashboard />
-                    <span>Main Dashboard</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/finance")}>
-                  <Link href="/finance">
-                    <LayoutDashboard />
-                    <span>{currentConfig.label}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Department Pages */}
-        <SidebarGroup>
-          <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
-            {currentConfig.label}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {currentConfig.items.map((item) => {
-                // Render collapsible item if it has children
-                if (item.isCollapsible && item.children) {
-                  const isOpen = item.title === "View Data" ? isViewDataOpen : false;
-                  const isParentActive = isActive(item.url) || isChildActive(item.children);
-                  
-                  return (
-                    <Collapsible 
-                      key={item.title} 
-                      open={isOpen} 
-                      onOpenChange={item.title === "View Data" ? setIsViewDataOpen : undefined}
-                    >
-                      <SidebarMenuItem>
-                        <CollapsibleTrigger asChild>
-                          <SidebarMenuButton isActive={isParentActive}>
-                            <item.icon />
-                            <span>{item.title}</span>
-                            <ChevronRight className={cn(
-                              "ml-auto transition-transform duration-200",
-                              isOpen && "rotate-90"
-                            )} />
-                          </SidebarMenuButton>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <SidebarMenuSub>
-                            {item.children?.map((child: MenuItem) => (
-                              <SidebarMenuSubItem key={child.title}>
-                                <SidebarMenuSubButton asChild isActive={isActive(child.url)}>
-                                  <Link href={child.url}>
-                                    <span>{child.title}</span>
-                                  </Link>
-                                </SidebarMenuSubButton>
-                              </SidebarMenuSubItem>
-                            ))}
-                          </SidebarMenuSub>
-                        </CollapsibleContent>
-                      </SidebarMenuItem>
-                    </Collapsible>
-                  );
-                }
-                
-                // Render regular item
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                      <Link href={item.url}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-          {/* Admin Section - Only visible in Operations for Owner/Admin */}
-          {department === "operations" && isOwner() && (
-            <SidebarGroup>
-              <SidebarGroupLabel>Admin</SidebarGroupLabel>
+          {/* Homepage */}
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              Home
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
               <SidebarMenu>
-                {adminItems.map((item) => (
-                  <SidebarMenuItem key={item.url} asChild>
-                    <Link href={item.url} aria-current={isActive(item.url) ? "page" : undefined}>
-                      <item.icon />
-                      <span>{item.title}</span>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={isActive("/dashboard") || pathname === "/"}>
+                    <Link href="/dashboard">
+                      <LayoutDashboard />
+                      <span>Daily Ops KPIs</span>
                     </Link>
-                  </SidebarMenuItem>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {/* Daily Ops Section */}
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              Daily Ops
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {dailyOpsItems.map((item) => renderMenuItem(item))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {/* Operations Section */}
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              Operations
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {operationsItems.map((item) => renderMenuItem(item))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {/* Data Section */}
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              Data
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {dataItems.map((item) => renderMenuItem(item, 
+                  item.title === "Finance" ? "dataFinance" :
+                  item.title === "Labor" ? "dataLabor" :
+                  item.title === "Sales" ? "dataSales" : undefined
                 ))}
               </SidebarMenu>
-            </SidebarGroup>
-          )}
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {/* Settings Section */}
+          <SidebarGroup>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              Settings
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {settingsItems.map((item) => renderMenuItem(item))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
         </div>
 
-        {/* Import & Connection Section - Sticky Bottom */}
+        {/* Bottom Section - Connections & Tools */}
         <div className="mt-auto border-t-2 border-black pb-4">
           <SidebarGroup>
-            <SidebarGroupLabel>Import & Connection</SidebarGroupLabel>
+            <SidebarGroupLabel className={collapsed ? "sr-only" : ""}>
+              Connections & Tools
+            </SidebarGroupLabel>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/finance/imports")}>
-                  <Link href="/finance/imports">
+                <SidebarMenuButton asChild isActive={isActive("/settings/connections/data-import")}>
+                  <Link href="/settings/connections/data-import">
                     <Upload />
-                    <span>Data Imports</span>
+                    <span>Data Import</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/finance/bork-api")}>
-                  <Link href="/finance/bork-api">
+                <SidebarMenuButton asChild isActive={isActive("/settings/bork-api")}>
+                  <Link href="/settings/bork-api">
                     <Wifi />
-                    <span>Bork API Connect</span>
+                    <span>Bork API</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/finance/eitje-api")}>
-                  <Link href="/finance/eitje-api">
+                <SidebarMenuButton asChild isActive={isActive("/settings/eitje-api")}>
+                  <Link href="/settings/eitje-api">
                     <Wifi />
-                    <span>Eitje API Connect</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/finance/formitable-api")}>
-                  <Link href="/finance/formitable-api">
-                    <Wifi />
-                    <span>Formitable API Connect</span>
+                    <span>Eitje API</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={isActive("/roadmap")}>
                   <Link href="/roadmap">
-                    <Map />
+                    <FileText />
                     <span>Roadmap</span>
                   </Link>
                 </SidebarMenuButton>
@@ -371,14 +326,6 @@ export function AppSidebar() {
                   <Link href="/docs">
                     <FileText />
                     <span>Documentation</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive("/design-systems") || pathname.startsWith("/design-systems/")}>
-                  <Link href="/design-systems">
-                    <Palette />
-                    <span>Design Systems</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

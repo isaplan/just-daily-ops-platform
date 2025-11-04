@@ -70,13 +70,13 @@ export default function FinanceDashboard() {
         </div>
         <div className="flex gap-2">
           <Button asChild>
-            <Link href="/finance/imports">
+            <Link href="/settings/connections/data-import">
               <Upload className="h-4 w-4 mr-2" />
               Import Data
             </Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link href="/finance/bork-api">
+            <Link href="/settings/bork-api">
               <Sparkles className="h-4 w-4 mr-2" />
               Bork API
             </Link>

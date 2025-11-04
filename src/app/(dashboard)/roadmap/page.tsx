@@ -26,6 +26,7 @@ interface RoadmapItem {
   triggers: string[];
   status?: string | null;
   have_state?: string | null;
+  branch_name?: string | null;
 }
 
 const STATUSES = ["doing", "next-up", "someday", "inbox"] as const;
