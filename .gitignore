@@ -47,3 +47,7 @@ next-env.d.ts
 
 # Roadmap automation context files
 .roadmap-context/
+
+# Git hooks (local only, not shared)
+.git/hooks/
+.githooks/
