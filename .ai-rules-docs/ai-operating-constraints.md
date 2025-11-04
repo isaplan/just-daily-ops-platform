@@ -70,6 +70,45 @@ This prevents AI from violating rules and destroying working code.
 - **NO LOOPHOLES** - All rules are unbreakable
 - **ASK FIRST** - Always ask before making ANY changes
 
+### **🚫 ABSOLUTE PROHIBITION: NO BYPASS FLAGS OR COMMANDS**
+**CRITICAL: These prohibitions are UNBREAKABLE and cannot be bypassed under any circumstances.**
+
+#### **Git Command Bypasses - STRICTLY FORBIDDEN:**
+- ❌ **NEVER use `--no-verify`** - Bypasses pre-commit hooks (compliance checks)
+- ❌ **NEVER use `--no-gpg-sign`** - Bypasses GPG signing requirements
+- ❌ **NEVER use `--force` or `--force-with-lease`** - Bypasses branch protection
+- ❌ **NEVER use `--no-post-rewrite`** - Bypasses post-rewrite hooks
+- ❌ **NEVER use `--no-verify` in commit messages** - Cannot bypass via commit message
+- ❌ **NEVER use commit message tricks** - No `[skip ci]`, `[no verify]`, `[bypass]` in messages
+
+#### **File/System Manipulation - STRICTLY FORBIDDEN:**
+- ❌ **NEVER modify `.git/hooks/pre-commit`** - Cannot modify compliance hooks
+- ❌ **NEVER modify `function-registry.json`** - Cannot remove protections
+- ❌ **NEVER modify compliance check scripts** - Cannot disable checks
+- ❌ **NEVER delete compliance scripts** - Cannot remove safety mechanisms
+- ❌ **NEVER use `git config core.hooksPath`** - Cannot redirect hooks
+- ❌ **NEVER use `sudo` or privilege escalation** - Cannot bypass with elevated permissions
+
+#### **What To Do When Compliance Check Fails:**
+1. **STOP immediately** - Do NOT attempt to bypass
+2. **Report to user** - Show all violations clearly
+3. **Explain the issue** - What violated the rules and why
+4. **Wait for user decision** - User must explicitly approve any override
+5. **NEVER assume permission** - "Good for now" does NOT mean bypass checks
+
+#### **Enforcement:**
+- **Server-Side Protection**: GitHub Actions runs compliance checks on all pushes/PRs
+- **Cannot be bypassed**: Server-side checks run regardless of local git flags
+- **Automatic blocking**: Violations automatically block merges and pushes
+- **Audit trail**: All attempts are logged and visible in GitHub
+
+**If you see a compliance check failure, you MUST:**
+1. Stop what you're doing
+2. Report the violations to the user
+3. Ask for explicit permission to proceed
+4. Wait for user confirmation before continuing
+5. NEVER use bypass flags as a "shortcut"
+
 ### **🚫 MANDATORY PRE-EXECUTION CHECK (CURSOR TOOL LEVEL ENFORCEMENT)**
 **This check MUST run before ANY tool execution that modifies code.**
 
