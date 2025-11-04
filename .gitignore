@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# VS Code extension (development only, not committed)
+.vscode-extension/node_modules/
+.vscode-extension/out/
+.vscode-extension/package-lock.json

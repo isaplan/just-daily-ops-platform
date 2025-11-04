@@ -17,8 +17,9 @@
     ".ai-compliance-status.json": "jsonc"
   },
   "editor.codeActionsOnSave": {
-    "source.fixAll": false
+    "source.fixAll": "never"
   },
   "task.allowAutomaticTasks": "on"
 }
+
 

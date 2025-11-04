@@ -80,3 +80,4 @@ async function checkBorkAggregatedData() {
 }
 
 checkBorkAggregatedData().catch(console.error);
+

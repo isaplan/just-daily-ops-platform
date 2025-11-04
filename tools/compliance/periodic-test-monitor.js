@@ -14,7 +14,7 @@ const { execSync } = require('child_process');
 class PeriodicTestMonitor {
   constructor() {
     this.projectRoot = process.cwd();
-    this.resultsFile = path.join(this.projectRoot, '.ai-compliance-functions/test-results.json');
+    this.resultsFile = path.join(this.projectRoot, 'tools/compliance/test-results.json');
     this.startTime = new Date();
     this.testInterval = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
     this.totalDuration = 48 * 60 * 60 * 1000; // 48 hours in milliseconds
@@ -150,7 +150,7 @@ class PeriodicTestMonitor {
     try {
       const testTask = `periodic test #${this.testCount} - validate compliance system`;
       const output = execSync(
-        `node .ai-compliance-functions/pre-execution-check.js "${testTask}"`,
+        `node tools/compliance/pre-execution-check.js "${testTask}"`,
         { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }
       );
 
@@ -193,7 +193,7 @@ class PeriodicTestMonitor {
     
     try {
       const output = execSync(
-        `node .ai-compliance-functions/post-execution-check.js`,
+        `node tools/compliance/post-execution-check.js`,
         { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }
       );
 

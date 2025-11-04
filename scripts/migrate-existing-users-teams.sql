@@ -277,3 +277,4 @@ EXCEPTION
     RAISE EXCEPTION 'Migration failed: %', SQLERRM;
 END $$;
 
+

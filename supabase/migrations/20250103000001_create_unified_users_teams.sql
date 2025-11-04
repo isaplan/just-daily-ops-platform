@@ -327,3 +327,4 @@ COMMENT ON TABLE team_system_mappings IS 'Maps external system team IDs (Eitje, 
 COMMENT ON TABLE team_locations IS 'Many-to-many relationship: teams can exist at multiple locations';
 COMMENT ON TABLE team_members IS 'Many-to-many relationship: users can be in multiple teams';
 
+

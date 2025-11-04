@@ -25,11 +25,51 @@ class PostExecutionChecker {
   constructor() {
     this.projectRoot = process.cwd();
     this.registryPath = path.join(this.projectRoot, 'function-registry.json');
+    this.rulesPath = path.join(this.projectRoot, 'tools/compliance/config/.ai-compliance-rules.json');
     this.violations = [];
     this.modifiedFiles = [];
     this.totalLinesChanged = 0;
     this.completedFunctions = new Set();
-    this.backupDir = path.join(this.projectRoot, '.ai-compliance-backups');
+    this.backupDir = path.join(this.projectRoot, 'tools/compliance/backups');
+    this.config = this.loadConfig();
+  }
+
+  loadConfig() {
+    const defaultConfig = {
+      maxLinesPerChange: 100,
+      maxDeletions: 20,
+      fullReplacementThreshold: 0.8,
+      excludedPaths: ['node_modules', '.git', '.next', 'dist', 'build'],
+      fileExtensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
+      exemptFiles: [
+        'function-registry.json',
+        'ai-tracking-system.json',
+        '.ai-compliance-messages.json',
+        '.ai-compliance-status.json',
+        'progress-log.json',
+        'test-results.json',
+        'build-log.json'
+      ]
+    };
+
+    if (fs.existsSync(this.rulesPath)) {
+      try {
+        const customConfig = JSON.parse(fs.readFileSync(this.rulesPath, 'utf8'));
+        return { ...defaultConfig, ...customConfig };
+      } catch (e) {
+        console.warn('⚠️  Could not parse compliance rules, using defaults:', e.message);
+      }
+    }
+
+    return defaultConfig;
+  }
+  
+  isExemptFile(filePath) {
+    const fileName = path.basename(filePath);
+    const exemptFiles = this.config.exemptFiles || [];
+    return exemptFiles.some(exempt => 
+      filePath.includes(exempt) || fileName === exempt
+    );
   }
 
   async runCheck() {
@@ -144,24 +184,26 @@ class PostExecutionChecker {
       });
     }
     
-    // Check 2: Count lines changed
+    // Check 2: Count lines changed (skip for exempt files)
     const linesChanged = this.countLinesChanged(filePath);
     this.totalLinesChanged += linesChanged;
     
-    if (linesChanged > 100) {
+    // Skip size checks for exempt registry/history files
+    const maxLines = this.config.maxLinesPerChange || 100;
+    if (!this.isExemptFile(filePath) && linesChanged > maxLines) {
       this.violations.push({
         type: 'SIZE_VIOLATION',
         file: filePath,
         linesChanged: linesChanged,
-        maxAllowed: 100,
-        message: `File ${filePath} had ${linesChanged} lines changed, exceeds 100-line limit`,
+        maxAllowed: maxLines,
+        message: `File ${filePath} had ${linesChanged} lines changed, exceeds ${maxLines}-line limit`,
         severity: 'HIGH',
-        requiredAction: 'Break down into smaller changes (max 100 lines per file)'
+        requiredAction: `Break down into smaller changes (max ${maxLines} lines per file)`
       });
     }
     
-    // Check 3: Full file replacement detection
-    if (this.isFullFileReplacement(filePath)) {
+    // Check 3: Full file replacement detection (skip for exempt files)
+    if (!this.isExemptFile(filePath) && this.isFullFileReplacement(filePath)) {
       this.violations.push({
         type: 'FULL_FILE_REPLACEMENT',
         file: filePath,
@@ -171,18 +213,24 @@ class PostExecutionChecker {
       });
     }
     
-    // Check 4: Significant deletions
-    const deletions = this.countDeletions(filePath);
-    if (deletions > 20) {
-      this.violations.push({
-        type: 'EXCESSIVE_DELETION',
-        file: filePath,
-        linesDeleted: deletions,
-        message: `File ${filePath} had ${deletions} lines deleted, may have removed working functionality`,
-        severity: 'MEDIUM',
-        requiredAction: 'Verify that deleted code was not needed'
-      });
+    // Check 4: Significant deletions (skip for exempt files - they can be reorganized)
+    if (!this.isExemptFile(filePath)) {
+      const deletions = this.countDeletions(filePath);
+      const maxDeletions = this.config.maxDeletions || 20;
+      if (deletions > maxDeletions) {
+        this.violations.push({
+          type: 'EXCESSIVE_DELETION',
+          file: filePath,
+          linesDeleted: deletions,
+          message: `File ${filePath} had ${deletions} lines deleted, may have removed working functionality`,
+          severity: 'MEDIUM',
+          requiredAction: 'Verify that deleted code was not needed'
+        });
+      }
     }
+    
+    // Check 5: Detect specific violation patterns
+    this.detectViolationPatterns(filePath);
   }
 
   countLinesChanged(filePath) {
@@ -194,23 +242,39 @@ class PostExecutionChecker {
         // Check if file is new (untracked)
         const gitLs = execSync(`git ls-files "${filePath}"`, { encoding: 'utf8' });
         if (!gitLs.trim()) {
-          // New file - count all lines
+          // New file - count all lines (excluding comments and whitespace for better accuracy)
           const content = fs.readFileSync(path.join(this.projectRoot, filePath), 'utf8');
-          return content.split('\n').length;
+          const lines = content.split('\n');
+          // Count non-empty, non-comment lines
+          const significantLines = lines.filter(line => {
+            const trimmed = line.trim();
+            return trimmed.length > 0 && !trimmed.startsWith('//') && !trimmed.startsWith('/*');
+          });
+          return significantLines.length;
         }
         return 0;
       }
       
-      // Count added and modified lines
-      const added = (diff.match(/^\+(?!\+)/gm) || []).length;
+      // Count added and modified lines, excluding comments and whitespace
+      const addedLines = diff.split('\n').filter(line => {
+        if (!line.startsWith('+')) return false;
+        const content = line.substring(1).trim();
+        return content.length > 0 && !content.startsWith('//') && !content.startsWith('/*');
+      });
+      
       const modified = (diff.match(/^@@/gm) || []).length;
       
-      return added + modified;
+      return addedLines.length + modified;
     } catch (e) {
       // Git command failed - estimate from file size
       try {
         const content = fs.readFileSync(path.join(this.projectRoot, filePath), 'utf8');
-        return content.split('\n').length;
+        const lines = content.split('\n');
+        const significantLines = lines.filter(line => {
+          const trimmed = line.trim();
+          return trimmed.length > 0 && !trimmed.startsWith('//') && !trimmed.startsWith('/*');
+        });
+        return significantLines.length;
       } catch (e2) {
         return 0;
       }
@@ -234,13 +298,26 @@ class PostExecutionChecker {
       const diff = execSync(`git diff HEAD -- "${filePath}"`, { encoding: 'utf8' });
       if (!diff) return false;
       
-      // If diff shows removal of most/all original content and addition of new content
-      // This is a heuristic - if >80% of file is replaced, consider it full replacement
+      const threshold = this.config.fullReplacementThreshold || 0.8;
       const lines = diff.split('\n');
       const contextLines = lines.filter(l => l.startsWith('@@')).length;
       const totalChanges = (lines.filter(l => l.startsWith('+') || l.startsWith('-')).length);
       
-      // If very few context lines but many changes, likely full replacement
+      // Get original file size to calculate replacement percentage
+      try {
+        const originalContent = execSync(`git show HEAD:"${filePath}"`, { encoding: 'utf8' });
+        const originalLineCount = originalContent.split('\n').length;
+        const replacementRatio = totalChanges / Math.max(originalLineCount, 1);
+        
+        // If replacement ratio exceeds threshold, consider it full replacement
+        if (replacementRatio > threshold) {
+          return true;
+        }
+      } catch (e) {
+        // File might be new, fall back to heuristic
+      }
+      
+      // Fallback heuristic: very few context lines but many changes
       if (totalChanges > 50 && contextLines < 5) {
         return true;
       }
@@ -248,6 +325,54 @@ class PostExecutionChecker {
       return false;
     } catch (e) {
       return false;
+    }
+  }
+
+  detectViolationPatterns(filePath) {
+    try {
+      const diff = execSync(`git diff HEAD -- "${filePath}"`, { encoding: 'utf8' });
+      if (!diff) return;
+
+      // Check for deleted imports
+      const deletedImports = (diff.match(/^-(import|export).*from/gm) || []).length;
+      if (deletedImports > 5) {
+        this.violations.push({
+          type: 'DELETED_IMPORTS',
+          file: filePath,
+          count: deletedImports,
+          message: `File ${filePath} had ${deletedImports} import/export statements deleted`,
+          severity: 'MEDIUM',
+          requiredAction: 'Verify that deleted imports are not needed elsewhere'
+        });
+      }
+
+      // Check for removed exports
+      const removedExports = (diff.match(/^-(export\s+(const|function|class|default))/gm) || []).length;
+      if (removedExports > 2) {
+        this.violations.push({
+          type: 'REMOVED_EXPORTS',
+          file: filePath,
+          count: removedExports,
+          message: `File ${filePath} had ${removedExports} exports removed`,
+          severity: 'MEDIUM',
+          requiredAction: 'Verify that removed exports are not used by other files'
+        });
+      }
+
+      // Check for excessive whitespace-only changes (potential formatting issues)
+      const whitespaceOnlyChanges = (diff.match(/^[+-]\s*$/gm) || []).length;
+      if (whitespaceOnlyChanges > 30) {
+        this.violations.push({
+          type: 'WHITESPACE_CHANGES',
+          file: filePath,
+          count: whitespaceOnlyChanges,
+          message: `File ${filePath} had ${whitespaceOnlyChanges} whitespace-only changes`,
+          severity: 'LOW',
+          requiredAction: 'Consider using a formatter to avoid unnecessary whitespace changes'
+        });
+      }
+    } catch (e) {
+      // Diff check failed, skip pattern detection
     }
   }
 

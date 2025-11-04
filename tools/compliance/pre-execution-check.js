@@ -25,9 +25,38 @@ class PreExecutionChecker {
     this.projectRoot = process.cwd();
     this.registryPath = path.join(this.projectRoot, 'function-registry.json');
     this.progressPath = path.join(this.projectRoot, 'progress-log.json');
+    this.rulesPath = path.join(this.projectRoot, 'tools/compliance/config/.ai-compliance-rules.json');
     this.completedFunctions = new Set();
     this.violations = [];
     this.existingCodeFound = [];
+    this.config = this.loadConfig();
+  }
+
+  loadConfig() {
+    const defaultConfig = {
+      maxLinesPerChange: 100,
+      maxDeletions: 20,
+      fullReplacementThreshold: 0.8,
+      excludedPaths: ['node_modules', '.git', '.next', 'dist', 'build'],
+      fileExtensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
+      search: {
+        maxResults: 5,
+        minKeywordLength: 3,
+        useContentSearch: true
+      },
+      stopWords: ['the', 'and', 'or', 'but', 'for', 'with', 'this', 'that']
+    };
+
+    if (fs.existsSync(this.rulesPath)) {
+      try {
+        const customConfig = JSON.parse(fs.readFileSync(this.rulesPath, 'utf8'));
+        return { ...defaultConfig, ...customConfig };
+      } catch (e) {
+        console.warn('⚠️  Could not parse compliance rules, using defaults:', e.message);
+      }
+    }
+
+    return defaultConfig;
   }
 
   async runCheck() {
@@ -91,23 +120,24 @@ class PreExecutionChecker {
   async checkExistingCode(taskDescription) {
     // Try to find existing code that might accomplish the task
     const keywords = this.extractKeywords(taskDescription);
-    
-    // Search for relevant files/patterns
-    const searchTerms = keywords.filter(k => k.length > 3);
+    const minLength = this.config.search?.minKeywordLength || 3;
+    const searchTerms = keywords.filter(k => k.length >= minLength);
     
     if (searchTerms.length > 0) {
       try {
-        // Use grep to search for relevant code (simplified search)
-        const searchPattern = searchTerms[0];
         const srcDir = path.join(this.projectRoot, 'src');
         
         if (fs.existsSync(srcDir)) {
-          // Look for files that might contain relevant code
-          const relevantFiles = this.findRelevantFiles(srcDir, searchPattern);
+          // Search for relevant files using multiple search terms
+          const allFiles = new Set();
           
-          if (relevantFiles.length > 0) {
-            this.existingCodeFound = relevantFiles.slice(0, 5); // Limit to 5 results
+          for (const term of searchTerms.slice(0, 3)) { // Use top 3 terms
+            const relevantFiles = this.findRelevantFiles(srcDir, term);
+            relevantFiles.forEach(file => allFiles.add(file));
           }
+          
+          const maxResults = this.config.search?.maxResults || 5;
+          this.existingCodeFound = Array.from(allFiles).slice(0, maxResults);
         }
       } catch (e) {
         // Search failed, but don't block - just warn
@@ -118,21 +148,49 @@ class PreExecutionChecker {
 
   findRelevantFiles(dir, searchTerm) {
     const files = [];
+    const useContentSearch = this.config.search?.useContentSearch !== false;
+    const fileExtensions = this.config.fileExtensions || ['.ts', '.tsx', '.js', '.jsx'];
+    const excludedPaths = this.config.excludedPaths || ['node_modules', '.git'];
     
     try {
+      // Check if directory should be excluded
+      const relativePath = dir.replace(this.projectRoot + '/', '');
+      if (excludedPaths.some(excluded => relativePath.includes(excluded))) {
+        return files;
+      }
+
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       
       for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
+        const relativeFilePath = fullPath.replace(this.projectRoot + '/', '');
         
-        if (entry.isDirectory() && !entry.name.startsWith('.') && entry.name !== 'node_modules') {
+        if (entry.isDirectory() && !entry.name.startsWith('.') && 
+            !excludedPaths.some(excluded => relativeFilePath.includes(excluded))) {
           files.push(...this.findRelevantFiles(fullPath, searchTerm));
-        } else if (entry.isFile() && (entry.name.includes(searchTerm.toLowerCase()) || 
-                   entry.name.endsWith('.ts') || entry.name.endsWith('.tsx') || 
-                   entry.name.endsWith('.js') || entry.name.endsWith('.jsx'))) {
-          // Simple filename match (could be enhanced with actual content search)
-          if (entry.name.toLowerCase().includes(searchTerm.toLowerCase())) {
-            files.push(fullPath.replace(this.projectRoot + '/', ''));
+        } else if (entry.isFile()) {
+          const ext = path.extname(entry.name);
+          const isRelevantExtension = fileExtensions.includes(ext);
+          const nameMatch = entry.name.toLowerCase().includes(searchTerm.toLowerCase());
+          
+          if (isRelevantExtension && (nameMatch || useContentSearch)) {
+            // Try content search if enabled
+            if (useContentSearch && !nameMatch) {
+              try {
+                const content = fs.readFileSync(fullPath, 'utf8');
+                const contentMatch = content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                   // Check for function/component patterns
+                                   new RegExp(`(function|const|export|class)\\s+\\w*${searchTerm}\\w*`, 'i').test(content);
+                
+                if (contentMatch) {
+                  files.push(relativeFilePath);
+                }
+              } catch (e) {
+                // File read failed, skip
+              }
+            } else if (nameMatch) {
+              files.push(relativeFilePath);
+            }
           }
         }
       }
@@ -145,12 +203,19 @@ class PreExecutionChecker {
 
   extractKeywords(description) {
     // Extract meaningful keywords from task description
+    const stopWords = this.config.stopWords || ['the', 'and', 'or', 'but', 'for', 'with', 'this', 'that'];
     const words = description.toLowerCase()
       .split(/[\s,.-]+/)
       .filter(w => w.length > 2)
-      .filter(w => !['the', 'and', 'or', 'but', 'for', 'with', 'this', 'that'].includes(w));
+      .filter(w => !stopWords.includes(w));
     
-    return words;
+    // Also extract camelCase and kebab-case words
+    const camelCaseWords = description.match(/\b[a-z]+([A-Z][a-z]+)+\b/g);
+    if (camelCaseWords) {
+      words.push(...camelCaseWords.map(w => w.toLowerCase()));
+    }
+    
+    return [...new Set(words)]; // Remove duplicates
   }
 
   async checkRegistryProtection(targetFiles) {
@@ -194,14 +259,15 @@ class PreExecutionChecker {
   }
 
   validatePlannedChanges(changes) {
-    if (changes.estimatedLines > 100) {
+    const maxLines = this.config.maxLinesPerChange || 100;
+    if (changes.estimatedLines > maxLines) {
       this.violations.push({
         type: 'SIZE_VIOLATION',
         estimatedLines: changes.estimatedLines,
-        maxAllowed: 100,
-        message: `Planned changes estimated at ${changes.estimatedLines} lines, exceeds 100-line limit`,
+        maxAllowed: maxLines,
+        message: `Planned changes estimated at ${changes.estimatedLines} lines, exceeds ${maxLines}-line limit`,
         severity: 'HIGH',
-        requiredAction: 'Break down into smaller changes (max 100 lines per change)'
+        requiredAction: `Break down into smaller changes (max ${maxLines} lines per change)`
       });
     }
   }

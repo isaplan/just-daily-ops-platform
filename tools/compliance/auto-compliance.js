@@ -16,9 +16,9 @@ const ComplianceMessages = require('./compliance-messages');
 class AutoComplianceSystem {
   constructor() {
     this.projectRoot = process.cwd();
-    this.complianceChecker = path.join(this.projectRoot, '.ai-compliance-functions/ai-compliance-checker.js');
-    this.postExecutionCheck = path.join(this.projectRoot, '.ai-compliance-functions/post-execution-check.js');
-    this.registryUpdater = path.join(this.projectRoot, '.ai-compliance-functions/registry-auto-updater.js');
+    this.complianceChecker = path.join(this.projectRoot, 'tools/compliance/ai-compliance-checker.js');
+    this.postExecutionCheck = path.join(this.projectRoot, 'tools/compliance/post-execution-check.js');
+    this.registryUpdater = path.join(this.projectRoot, 'tools/compliance/registry-auto-updater.js');
     this.trackingSystem = path.join(this.projectRoot, 'ai-tracking-system.json');
     this.registryPath = path.join(this.projectRoot, 'function-registry.json');
     this.messages = new ComplianceMessages();

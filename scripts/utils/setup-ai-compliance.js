@@ -14,7 +14,7 @@ class AIComplianceSetup {
     this.projectRoot = process.cwd();
     this.setupFiles = [
       '.ai-rules-docs/ai-operating-constraints.md',
-      '.ai-compliance-functions/',
+      'tools/compliance/',
       'function-registry.json',
       'progress-log.json',
       'ai-tracking-system.json'
@@ -81,9 +81,9 @@ class AIComplianceSetup {
       packageJson.scripts = {};
     }
     
-    packageJson.scripts['compliance:check'] = 'node .ai-compliance-functions/ai-compliance-checker.js';
-    packageJson.scripts['compliance:auto'] = 'node .ai-compliance-functions/auto-compliance.js';
-    packageJson.scripts['compliance:dashboard'] = 'node .ai-compliance-functions/ai-compliance-dashboard.js';
+    packageJson.scripts['compliance:check'] = 'node tools/compliance/ai-compliance-checker.js';
+    packageJson.scripts['compliance:auto'] = 'node tools/compliance/auto-compliance.js';
+    packageJson.scripts['compliance:dashboard'] = 'node tools/compliance/ai-compliance-dashboard.js';
     
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     console.log('✅ NPM scripts added');
