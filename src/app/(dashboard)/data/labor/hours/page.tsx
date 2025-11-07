@@ -65,15 +65,35 @@ export default function DataLaborHoursPage() {
     return filters;
   }, [selectedYear, selectedMonth, selectedLocation, dateRange]);
 
-  // Fetch data
+  // Fetch environment ids mapped from selected location (UUID -> list of eitje_environment_id integers)
+  const { data: environmentIds, isLoading: isLoadingEnvIds } = useQuery({
+    queryKey: ["eitje-env-by-location", selectedLocation],
+    queryFn: async () => {
+      if (selectedLocation === "all") return null;
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("eitje_environments")
+        .select("eitje_environment_id")
+        .eq("location_id", selectedLocation);
+      if (error) throw error;
+      return (data || []).map((r: any) => r.eitje_environment_id);
+    },
+    enabled: selectedLocation !== "all",
+    staleTime: 10 * 60 * 1000,
+  });
+
+  // Fetch processed shifts data
   const { data, isLoading, error } = useQuery({
-    queryKey: ["eitje-hours", queryFilters, currentPage],
+    queryKey: ["eitje-hours-processed", queryFilters, currentPage, environmentIds],
     queryFn: async () => {
       const supabase = createClient();
 
       let query = supabase
-        .from("eitje_labor_hours_aggregated")
-        .select("*", { count: "exact" })
+        .from("eitje_time_registration_shifts_processed")
+        .select(
+          `id,date,environment_id,team_id,user_id,hours_worked,hourly_rate,wage_cost,status,created_at`,
+          { count: "exact" }
+        )
         .order("date", { ascending: false });
 
       // Apply date filters
@@ -81,9 +101,14 @@ export default function DataLaborHoursPage() {
         query = query.gte("date", queryFilters.startDate).lte("date", queryFilters.endDate);
       }
 
-      // Apply location filter if needed
-      if (queryFilters.environmentId) {
-        query = query.eq("environment_id", queryFilters.environmentId);
+      // Apply location filter (mapped to environment ids)
+      if (selectedLocation !== "all") {
+        if (environmentIds && environmentIds.length > 0) {
+          query = query.in("environment_id", environmentIds);
+        } else {
+          // no matching environments -> return empty set
+          query = query.eq("environment_id", -999999);
+        }
       }
 
       // Apply pagination
@@ -100,7 +125,7 @@ export default function DataLaborHoursPage() {
         total: count || 0,
       };
     },
-    enabled: !!queryFilters.startDate,
+    enabled: !!queryFilters.startDate && (selectedLocation === "all" || !isLoadingEnvIds),
   });
 
   const totalPages = useMemo(() => {
@@ -145,7 +170,7 @@ export default function DataLaborHoursPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Labor Hours</CardTitle>
+          <CardTitle>Labor Hours (Processed)</CardTitle>
           <CardDescription>
             Showing {data?.records.length || 0} of {data?.total || 0} records
           </CardDescription>
