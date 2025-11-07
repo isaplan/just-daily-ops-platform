@@ -1,10 +1,10 @@
 {
   "lastMessage": {
     "type": "INFO",
-    "title": "📋 REGISTRY UPDATED",
-    "message": "Registry updated: 3 new functions detected",
-    "timestamp": "2025-11-04T02:01:28.441Z"
+    "title": "💤 REGISTRY IDLE",
+    "message": "No code changes for 20 minutes. Registry updates paused. Will reactivate on next code change.",
+    "timestamp": "2025-11-07T10:57:44.851Z"
   },
-  "lastUpdated": "2025-11-04T02:01:28.441Z",
+  "lastUpdated": "2025-11-07T10:57:44.851Z",
   "systemActive": true
 }

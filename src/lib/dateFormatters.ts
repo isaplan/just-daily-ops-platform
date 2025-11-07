@@ -22,3 +22,4 @@ export function formatDateDDMMYYTime(date: Date | string | null | undefined): st
   return `${day}${month}'${year} ${hours}:${minutes}`;
 }
 
+

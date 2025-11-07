@@ -52,5 +52,49 @@
       "totalFunctions": 340
     },
     "timestamp": "2025-11-04T02:01:28.441Z"
+  },
+  {
+    "type": "INFO",
+    "title": "📋 REGISTRY UPDATED",
+    "message": "Registry updated: 1 new functions detected",
+    "details": {
+      "newFunctions": 1,
+      "totalFunctions": 341
+    },
+    "timestamp": "2025-11-07T01:11:30.008Z"
+  },
+  {
+    "type": "INFO",
+    "title": "📋 REGISTRY UPDATED",
+    "message": "Registry updated: 1 new functions detected",
+    "details": {
+      "newFunctions": 1,
+      "totalFunctions": 341
+    },
+    "timestamp": "2025-11-07T01:11:30.017Z"
+  },
+  {
+    "type": "INFO",
+    "title": "💤 REGISTRY IDLE",
+    "message": "No code changes for 20 minutes. Registry updates paused. Will reactivate on next code change.",
+    "details": {},
+    "timestamp": "2025-11-07T06:19:59.103Z"
+  },
+  {
+    "type": "INFO",
+    "title": "📋 REGISTRY UPDATED",
+    "message": "Registry updated: 1 new functions detected",
+    "details": {
+      "newFunctions": 1,
+      "totalFunctions": 342
+    },
+    "timestamp": "2025-11-07T10:22:51.028Z"
+  },
+  {
+    "type": "INFO",
+    "title": "💤 REGISTRY IDLE",
+    "message": "No code changes for 20 minutes. Registry updates paused. Will reactivate on next code change.",
+    "details": {},
+    "timestamp": "2025-11-07T10:57:44.851Z"
   }
 ]

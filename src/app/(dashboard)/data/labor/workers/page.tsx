@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
@@ -42,6 +42,12 @@ export default function WorkersPage() {
   return (
     <div className="space-y-6">
       <Card className="border-0 bg-transparent shadow-none">
+        <CardHeader>
+          <CardTitle>Data Table</CardTitle>
+          <CardDescription>
+            Showing {data?.records.length || 0} of {data?.total || 0} records
+          </CardDescription>
+        </CardHeader>
         <CardContent className="p-0">
           {isLoading && (
             <div className="flex items-center justify-center py-8">

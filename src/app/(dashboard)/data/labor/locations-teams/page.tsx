@@ -80,6 +80,12 @@ export default function LocationsTeamsPage() {
 
             {/* Locations Tab */}
             <TabsContent value="locations" className="space-y-4">
+              <div>
+                <CardTitle className="mb-2">Locations Data</CardTitle>
+                <CardDescription>
+                  Showing {locationsData?.records.length || 0} of {locationsData?.total || 0} records
+                </CardDescription>
+              </div>
 
               {locationsLoading && (
                 <div className="flex items-center justify-center py-8">
@@ -171,6 +177,12 @@ export default function LocationsTeamsPage() {
 
             {/* Teams Tab */}
             <TabsContent value="teams" className="space-y-4">
+              <div>
+                <CardTitle className="mb-2">Teams Data</CardTitle>
+                <CardDescription>
+                  Showing {teamsData?.records.length || 0} of {teamsData?.total || 0} records
+                </CardDescription>
+              </div>
 
               {teamsLoading && (
                 <div className="flex items-center justify-center py-8">
