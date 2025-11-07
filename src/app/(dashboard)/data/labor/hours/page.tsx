@@ -67,16 +67,26 @@ export default function DataLaborHoursPage() {
 
   // Fetch environment ids mapped from selected location (UUID -> list of eitje_environment_id integers)
   const { data: environmentIds, isLoading: isLoadingEnvIds } = useQuery({
-    queryKey: ["eitje-env-by-location", selectedLocation],
+    queryKey: ["eitje-env-by-location", selectedLocation, locations],
     queryFn: async () => {
       if (selectedLocation === "all") return null;
       const supabase = createClient();
+      // Find the selected location name locally
+      const selectedLoc = (locations as any[])?.find((l) => l.id === selectedLocation);
+      const selectedName = selectedLoc?.name?.toLowerCase();
+      if (!selectedName) return [];
+
+      // Fetch environments and match by name (works across schema variants)
       const { data, error } = await supabase
         .from("eitje_environments")
-        .select("eitje_environment_id")
-        .eq("location_id", selectedLocation);
+        .select("eitje_environment_id, raw_data");
       if (error) throw error;
-      return (data || []).map((r: any) => r.eitje_environment_id);
+
+      const ids = (data || [])
+        .filter((env: any) => (env.raw_data?.name || "").toLowerCase() === selectedName)
+        .map((env: any) => env.eitje_environment_id)
+        .filter((id: any) => id != null);
+      return ids;
     },
     enabled: selectedLocation !== "all",
     staleTime: 10 * 60 * 1000,
@@ -130,11 +140,15 @@ export default function DataLaborHoursPage() {
       let userMap: Record<number, string> = {};
 
       if (envIds.length > 0) {
+        // Try to fetch names; be tolerant to schema differences (name may be in raw_data)
         const { data: envs } = await supabase
           .from("eitje_environments")
-          .select("eitje_environment_id, name")
-          .in("eitje_environment_id", envIds);
-        envMap = Object.fromEntries((envs || []).map((e: any) => [e.eitje_environment_id, e.name]));
+          .select("eitje_environment_id, name, raw_data");
+        envMap = Object.fromEntries(
+          (envs || [])
+            .filter((e: any) => envIds.includes(e.eitje_environment_id))
+            .map((e: any) => [e.eitje_environment_id, e.name || e.raw_data?.name || `Environment ${e.eitje_environment_id}`])
+        );
       }
 
       if (teamIds.length > 0) {
