@@ -117,7 +117,7 @@ export default function HoursPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto py-6 space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Hours Data</CardTitle>
