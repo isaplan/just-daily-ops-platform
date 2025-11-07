@@ -3,13 +3,14 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { EitjeDataFilters } from "@/components/view-data/EitjeDataFilters";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { DatePreset, getDateRangeForPreset } from "@/components/view-data/DateFilterPresets";
 import { format } from "date-fns";
+import { getEnvIdsForLocation } from "@/lib/eitje/env-utils";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -67,27 +68,8 @@ export default function DataLaborHoursPage() {
 
   // Fetch environment ids mapped from selected location (UUID -> list of eitje_environment_id integers)
   const { data: environmentIds, isLoading: isLoadingEnvIds } = useQuery({
-    queryKey: ["eitje-env-by-location", selectedLocation, locations],
-    queryFn: async () => {
-      if (selectedLocation === "all") return null;
-      const supabase = createClient();
-      // Find the selected location name locally
-      const selectedLoc = (locations as any[])?.find((l) => l.id === selectedLocation);
-      const selectedName = selectedLoc?.name?.toLowerCase();
-      if (!selectedName) return [];
-
-      // Fetch environments and match by name (works across schema variants)
-      const { data, error } = await supabase
-        .from("eitje_environments")
-        .select("eitje_environment_id, raw_data");
-      if (error) throw error;
-
-      const ids = (data || [])
-        .filter((env: any) => (env.raw_data?.name || "").toLowerCase() === selectedName)
-        .map((env: any) => env.eitje_environment_id)
-        .filter((id: any) => id != null);
-      return ids;
-    },
+    queryKey: ["eitje-env-by-location", selectedLocation],
+    queryFn: async () => (selectedLocation === "all" ? null : getEnvIdsForLocation(selectedLocation)),
     enabled: selectedLocation !== "all",
     staleTime: 10 * 60 * 1000,
   });
@@ -101,7 +83,7 @@ export default function DataLaborHoursPage() {
       let query = supabase
         .from("eitje_time_registration_shifts_processed")
         .select(
-          `id,date,environment_id,team_id,user_id,hours_worked,hourly_rate,wage_cost,status,created_at`,
+          `id,date,environment_id,team_id,user_id,start_time,end_time,break_minutes,hours_worked,hourly_rate,wage_cost,skill_set,status,created_at,updated_at`,
           { count: "exact" }
         )
         .order("date", { ascending: false });
@@ -152,19 +134,29 @@ export default function DataLaborHoursPage() {
       }
 
       if (teamIds.length > 0) {
-        const { data: teams } = await supabase
-          .from("eitje_teams")
-          .select("eitje_team_id, name")
-          .in("eitje_team_id", teamIds);
-        teamMap = Object.fromEntries((teams || []).map((t: any) => [t.eitje_team_id, t.name]));
+        try {
+          const { data: teams } = await supabase
+            .from("eitje_teams")
+            .select("eitje_team_id, name, raw_data");
+          teamMap = Object.fromEntries(
+            (teams || [])
+              .filter((t: any) => teamIds.includes(t.eitje_team_id))
+              .map((t: any) => [t.eitje_team_id, t.name || t.raw_data?.name || `Team ${t.eitje_team_id}`])
+          );
+        } catch {}
       }
 
       if (userIds.length > 0) {
-        const { data: users } = await supabase
-          .from("eitje_users")
-          .select("eitje_user_id, name")
-          .in("eitje_user_id", userIds);
-        userMap = Object.fromEntries((users || []).map((u: any) => [u.eitje_user_id, u.name]));
+        try {
+          const { data: users } = await supabase
+            .from("eitje_users")
+            .select("eitje_user_id, name, raw_data");
+          userMap = Object.fromEntries(
+            (users || [])
+              .filter((u: any) => userIds.includes(u.eitje_user_id))
+              .map((u: any) => [u.eitje_user_id, u.name || u.raw_data?.name || `User ${u.eitje_user_id}`])
+          );
+        } catch {}
       }
 
       const withNames = (records || []).map((r: any) => ({
@@ -194,10 +186,6 @@ export default function DataLaborHoursPage() {
 
   return (
     <div className="container mx-auto py-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Labor Data - Hours</h1>
-        <p className="text-muted-foreground">View labor hours data from Eitje</p>
-      </div>
 
       <EitjeDataFilters
         selectedYear={selectedYear}
@@ -222,14 +210,8 @@ export default function DataLaborHoursPage() {
         locations={locationOptions}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Labor Hours (Processed)</CardTitle>
-          <CardDescription>
-            Showing {data?.records.length || 0} of {data?.total || 0} records
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <Card className="border-0 bg-transparent shadow-none">
+        <CardContent className="p-0">
           {isLoading && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -244,24 +226,30 @@ export default function DataLaborHoursPage() {
 
           {!isLoading && !error && data && (
             <>
-              <div className="rounded-md border">
+              <div className="bg-white rounded-sm border border-black px-4">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Environment</TableHead>
-                      <TableHead>Team</TableHead>
-                      <TableHead>User</TableHead>
-                      <TableHead>Hours Worked</TableHead>
-                      <TableHead>Wage Cost</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created At</TableHead>
+                      <TableHead className="font-semibold">Date</TableHead>
+                      <TableHead className="font-semibold">Environment</TableHead>
+                      <TableHead className="font-semibold">Team</TableHead>
+                      <TableHead className="font-semibold">User</TableHead>
+                      <TableHead className="font-semibold">Start</TableHead>
+                      <TableHead className="font-semibold">End</TableHead>
+                      <TableHead className="font-semibold">Break (min)</TableHead>
+                      <TableHead className="font-semibold">Hours Worked</TableHead>
+                      <TableHead className="font-semibold">Hourly Rate</TableHead>
+                      <TableHead className="font-semibold">Wage Cost</TableHead>
+                      <TableHead className="font-semibold">Skill</TableHead>
+                      <TableHead className="font-semibold">Status</TableHead>
+                      <TableHead className="font-semibold">Created At</TableHead>
+                      <TableHead className="font-semibold">Updated At</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data.records.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
                           No data found for the selected filters
                         </TableCell>
                       </TableRow>
@@ -272,11 +260,19 @@ export default function DataLaborHoursPage() {
                           <TableCell>{record.environment_name || record.environment_id || "-"}</TableCell>
                           <TableCell>{record.team_name || record.team_id || "-"}</TableCell>
                           <TableCell>{record.user_name || record.user_id || "-"}</TableCell>
-                          <TableCell>{record.hours_worked || record.hours || record.total_hours || "-"}</TableCell>
+                          <TableCell>{record.start_time || "-"}</TableCell>
+                          <TableCell>{record.end_time || "-"}</TableCell>
+                          <TableCell>{record.break_minutes ?? "-"}</TableCell>
+                          <TableCell>{record.hours_worked ?? "-"}</TableCell>
+                          <TableCell>{record.hourly_rate ?? "-"}</TableCell>
                           <TableCell>{record.wage_cost ? `€${Number(record.wage_cost).toFixed(2)}` : "-"}</TableCell>
+                          <TableCell>{record.skill_set || "-"}</TableCell>
                           <TableCell>{record.status || "-"}</TableCell>
                           <TableCell>
                             {record.created_at ? format(new Date(record.created_at), "yyyy-MM-dd HH:mm") : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {record.updated_at ? format(new Date(record.updated_at), "yyyy-MM-dd HH:mm") : "-"}
                           </TableCell>
                         </TableRow>
                       ))
