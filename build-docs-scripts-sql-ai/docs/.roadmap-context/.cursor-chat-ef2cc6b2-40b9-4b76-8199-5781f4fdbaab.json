@@ -1,0 +1,10 @@
+{
+  "roadmapItemId": "ef2cc6b2-40b9-4b76-8199-5781f4fdbaab",
+  "title": "Update Navigation",
+  "branchName": "roadmap/update-navigation",
+  "contextFile": "/Users/alviniomolina/Documents/GitHub/just-daily-ops-platform/.roadmap-context/ef2cc6b2-40b9-4b76-8199-5781f4fdbaab-1762220608485.md",
+  "status": "doing",
+  "createdAt": "2025-11-04T01:43:28.488Z",
+  "action": "start_chat",
+  "instructions": "Start a new Cursor chat session focused on implementing: Update Navigation\n\nBranch: roadmap/update-navigation\n\nRead the context file: /Users/alviniomolina/Documents/GitHub/just-daily-ops-platform/.roadmap-context/ef2cc6b2-40b9-4b76-8199-5781f4fdbaab-1762220608485.md"
+}

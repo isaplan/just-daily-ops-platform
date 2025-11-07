@@ -158,7 +158,7 @@ export async function cleanupAllDuplicates(): Promise<CleanupResult> {
     const supabase = await createClient();
     
     // Get records in smaller batches to avoid timeout
-    let allRecords: any[] = [];
+    const allRecords: any[] = [];
     let offset = 0;
     const fetchBatchSize = 20;
     let hasMore = true;

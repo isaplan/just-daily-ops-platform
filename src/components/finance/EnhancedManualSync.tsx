@@ -94,7 +94,7 @@ export function EnhancedManualSync() {
     const startDate = new Date('2025-01-01');
     const today = new Date();
     
-    let currentWeek = new Date(startDate);
+    const currentWeek = new Date(startDate);
     
     while (currentWeek <= today) {
       const weekEnd = new Date(currentWeek);

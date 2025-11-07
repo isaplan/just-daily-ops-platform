@@ -49,7 +49,7 @@ export function SchemaResolverDialog({
             Schema Validation Issues
           </DialogTitle>
           <DialogDescription>
-            The uploaded file has columns that don't match the expected database schema
+            The uploaded file has columns that don&apos;t match the expected database schema
           </DialogDescription>
         </DialogHeader>
 
@@ -88,7 +88,7 @@ export function SchemaResolverDialog({
                     ))}
                   </ul>
                   <p className="mt-2 text-sm">
-                    These columns aren't in the database schema. You can map them to existing columns or ignore them.
+                    These columns aren&apos;t in the database schema. You can map them to existing columns or ignore them.
                   </p>
                 </AlertDescription>
               </Alert>

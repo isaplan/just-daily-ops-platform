@@ -11,6 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { execSync } = require('child_process');
 
 class RegistryAutoUpdater {
   constructor() {
@@ -69,11 +70,18 @@ class RegistryAutoUpdater {
   }
 
   loadRegistry() {
+    const backupPath = this.registryPath + '.backup';
+    
     if (fs.existsSync(this.registryPath)) {
       try {
         this.registry = JSON.parse(fs.readFileSync(this.registryPath, 'utf8'));
         
-        // Ensure structure exists
+        // CRITICAL: Never clear existing functions - preserve them
+        if (this.registry.functions && Array.isArray(this.registry.functions) && this.registry.functions.length > 0) {
+          console.log(`✅ Loaded registry with ${this.registry.functions.length} existing functions`);
+        }
+        
+        // Ensure structure exists (but preserve existing data)
         if (!this.registry.functions) {
           this.registry.functions = [];
         }
@@ -88,7 +96,65 @@ class RegistryAutoUpdater {
           };
         }
       } catch (e) {
-        console.warn('⚠️  Could not parse existing registry, starting fresh');
+        console.error('❌ CRITICAL: Could not parse registry file:', e.message);
+        console.log('🔄 Attempting to restore from backup...');
+        
+        // Try backup file first
+        if (fs.existsSync(backupPath)) {
+          try {
+            this.registry = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+            console.log('✅ Restored registry from backup file');
+            console.log(`   📊 Found ${this.registry.functions?.length || 0} functions in backup`);
+            
+            // Ensure structure exists
+            if (!this.registry.functions) {
+              this.registry.functions = [];
+            }
+            if (!this.registry.database_schema) {
+              this.registry.database_schema = {};
+            }
+            if (!this.registry.compliance_config) {
+              this.registry.compliance_config = {
+                auto_tracking: true,
+                violation_prevention: true,
+                progress_monitoring: true
+              };
+            }
+            
+            // Restore main file from backup
+            fs.writeFileSync(this.registryPath, JSON.stringify(this.registry, null, 2));
+            console.log('✅ Restored main registry file from backup');
+            return;
+          } catch (backupError) {
+            console.error('❌ Backup file also corrupted:', backupError.message);
+          }
+        }
+        
+        // LAST RESORT: Only clear if BOTH files are corrupted AND we have NO existing functions
+        // This should NEVER happen in practice, but if it does, we preserve what we can
+        console.error('🚨 CRITICAL WARNING: Registry file corrupted and backup unavailable');
+        console.error('🚨 This should NEVER happen - registry is a CRITICAL protection mechanism');
+        console.error('🚨 Attempting to preserve any existing data structure...');
+        
+        // Try to extract any valid data from the corrupted file
+        try {
+          const corruptedContent = fs.readFileSync(this.registryPath, 'utf8');
+          // Try to extract functions array if it exists
+          const functionsMatch = corruptedContent.match(/"functions"\s*:\s*\[([\s\S]*?)\]/);
+          if (functionsMatch) {
+            console.log('⚠️  Found partial functions data in corrupted file');
+            // At least we tried to preserve something
+          }
+        } catch (extractError) {
+          // File is completely unreadable
+        }
+        
+        // Only initialize empty if we truly have nothing
+        // This is a last resort - should never happen
+        console.error('🚨 INITIALIZING EMPTY REGISTRY - THIS CLEARS ALL PROTECTIONS!');
+        console.error('🚨 IF YOU SEE THIS, THE REGISTRY WAS CORRUPTED BEYOND RECOVERY');
+        console.error('🚨 Manual intervention required to restore from git history');
+        
         this.registry = {
           functions: [],
           database_schema: {},
@@ -96,9 +162,57 @@ class RegistryAutoUpdater {
             auto_tracking: true,
             violation_prevention: true,
             progress_monitoring: true
+          },
+          _error: {
+            message: 'Registry file corrupted and backup unavailable',
+            timestamp: new Date().toISOString(),
+            action_required: 'Restore from git history or backup manually'
           }
         };
       }
+    } else {
+      // File doesn't exist - check for backup
+      if (fs.existsSync(backupPath)) {
+        try {
+          this.registry = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+          console.log('✅ Registry file missing, restored from backup');
+          console.log(`   📊 Found ${this.registry.functions?.length || 0} functions in backup`);
+          
+          // Restore main file from backup
+          fs.writeFileSync(this.registryPath, JSON.stringify(this.registry, null, 2));
+          console.log('✅ Created main registry file from backup');
+          
+          // Ensure structure exists
+          if (!this.registry.functions) {
+            this.registry.functions = [];
+          }
+          if (!this.registry.database_schema) {
+            this.registry.database_schema = {};
+          }
+          if (!this.registry.compliance_config) {
+            this.registry.compliance_config = {
+              auto_tracking: true,
+              violation_prevention: true,
+              progress_monitoring: true
+            };
+          }
+          return;
+        } catch (backupError) {
+          console.warn('⚠️  Backup file also invalid, starting fresh');
+        }
+      }
+      
+      // Initialize empty only if file doesn't exist AND no backup
+      console.log('📝 Creating new registry file (no existing file found)');
+      this.registry = {
+        functions: [],
+        database_schema: {},
+        compliance_config: {
+          auto_tracking: true,
+          violation_prevention: true,
+          progress_monitoring: true
+        }
+      };
     }
   }
 
@@ -356,6 +470,66 @@ class RegistryAutoUpdater {
     ).join(' ');
   }
 
+  /**
+   * Get git commit hash for a file
+   */
+  getGitCommit(filePath) {
+    try {
+      const fullPath = path.join(this.projectRoot, filePath);
+      if (!fs.existsSync(fullPath)) {
+        return null;
+      }
+      
+      // Get latest commit hash for this file
+      const commitHash = execSync(`git log -1 --format=%H -- "${fullPath}"`, {
+        cwd: this.projectRoot,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      }).trim();
+      
+      if (!commitHash || commitHash.length === 0) {
+        // File not in git yet, get HEAD commit
+        try {
+          const headCommit = execSync('git rev-parse HEAD', {
+            cwd: this.projectRoot,
+            encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'pipe']
+          }).trim();
+          return headCommit || null;
+        } catch {
+          return null;
+        }
+      }
+      
+      return commitHash;
+    } catch (error) {
+      // Not a git repo or file not tracked
+      return null;
+    }
+  }
+
+  /**
+   * Get git commit message for a file
+   */
+  getGitCommitMessage(filePath) {
+    try {
+      const fullPath = path.join(this.projectRoot, filePath);
+      if (!fs.existsSync(fullPath)) {
+        return null;
+      }
+      
+      const commitMessage = execSync(`git log -1 --format=%s -- "${fullPath}"`, {
+        cwd: this.projectRoot,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      }).trim();
+      
+      return commitMessage || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
   addOrUpdateFunction(fileInfo, existingFunc) {
     if (!this.registry.functions) {
       this.registry.functions = [];
@@ -365,6 +539,16 @@ class RegistryAutoUpdater {
     const existingIndex = this.registry.functions.findIndex(f => 
       f.file === fileInfo.file || (f.files && f.files.includes(fileInfo.file))
     );
+
+    // Get git commit info
+    const gitCommit = this.getGitCommit(fileInfo.file);
+    const gitCommitMessage = gitCommit ? this.getGitCommitMessage(fileInfo.file) : null;
+    
+    // Check if checksum changed (file was modified)
+    const checksumChanged = existingFunc && existingFunc.checksum !== fileInfo.checksum;
+    
+    // Update git commit if file changed or first time
+    const shouldUpdateCommit = !existingFunc || checksumChanged;
 
     const funcEntry = {
       name: fileInfo.name,
@@ -379,7 +563,11 @@ class RegistryAutoUpdater {
       last_updated: new Date().toISOString(),
       checksum: fileInfo.checksum,
       size: fileInfo.size,
-      lines: fileInfo.lines
+      lines: fileInfo.lines,
+      // Git commit tracking
+      git_commit: shouldUpdateCommit && gitCommit ? gitCommit : (existingFunc?.git_commit || gitCommit || null),
+      last_commit: shouldUpdateCommit && gitCommit ? new Date().toISOString() : (existingFunc?.last_commit || null),
+      commit_message: shouldUpdateCommit && gitCommitMessage ? gitCommitMessage : (existingFunc?.commit_message || null)
     };
 
     // Preserve manual protections
@@ -415,6 +603,9 @@ class RegistryAutoUpdater {
   }
 
   saveRegistry() {
+    // CRITICAL SAFETY CHECK: Never save an empty registry if we had data before
+    const originalFunctionCount = this.registry.functions?.length || 0;
+    
     // Ensure structure
     if (!this.registry.compliance_config) {
       this.registry.compliance_config = {
@@ -424,13 +615,15 @@ class RegistryAutoUpdater {
       };
     }
 
-    // Sort by type then name
-    this.registry.functions.sort((a, b) => {
-      if (a.type !== b.type) {
-        return a.type.localeCompare(b.type);
-      }
-      return a.name.localeCompare(b.name);
-    });
+    // Sort by type then name (preserves all functions)
+    if (this.registry.functions && Array.isArray(this.registry.functions)) {
+      this.registry.functions.sort((a, b) => {
+        if (a.type !== b.type) {
+          return a.type.localeCompare(b.type);
+        }
+        return a.name.localeCompare(b.name);
+      });
+    }
 
     // Update metadata
     this.registry.last_updated = new Date().toISOString();
@@ -446,7 +639,46 @@ class RegistryAutoUpdater {
       }
     };
 
-    fs.writeFileSync(this.registryPath, JSON.stringify(this.registry, null, 2));
+    // CRITICAL: Create backup before saving
+    const backupPath = this.registryPath + '.backup';
+    if (fs.existsSync(this.registryPath)) {
+      try {
+        fs.copyFileSync(this.registryPath, backupPath);
+      } catch (backupError) {
+        console.warn('⚠️  Could not create backup:', backupError.message);
+      }
+    }
+
+    // Write to file
+    try {
+      fs.writeFileSync(this.registryPath, JSON.stringify(this.registry, null, 2));
+      
+      // Verify we didn't accidentally clear the registry
+      if (originalFunctionCount > 0 && this.registry.functions.length === 0) {
+        console.error('🚨 CRITICAL: Registry would be empty but had data before!');
+        console.error('🚨 Restoring from backup to prevent data loss...');
+        
+        // Restore from backup
+        if (fs.existsSync(backupPath)) {
+          this.registry = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+          fs.writeFileSync(this.registryPath, JSON.stringify(this.registry, null, 2));
+          console.error('✅ Restored from backup - registry was about to be cleared!');
+          throw new Error('Registry save aborted - would have cleared existing data');
+        }
+      }
+    } catch (writeError) {
+      console.error('❌ Failed to save registry:', writeError.message);
+      // Restore from backup if save failed
+      if (fs.existsSync(backupPath)) {
+        try {
+          this.registry = JSON.parse(fs.readFileSync(backupPath, 'utf8'));
+          console.log('✅ Restored from backup after save failure');
+        } catch (restoreError) {
+          console.error('❌ Failed to restore from backup:', restoreError.message);
+        }
+      }
+      throw writeError;
+    }
   }
 
   generateSummary() {

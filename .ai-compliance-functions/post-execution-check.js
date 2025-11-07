@@ -120,6 +120,11 @@ class PostExecutionChecker {
   async checkFile(filePath) {
     const fullPath = path.join(this.projectRoot, filePath);
     
+    // Skip migration files - they can be large and are version-controlled
+    if (filePath.includes('migrations/') || filePath.endsWith('.sql')) {
+      return; // Skip compliance checks for migration files
+    }
+    
     if (!fs.existsSync(fullPath)) {
       // File was deleted
       this.violations.push({

@@ -220,8 +220,8 @@ All colors MUST be HSL.
     --sidebar-foreground: 0 0% 20%;
     --sidebar-primary: 142 76% 36%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 96%;
-    --sidebar-accent-foreground: 0 0% 20%;
+    --sidebar-accent: 48 96% 53%;
+    --sidebar-accent-foreground: 0 0% 0%;
     --sidebar-border: 0 0% 90%;
     --sidebar-ring: 142 76% 36%;
     

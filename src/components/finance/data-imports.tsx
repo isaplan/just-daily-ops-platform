@@ -17,11 +17,23 @@ import {
   RefreshCw,
   AlertCircle,
   Database,
-  Calendar
+  Calendar,
+  BarChart3
 } from 'lucide-react';
 
 export function DataImports() {
-  const [importHistory, setImportHistory] = useState<any[]>([]);
+  type ImportStatus = 'completed' | 'failed' | 'processing' | 'pending';
+  type ImportType = 'csv' | 'excel' | 'api';
+  type ImportRecord = {
+    id: string;
+    filename: string;
+    type: ImportType;
+    status: ImportStatus;
+    records: number;
+    created_at: string;
+  };
+
+  const [importHistory, setImportHistory] = useState<ImportRecord[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -119,13 +131,13 @@ export function DataImports() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const variants = {
+  const getStatusBadge = (status: ImportStatus) => {
+    const variants: Record<ImportStatus, "default" | "destructive" | "secondary" | "outline"> = {
       completed: 'default',
       failed: 'destructive',
       processing: 'secondary',
-      pending: 'outline'
-    } as any;
+      pending: 'outline',
+    };
 
     return (
       <Badge variant={variants[status] || 'outline'}>

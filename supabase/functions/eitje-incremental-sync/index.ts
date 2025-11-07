@@ -138,6 +138,16 @@ async function syncEndpointForDate(
         }
       };
       break;
+    case 'planning_shifts':
+      apiUrl = `${baseUrl}/planning_shifts`;
+      requestBody = {
+        filters: {
+          start_date: dateStr,
+          end_date: dateStr,
+          date_filter_type: 'resource_date'
+        }
+      };
+      break;
     case 'revenue_days':
       apiUrl = `${baseUrl}/revenue_days`;
       requestBody = {
@@ -180,6 +190,7 @@ async function syncEndpointForDate(
   if (recordsCount > 0 && Array.isArray(items)) {
     const tableMap: Record<string, string> = {
       'time_registration_shifts': 'eitje_time_registration_shifts_raw',
+      'planning_shifts': 'eitje_planning_shifts_raw',
       'revenue_days': 'eitje_revenue_days_raw'
     };
 
@@ -278,7 +289,7 @@ Deno.serve(async (req) => {
       const defaultConfig = {
         mode: 'manual',
         incremental_interval_minutes: 60,
-        enabled_endpoints: ['time_registration_shifts', 'revenue_days']
+        enabled_endpoints: ['time_registration_shifts', 'planning_shifts', 'revenue_days']
       };
       
       const { error: insertError } = await supabaseClient
@@ -433,9 +444,26 @@ Deno.serve(async (req) => {
           error: hasErrors ? 'Some dates failed to sync' : undefined
         });
 
-        // Trigger aggregation for successfully synced date range
+        // Trigger processing and aggregation for successfully synced date range
         if (lastSuccessfulDate && !hasErrors) {
           try {
+            // Step 1: Trigger processing (unpack JSONB → processed tables)
+            console.log(`[eitje-incremental-sync] Triggering processing for ${endpoint} (${startDate} to ${lastSuccessfulDate})...`);
+            const processResult = await supabaseClient.functions.invoke('eitje-process-data', {
+              body: {
+                endpoint,
+                startDate,
+                endDate: lastSuccessfulDate
+              }
+            });
+
+            if (processResult.error) {
+              console.warn(`[eitje-incremental-sync] Processing error for ${endpoint}:`, processResult.error);
+            } else {
+              console.log(`[eitje-incremental-sync] Processing completed for ${endpoint}`);
+            }
+
+            // Step 2: Trigger aggregation (processed → aggregated tables)
             console.log(`[eitje-incremental-sync] Triggering aggregation for ${endpoint} (${startDate} to ${lastSuccessfulDate})...`);
             const aggResult = await supabaseClient.functions.invoke('eitje-aggregate-data', {
               body: {
@@ -450,9 +478,9 @@ Deno.serve(async (req) => {
             } else {
               console.log(`[eitje-incremental-sync] Aggregation completed for ${endpoint}`);
             }
-          } catch (aggError: any) {
-            console.warn(`[eitje-incremental-sync] Aggregation failed for ${endpoint}:`, aggError?.message || aggError);
-            // Don't fail the sync if aggregation fails
+          } catch (processError: any) {
+            console.warn(`[eitje-incremental-sync] Processing/aggregation failed for ${endpoint}:`, processError?.message || processError);
+            // Don't fail the sync if processing/aggregation fails
           }
         }
 

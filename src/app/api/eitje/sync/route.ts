@@ -6,6 +6,7 @@ import {
   fetchEitjeUsers,
   fetchEitjeShiftTypes,
   fetchEitjeTimeRegistrationShifts,
+  fetchEitjePlanningShifts,
   fetchEitjeRevenueDays,
   getEitjeCredentials
 } from '@/lib/eitje/api-service';
@@ -87,6 +88,9 @@ export async function POST(request: NextRequest) {
         case 'time_registration_shifts':
           data = await fetchEitjeTimeRegistrationShifts(baseUrl, credentials, startDate, endDate);
           break;
+        case 'planning_shifts':
+          data = await fetchEitjePlanningShifts(baseUrl, credentials, startDate, endDate);
+          break;
         case 'revenue_days':
           data = await fetchEitjeRevenueDays(baseUrl, credentials, startDate, endDate);
           break;
@@ -132,67 +136,18 @@ export async function POST(request: NextRequest) {
 
     console.log('[API /eitje/sync] Manual sync completed:', syncResult);
 
-    // DEFENSIVE: Auto-trigger aggregation for data endpoints (skip master data)
-    const shouldAggregate = !masterDataEndpoints.includes(endpoint) && syncResult.success;
-    
-    let aggregationResult = null;
-    if (shouldAggregate) {
-      try {
-        console.log(`[API /eitje/sync] Auto-triggering aggregation for ${endpoint}`);
-        
-        // Call aggregation API
-        const aggregationResponse = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/eitje/aggregate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            endpoint,
-            startDate,
-            endDate,
-            environmentId: body.environmentId,
-            teamId: body.teamId
-          })
-        });
-        
-        if (aggregationResponse.ok) {
-          aggregationResult = await aggregationResponse.json();
-          console.log(`[API /eitje/sync] Aggregation completed for ${endpoint}:`, aggregationResult.result);
-        } else {
-          console.warn(`[API /eitje/sync] Aggregation failed for ${endpoint}:`, await aggregationResponse.text());
-        }
-      } catch (aggregationError) {
-        console.error(`[API /eitje/sync] Aggregation error for ${endpoint}:`, aggregationError);
-        // Don't fail the sync if aggregation fails
-      }
-    }
-
     return NextResponse.json({
       success: true,
       message: 'Manual sync completed successfully',
       result: {
-        success: true,
+        endpoint,
         recordsProcessed: syncResult.recordsProcessed,
         recordsAdded: syncResult.recordsAdded,
         recordsUpdated: syncResult.recordsUpdated,
         errors: syncResult.errors,
         errorDetails: syncResult.errorDetails,
         syncTime,
-        lastSyncDate: new Date().toISOString(),
-        nextSyncDate: new Date(Date.now() + 15 * 60000).toISOString(), // 15 minutes from now
-        aggregation: aggregationResult ? {
-          triggered: true,
-          success: aggregationResult.success,
-          recordsAggregated: aggregationResult.result?.recordsAggregated || 0,
-          processingTime: aggregationResult.result?.processingTime || 0,
-          errors: aggregationResult.result?.errors || []
-        } : {
-          triggered: false,
-          reason: masterDataEndpoints.includes(endpoint) ? 'Master data endpoint' : 'Sync failed'
-        },
-        debug: {
-          dataFetched: data?.length || 0,
-          dataType: Array.isArray(data) ? 'array' : typeof data,
-          endpoint
-        }
+        lastSyncDate: new Date().toISOString()
       }
     });
 
@@ -279,7 +234,7 @@ async function processAndStoreData(
                 updated_at: new Date().toISOString()
               });
             } else {
-              // Data endpoints: include date column
+              // Data endpoints: extract from JSONB and populate normalized columns
               const recordDate = (record as any).date || (record as any).start_date || (record as any).resource_date || new Date().toISOString().split('T')[0];
               const eitjeId = (record as any).id || (record as any).eitje_id;
               
@@ -290,13 +245,89 @@ async function processAndStoreData(
                 continue;
               }
               
-              recordsToInsert.push({
-                eitje_id: parseInt(eitjeId),
-                date: recordDate,
-                raw_data: record,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              });
+              // Extract normalized columns from JSONB for time_registration_shifts
+              if (endpoint === 'time_registration_shifts') {
+                const rec = record as any;
+                recordsToInsert.push({
+                  eitje_id: parseInt(eitjeId),
+                  date: recordDate,
+                  // Extract user info
+                  user_id: rec.user?.id || rec.user_id || null,
+                  // Extract team info
+                  team_id: rec.team?.id || rec.team_id || null,
+                  // Extract environment info
+                  environment_id: rec.environment?.id || rec.environment_id || null,
+                  // Extract time fields
+                  start_time: rec.start || rec.start_time || rec.start_datetime || null,
+                  end_time: rec.end || rec.end_time || rec.end_datetime || null,
+                  start_datetime: rec.start || rec.start_datetime || null,
+                  end_datetime: rec.end || rec.end_datetime || null,
+                  // Extract break fields
+                  break_minutes: rec.break_minutes || rec.breaks || 0,
+                  breaks: rec.breaks || rec.break_minutes || 0,
+                  break_minutes_actual: rec.break_minutes_actual || rec.break_minutes || 0,
+                  // Extract hours (calculate if not present)
+                  hours_worked: rec.hours_worked || rec.hours || rec.total_hours || 
+                    (rec.start && rec.end 
+                      ? (new Date(rec.end).getTime() - new Date(rec.start).getTime()) / (1000 * 60 * 60) - ((rec.break_minutes || 0) / 60)
+                      : null),
+                  hours: rec.hours || rec.hours_worked || rec.total_hours || null,
+                  total_hours: rec.total_hours || rec.hours_worked || rec.hours || null,
+                  // Extract cost fields
+                  wage_cost: rec.wage_cost || rec.wageCost || rec.costs?.wage || rec.costs?.wage_cost || 
+                    rec.labor_cost || rec.laborCost || rec.total_cost || rec.totalCost || null,
+                  // Extract metadata
+                  status: rec.type?.name || rec.status || null,
+                  shift_type: rec.type?.name || rec.shift_type || null,
+                  skill_set: rec.skill_set || rec.skillSet || null,
+                  notes: rec.remarks || rec.notes || null,
+                  // Store raw data
+                  raw_data: record,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                });
+              } else if (endpoint === 'revenue_days') {
+                const rec = record as any;
+                recordsToInsert.push({
+                  eitje_id: parseInt(eitjeId),
+                  date: recordDate,
+                  // Extract environment
+                  environment_id: rec.environment?.id || rec.environment_id || null,
+                  // Extract revenue fields
+                  total_revenue: rec.amt_in_cents ? rec.amt_in_cents / 100 : 
+                    (rec.total_revenue || rec.revenue || rec.amount || null),
+                  revenue: rec.revenue || rec.total_revenue || (rec.amt_in_cents ? rec.amt_in_cents / 100 : null),
+                  net_revenue: rec.net_revenue || rec.netRevenue || null,
+                  gross_revenue: rec.gross_revenue || rec.grossRevenue || null,
+                  // Extract transaction fields
+                  transaction_count: rec.transaction_count || rec.transactions_count || rec.count || null,
+                  transaction_count_total: rec.transaction_count_total || rec.transaction_count || null,
+                  // Extract payment method fields
+                  cash_revenue: rec.cash_revenue || rec.cashRevenue || null,
+                  card_revenue: rec.card_revenue || rec.cardRevenue || null,
+                  digital_revenue: rec.digital_revenue || rec.digitalRevenue || null,
+                  // Extract VAT fields
+                  vat_amount: rec.vat_amount || rec.vatAmount || null,
+                  vat_percentage: rec.vat_percentage || rec.vatPercentage || null,
+                  // Extract metadata
+                  currency: rec.currency || 'EUR',
+                  status: rec.status || null,
+                  notes: rec.notes || rec.remarks || null,
+                  // Store raw data
+                  raw_data: record,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                });
+              } else {
+                // Other endpoints: minimal extraction
+                recordsToInsert.push({
+                  eitje_id: parseInt(eitjeId),
+                  date: recordDate,
+                  raw_data: record,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                });
+              }
             }
           } catch (recordError) {
             const errorMsg = `Record processing error: ${recordError instanceof Error ? recordError.message : 'Unknown error'}`;
@@ -313,22 +344,29 @@ async function processAndStoreData(
             targetTable 
           });
           
-          // DEFENSIVE: Try upsert first, fallback to insert if constraint doesn't exist
-          let { error } = await supabase
+          // DEFENSIVE: Try upsert first, using the correct unique constraint per table
+          // - time_registration_shifts_raw: unique (eitje_id, date, user_id)
+          // - revenue_days_raw: unique (eitje_id, date, environment_id)
+          // - master data: unique id
+          // - other endpoints (if any): default to (eitje_id)
+          const conflictColumns = isMasterData
+            ? 'id'
+            : endpoint === 'time_registration_shifts'
+              ? 'eitje_id,date,user_id'
+              : endpoint === 'revenue_days'
+                ? 'eitje_id,date,environment_id'
+                : 'eitje_id';
+          
+  const { error } = await supabase
             .from(targetTable)
             .upsert(recordsToInsert, { 
-              onConflict: isMasterData ? 'id' : 'eitje_id,date',
+              onConflict: conflictColumns,
               ignoreDuplicates: false 
             });
 
-          // If upsert fails due to missing constraint, try regular insert
-          if (error && error.code === '42P10') {
-            console.log('[API /eitje/sync] Upsert failed due to missing constraint, trying regular insert...');
-            const { error: insertError } = await supabase
-              .from(targetTable)
-              .insert(recordsToInsert);
-            error = insertError;
-          }
+          // If upsert fails due to missing constraint (should not happen with correct conflict columns),
+          // do not fall back to a raw insert to avoid duplicate key violations.
+          // Instead, surface the error so we can fix the constraint or columns.
 
           if (error) {
             const errorMsg = `Batch insert error: ${error.message} (code: ${error.code})`;
