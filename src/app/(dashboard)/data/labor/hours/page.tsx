@@ -120,8 +120,48 @@ export default function DataLaborHoursPage() {
 
       if (queryError) throw queryError;
 
+      // Map environment/team/user ids to names for display
+      const envIds = [...new Set((records || []).map((r: any) => r.environment_id).filter(Boolean))];
+      const teamIds = [...new Set((records || []).map((r: any) => r.team_id).filter(Boolean))];
+      const userIds = [...new Set((records || []).map((r: any) => r.user_id).filter(Boolean))];
+
+      let envMap: Record<number, string> = {};
+      let teamMap: Record<number, string> = {};
+      let userMap: Record<number, string> = {};
+
+      if (envIds.length > 0) {
+        const { data: envs } = await supabase
+          .from("eitje_environments")
+          .select("eitje_environment_id, name")
+          .in("eitje_environment_id", envIds);
+        envMap = Object.fromEntries((envs || []).map((e: any) => [e.eitje_environment_id, e.name]));
+      }
+
+      if (teamIds.length > 0) {
+        const { data: teams } = await supabase
+          .from("eitje_teams")
+          .select("eitje_team_id, name")
+          .in("eitje_team_id", teamIds);
+        teamMap = Object.fromEntries((teams || []).map((t: any) => [t.eitje_team_id, t.name]));
+      }
+
+      if (userIds.length > 0) {
+        const { data: users } = await supabase
+          .from("eitje_users")
+          .select("eitje_user_id, name")
+          .in("eitje_user_id", userIds);
+        userMap = Object.fromEntries((users || []).map((u: any) => [u.eitje_user_id, u.name]));
+      }
+
+      const withNames = (records || []).map((r: any) => ({
+        ...r,
+        environment_name: envMap[r.environment_id] || r.environment_id,
+        team_name: r.team_id != null ? (teamMap[r.team_id] || r.team_id) : null,
+        user_name: r.user_id != null ? (userMap[r.user_id] || r.user_id) : null,
+      }));
+
       return {
-        records: records || [],
+        records: withNames,
         total: count || 0,
       };
     },
@@ -195,9 +235,9 @@ export default function DataLaborHoursPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Date</TableHead>
-                      <TableHead>Environment ID</TableHead>
-                      <TableHead>Team ID</TableHead>
-                      <TableHead>User ID</TableHead>
+                      <TableHead>Environment</TableHead>
+                      <TableHead>Team</TableHead>
+                      <TableHead>User</TableHead>
                       <TableHead>Hours Worked</TableHead>
                       <TableHead>Wage Cost</TableHead>
                       <TableHead>Status</TableHead>
@@ -215,9 +255,9 @@ export default function DataLaborHoursPage() {
                       data.records.map((record: any) => (
                         <TableRow key={record.id}>
                           <TableCell>{record.date ? format(new Date(record.date), "yyyy-MM-dd") : "-"}</TableCell>
-                          <TableCell>{record.environment_id || "-"}</TableCell>
-                          <TableCell>{record.team_id || "-"}</TableCell>
-                          <TableCell>{record.user_id || "-"}</TableCell>
+                          <TableCell>{record.environment_name || record.environment_id || "-"}</TableCell>
+                          <TableCell>{record.team_name || record.team_id || "-"}</TableCell>
+                          <TableCell>{record.user_name || record.user_id || "-"}</TableCell>
                           <TableCell>{record.hours_worked || record.hours || record.total_hours || "-"}</TableCell>
                           <TableCell>{record.wage_cost ? `€${Number(record.wage_cost).toFixed(2)}` : "-"}</TableCell>
                           <TableCell>{record.status || "-"}</TableCell>
