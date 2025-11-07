@@ -69,16 +69,16 @@ export async function POST(request: NextRequest) {
         case 'revenue_days':
           data = await fetchEitjeRevenueDays(baseUrl, credentials, startDate, endDate);
           break;
-        // NEW ENDPOINTS - EXTREME DEFENSIVE MODE
-        case 'availability_shifts':
-          data = await fetchEitjeAvailabilityShifts(baseUrl, credentials, startDate, endDate);
-          break;
-        case 'leave_requests':
-          data = await fetchEitjeLeaveRequests(baseUrl, credentials, startDate, endDate);
-          break;
-        case 'events':
-          data = await fetchEitjeEvents(baseUrl, credentials, startDate, endDate);
-          break;
+        // NEW ENDPOINTS - Commented out as functions are not yet implemented
+        // case 'availability_shifts':
+        //   data = await fetchEitjeAvailabilityShifts(baseUrl, credentials, startDate, endDate);
+        //   break;
+        // case 'leave_requests':
+        //   data = await fetchEitjeLeaveRequests(baseUrl, credentials, startDate, endDate);
+        //   break;
+        // case 'events':
+        //   data = await fetchEitjeEvents(baseUrl, credentials, startDate, endDate);
+        //   break;
         default:
           return NextResponse.json({
             success: false,

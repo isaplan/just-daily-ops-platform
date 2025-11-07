@@ -9,18 +9,30 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { DatePreset, getDateRangeForPreset } from "@/components/view-data/DateFilterPresets";
+<<<<<<< HEAD
 import { formatDateDDMMYY, formatDateDDMMYYTime } from "@/lib/dateFormatters";
+=======
+import { format } from "date-fns";
+>>>>>>> origin/main
 
 const ITEMS_PER_PAGE = 50;
 
 export default function HoursPage() {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
+<<<<<<< HEAD
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<string>("all");
   const [selectedDatePreset, setSelectedDatePreset] = useState<DatePreset>("this-year");
   const [currentPage, setCurrentPage] = useState(1);
 
+=======
+  const [selectedLocation, setSelectedLocation] = useState<string>("all");
+  const [selectedDatePreset, setSelectedDatePreset] = useState<DatePreset>("this-month");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Get date range from preset
+>>>>>>> origin/main
   const dateRange = useMemo(() => {
     return getDateRangeForPreset(selectedDatePreset);
   }, [selectedDatePreset]);
@@ -30,6 +42,7 @@ export default function HoursPage() {
     queryKey: ["locations"],
     queryFn: async () => {
       const supabase = createClient();
+<<<<<<< HEAD
       const { data, error } = await supabase
         .from("locations")
         .select("id, name")
@@ -40,11 +53,18 @@ export default function HoursPage() {
       return data || [];
     },
     staleTime: 10 * 60 * 1000,
+=======
+      const { data, error } = await supabase.from("locations").select("id, name").order("name");
+      if (error) throw error;
+      return data || [];
+    },
+>>>>>>> origin/main
   });
 
   const locationOptions = useMemo(() => {
     return [
       { value: "all", label: "All Locations" },
+<<<<<<< HEAD
       ...locations.map((loc: { id: string; name: string }) => ({ value: loc.id, label: loc.name })),
     ];
   }, [locations]);
@@ -93,31 +113,63 @@ export default function HoursPage() {
   // Build query filters
   const queryFilters = useMemo(() => {
     const filters: { startDate?: string; endDate?: string } = {};
+=======
+      ...locations.map((loc) => ({ value: loc.id, label: loc.name })),
+    ];
+  }, [locations]);
+
+  // Build query filters
+  const queryFilters = useMemo(() => {
+    const filters: any = {};
+>>>>>>> origin/main
     
     if (dateRange) {
       filters.startDate = dateRange.start.toISOString().split("T")[0];
       filters.endDate = dateRange.end.toISOString().split("T")[0];
+<<<<<<< HEAD
     } else if (selectedDay !== null && selectedMonth !== null) {
       filters.startDate = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
       filters.endDate = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
     } else if (selectedMonth) {
+=======
+    } else if (selectedMonth) {
+      // If month is selected, filter by year and month
+>>>>>>> origin/main
       filters.startDate = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`;
       const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
       filters.endDate = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${lastDay}`;
     } else {
+<<<<<<< HEAD
+=======
+      // Filter by year
+>>>>>>> origin/main
       filters.startDate = `${selectedYear}-01-01`;
       filters.endDate = `${selectedYear}-12-31`;
     }
 
+<<<<<<< HEAD
     return filters;
   }, [selectedYear, selectedMonth, selectedDay, dateRange]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["eitje-hours-processed", queryFilters, currentPage, environmentIds],
+=======
+    if (selectedLocation !== "all") {
+      filters.environmentId = selectedLocation;
+    }
+
+    return filters;
+  }, [selectedYear, selectedMonth, selectedLocation, dateRange]);
+
+  // Fetch data
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["eitje-hours", queryFilters, currentPage],
+>>>>>>> origin/main
     queryFn: async () => {
       const supabase = createClient();
       
       let query = supabase
+<<<<<<< HEAD
         .from("eitje_time_registration_shifts_processed")
         .select("*", { count: "exact" });
 
@@ -138,6 +190,23 @@ export default function HoursPage() {
 
       query = query.order("date", { ascending: false });
 
+=======
+        .from("eitje_labor_hours_aggregated")
+        .select("*", { count: "exact" })
+        .order("date", { ascending: false });
+
+      // Apply date filters
+      if (queryFilters.startDate && queryFilters.endDate) {
+        query = query.gte("date", queryFilters.startDate).lte("date", queryFilters.endDate);
+      }
+
+      // Apply location filter if needed
+      if (queryFilters.environmentId) {
+        query = query.eq("environment_id", queryFilters.environmentId);
+      }
+
+      // Apply pagination
+>>>>>>> origin/main
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
       const to = from + ITEMS_PER_PAGE - 1;
       query = query.range(from, to);
@@ -146,6 +215,7 @@ export default function HoursPage() {
 
       if (queryError) throw queryError;
 
+<<<<<<< HEAD
       // All fields are already normalized in processed table
       const recordsWithNames = (records || []).map((record: {
         id?: string | number;
@@ -184,6 +254,37 @@ export default function HoursPage() {
 
   return (
     <div className="container mx-auto py-6 space-y-6 min-w-0">
+=======
+      return {
+        records: records || [],
+        total: count || 0,
+      };
+    },
+    enabled: !!queryFilters.startDate,
+  });
+
+  const totalPages = useMemo(() => {
+    if (!data?.total) return 1;
+    return Math.ceil(data.total / ITEMS_PER_PAGE);
+  }, [data?.total]);
+
+  const handleDatePresetChange = (preset: DatePreset) => {
+    setSelectedDatePreset(preset);
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Hours Data</CardTitle>
+          <CardDescription>
+            View time registration shifts and labor hours data from Eitje
+          </CardDescription>
+        </CardHeader>
+      </Card>
+
+>>>>>>> origin/main
       <EitjeDataFilters
         selectedYear={selectedYear}
         onYearChange={(year) => {
@@ -193,6 +294,7 @@ export default function HoursPage() {
         selectedMonth={selectedMonth}
         onMonthChange={(month) => {
           setSelectedMonth(month);
+<<<<<<< HEAD
           if (month === null) {
             setSelectedDay(null);
           }
@@ -201,6 +303,8 @@ export default function HoursPage() {
         selectedDay={selectedDay}
         onDayChange={(day) => {
           setSelectedDay(day);
+=======
+>>>>>>> origin/main
           setCurrentPage(1);
         }}
         selectedLocation={selectedLocation}
@@ -211,6 +315,7 @@ export default function HoursPage() {
         selectedDatePreset={selectedDatePreset}
         onDatePresetChange={handleDatePresetChange}
         locations={locationOptions}
+<<<<<<< HEAD
         onResetToDefault={() => {
           setSelectedYear(new Date().getFullYear());
           setSelectedMonth(null);
@@ -224,11 +329,22 @@ export default function HoursPage() {
       <Card className="border-0 bg-transparent shadow-none">
         <CardHeader>
           <CardTitle>Hours Data Table</CardTitle>
+=======
+      />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Data Table</CardTitle>
+>>>>>>> origin/main
           <CardDescription>
             Showing {data?.records.length || 0} of {data?.total || 0} records
           </CardDescription>
         </CardHeader>
+<<<<<<< HEAD
         <CardContent className="p-0">
+=======
+        <CardContent>
+>>>>>>> origin/main
           {isLoading && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -243,6 +359,7 @@ export default function HoursPage() {
 
           {!isLoading && !error && data && (
             <>
+<<<<<<< HEAD
               <div className="mt-16 bg-white rounded-sm border border-black px-4 overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -266,11 +383,26 @@ export default function HoursPage() {
                       <TableHead className="font-semibold">Shift Type</TableHead>
                       <TableHead className="font-semibold">Skill Set</TableHead>
                       <TableHead className="font-semibold">Notes</TableHead>
+=======
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Environment ID</TableHead>
+                      <TableHead>Team ID</TableHead>
+                      <TableHead>User ID</TableHead>
+                      <TableHead>Hours Worked</TableHead>
+                      <TableHead>Wage Cost</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Created At</TableHead>
+>>>>>>> origin/main
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data.records.length === 0 ? (
                       <TableRow>
+<<<<<<< HEAD
                         <TableCell colSpan={19} className="text-center py-8 text-muted-foreground">
                           No data found
                         </TableCell>
@@ -359,11 +491,36 @@ export default function HoursPage() {
                           </TableRow>
                         );
                       })
+=======
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                          No data found for the selected filters
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      data.records.map((record: any) => (
+                        <TableRow key={record.id}>
+                          <TableCell>{record.date ? format(new Date(record.date), "yyyy-MM-dd") : "-"}</TableCell>
+                          <TableCell>{record.environment_id || "-"}</TableCell>
+                          <TableCell>{record.team_id || "-"}</TableCell>
+                          <TableCell>{record.user_id || "-"}</TableCell>
+                          <TableCell>{record.hours_worked || record.hours || record.total_hours || "-"}</TableCell>
+                          <TableCell>{record.wage_cost ? `€${Number(record.wage_cost).toFixed(2)}` : "-"}</TableCell>
+                          <TableCell>{record.status || "-"}</TableCell>
+                          <TableCell>
+                            {record.created_at ? format(new Date(record.created_at), "yyyy-MM-dd HH:mm") : "-"}
+                          </TableCell>
+                        </TableRow>
+                      ))
+>>>>>>> origin/main
                     )}
                   </TableBody>
                 </Table>
               </div>
 
+<<<<<<< HEAD
+=======
+              {/* Pagination */}
+>>>>>>> origin/main
               <div className="flex items-center justify-between mt-4">
                 <div className="text-sm text-muted-foreground">
                   Page {currentPage} of {totalPages}
@@ -396,3 +553,7 @@ export default function HoursPage() {
     </div>
   );
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/main

@@ -2,7 +2,11 @@
   "system_info": {
     "version": "1.0.0",
     "created": "2025-10-29T01:35:52.835Z",
+<<<<<<< HEAD
     "last_updated": "2025-11-07T00:22:32.259Z",
+=======
+    "last_updated": "2025-11-03T22:21:49.725Z",
+>>>>>>> origin/main
     "status": "active",
     "installer_version": "1.0.0"
   },
@@ -31,9 +35,15 @@
       "Install AI Compliance System"
     ],
     "violations_detected": 0,
+<<<<<<< HEAD
     "last_compliance_check": "2025-11-07T00:22:32.259Z",
     "last_registry_update": "2025-11-07T00:17:40.229Z",
     "last_code_change": "2025-11-07T00:18:17.940Z",
+=======
+    "last_compliance_check": "2025-11-03T22:21:49.725Z",
+    "last_registry_update": "2025-11-03T22:18:20.667Z",
+    "last_code_change": "2025-11-03T22:20:40.793Z",
+>>>>>>> origin/main
     "registry_idle": false
   },
   "compliance_history": [

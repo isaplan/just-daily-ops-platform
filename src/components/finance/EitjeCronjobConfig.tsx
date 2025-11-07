@@ -17,8 +17,6 @@ interface SyncConfig {
   enabled_endpoints: string[];
   quiet_hours_start?: number;
   quiet_hours_end?: number;
-  created_at?: string;
-  updated_at?: string;
 }
 
 export function EitjeCronjobConfig() {
@@ -33,8 +31,6 @@ export function EitjeCronjobConfig() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [configExists, setConfigExists] = useState(false);
 
   useEffect(() => {
     loadConfig();
@@ -43,39 +39,10 @@ export function EitjeCronjobConfig() {
   const loadConfig = async () => {
     try {
       const response = await fetch('/api/eitje/sync-config');
-      
-      if (!response.ok) {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Failed to load config: ${response.statusText}`);
-        } else {
-          const text = await response.text();
-          throw new Error(`API returned non-JSON response (${response.status}): ${text.substring(0, 100)}`);
-        }
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        throw new Error(`Expected JSON but got ${contentType || 'unknown'}: ${text.substring(0, 100)}`);
-      }
-
       const result = await response.json();
       
-      if (result.success) {
-        if (result.data) {
-          setConfig(result.data);
-          setConfigExists(true);
-          if (result.data.updated_at) {
-            setLastSaved(new Date(result.data.updated_at));
-          } else if (result.data.created_at) {
-            setLastSaved(new Date(result.data.created_at));
-          }
-        } else {
-          setConfigExists(false);
-          setLastSaved(null);
-        }
+      if (result.success && result.data) {
+        setConfig(result.data);
       }
     } catch (error) {
       console.error('Error loading config:', error);
@@ -100,32 +67,15 @@ export function EitjeCronjobConfig() {
 
       const result = await response.json();
 
-      if (!response.ok) {
-        console.error('[EitjeCronjobConfig] HTTP error:', response.status, response.statusText);
-        console.error('[EitjeCronjobConfig] Error response:', result);
-        throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      if (result.success && result.data) {
-        // Update config with saved data (includes timestamps)
-        setConfig(result.data);
-        setConfigExists(true);
-        setLastSaved(new Date()); // Update to current time
-        
+      if (result.success) {
         toast({
           title: "Success",
           description: `Sync ${config.mode === 'incremental' ? 'activated' : 'paused'} successfully`,
         });
-        
-        // Reload to get fresh data from server
-        await loadConfig();
       } else {
-        const errorMsg = result.error || 'Failed to save config';
-        console.error('[EitjeCronjobConfig] Save failed:', result);
-        throw new Error(errorMsg);
+        throw new Error(result.error || 'Failed to save config');
       }
     } catch (error) {
-      console.error('Save error:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to save configuration",
@@ -248,42 +198,20 @@ export function EitjeCronjobConfig() {
             </div>
 
             {/* Save Button */}
-            <div className="space-y-2">
-              <div className="flex justify-end">
-                <Button onClick={saveConfig} disabled={saving}>
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Configuration
-                    </>
-                  )}
-                </Button>
-              </div>
-              
-              {/* Last Saved Timestamp */}
-              <div className="flex justify-end">
-                {configExists && lastSaved ? (
-                  <p className="text-xs text-muted-foreground">
-                    Last saved: {lastSaved.toLocaleString(undefined, { 
-                      year: 'numeric', 
-                      month: 'short', 
-                      day: 'numeric', 
-                      hour: '2-digit', 
-                      minute: '2-digit',
-                      second: '2-digit'
-                    })}
-                  </p>
+            <div className="flex justify-end">
+              <Button onClick={saveConfig} disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
                 ) : (
-                  <p className="text-xs text-amber-600 dark:text-amber-500">
-                    ⚠️ No configuration saved yet. Click "Save Configuration" to create one.
-                  </p>
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Configuration
+                  </>
                 )}
-              </div>
+              </Button>
             </div>
           </>
         )}

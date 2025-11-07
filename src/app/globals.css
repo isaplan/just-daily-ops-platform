@@ -175,6 +175,258 @@ All colors MUST be HSL.
 */
 
 @layer base {
+  /* ============================================
+     1. MY THEMES
+     ============================================ */
+
+  .theme-my-theme-1 {
+    /* Base - Clean, data-focused background */
+    --background: 220 20% 98%;
+    --foreground: 220 25% 15%;
+    
+    /* Primary - Professional blue for data/analytics */
+    --primary: 215 80% 55%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary - Soft blue-gray */
+    --secondary: 220 15% 95%;
+    --secondary-foreground: 220 25% 20%;
+    
+    /* Muted - Light gray for subtle backgrounds */
+    --muted: 220 10% 96%;
+    --muted-foreground: 220 15% 45%;
+    
+    /* Accent - Teal-blue for highlights */
+    --accent: 200 70% 50%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Semantic colors - Data-friendly */
+    --success: 142 60% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 80% 55%;
+    --warning-foreground: 220 25% 15%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* UI Elements - Clean and crisp */
+    --card: 0 0% 100%;
+    --card-foreground: 220 25% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 25% 15%;
+    --border: 220 15% 85%;
+    --input: 220 15% 90%;
+    --ring: 215 80% 55%;
+    
+    --radius: 0.375rem;
+
+    /* Sidebar - Subtle data-focused sidebar */
+    --sidebar-background: 220 15% 97%;
+    --sidebar-foreground: 220 25% 20%;
+    --sidebar-primary: 215 80% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 15% 95%;
+    --sidebar-accent-foreground: 220 25% 20%;
+    --sidebar-border: 220 15% 90%;
+    --sidebar-ring: 215 80% 55%;
+    
+    /* Chart colors - Data visualization palette */
+    --chart-1: 215 80% 55%;
+    --chart-2: 200 70% 50%;
+    --chart-3: 142 60% 45%;
+    --chart-4: 38 80% 55%;
+    --chart-5: 300 60% 50%;
+    
+    /* Sidebar width variables */
+    --sidebar-width: 16rem;
+    --sidebar-width-icon: 3rem;
+  }
+
+  .theme-my-theme-2 {
+    /* Base - Clean background with subtle warmth */
+    --background: 0 0% 98%;
+    --foreground: 0 0% 10%;
+    
+    /* Primary - Vibrant red for energy */
+    --primary: 0 100% 60%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary - Bright yellow for highlights */
+    --secondary: 60 100% 50%;
+    --secondary-foreground: 0 0% 10%;
+    
+    /* Muted - Soft gray for subtle backgrounds */
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    
+    /* Accent - Bold blue for contrast */
+    --accent: 216 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Semantic colors - Vibrant and clear */
+    --success: 142 76% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 0 0% 10%;
+    --destructive: 0 85% 55%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* UI Elements - Clean with soft borders */
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --border: 0 0% 85%;
+    --input: 0 0% 90%;
+    --ring: 0 100% 60%;
+    
+    --radius: 0.375rem;
+
+    /* Sidebar - Clean with vibrant accents */
+    --sidebar-background: 0 0% 97%;
+    --sidebar-foreground: 0 0% 20%;
+    --sidebar-primary: 0 100% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 60 100% 50%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-ring: 0 100% 60%;
+    
+    /* Chart colors - Vibrant data visualization palette */
+    --chart-1: 0 100% 60%;
+    --chart-2: 60 100% 50%;
+    --chart-3: 216 100% 50%;
+    --chart-4: 142 76% 40%;
+    --chart-5: 300 80% 55%;
+    
+    /* Sidebar width variables */
+    --sidebar-width: 16rem;
+    --sidebar-width-icon: 3rem;
+  }
+
+  .theme-my-theme-3 {
+    /* Base - Clean Lovable Terminal backgrounds */
+    --background: 0 0% 98%;
+    --foreground: 0 0% 5%;
+    
+    /* Primary - Vibrant red for energy (from My Theme 2) */
+    --primary: 0 100% 60%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary - Bright yellow for highlights (from My Theme 2) */
+    --secondary: 60 100% 50%;
+    --secondary-foreground: 0 0% 5%;
+    
+    /* Muted - Soft gray from Lovable Terminal */
+    --muted: 0 0% 92%;
+    --muted-foreground: 0 0% 35%;
+    
+    /* Accent - Bold blue for contrast (from My Theme 2) */
+    --accent: 216 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    
+    /* Semantic colors - Vibrant and clear (from My Theme 2) */
+    --success: 142 76% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 0 0% 5%;
+    --destructive: 0 85% 55%;
+    --destructive-foreground: 0 0% 100%;
+    
+    /* UI Elements - Clean with soft borders (from My Theme 2) */
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 5%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 5%;
+    --border: 0 0% 85%;
+    --input: 0 0% 90%;
+    --ring: 0 100% 60%;
+    
+    --radius: 0.375rem;
+
+    /* Sidebar - Clean Lovable Terminal backgrounds with vibrant accents */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 0% 5%;
+    --sidebar-primary: 0 100% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 60 100% 50%;
+    --sidebar-accent-foreground: 0 0% 5%;
+    --sidebar-border: 0 0% 90%;
+    --sidebar-ring: 0 100% 60%;
+    
+    /* Chart colors - Vibrant data visualization palette (from My Theme 2) */
+    --chart-1: 0 100% 60%;
+    --chart-2: 60 100% 50%;
+    --chart-3: 216 100% 50%;
+    --chart-4: 142 76% 40%;
+    --chart-5: 300 80% 55%;
+    
+    /* Sidebar width variables */
+    --sidebar-width: 16rem;
+    --sidebar-width-icon: 3rem;
+  }
+
+  /* ============================================
+     2. LOVABLE THEMES
+     ============================================ */
+
+  .theme-terminal {
+    /* Base - Console log vibe */
+    --background: 0 0% 98%;
+    --foreground: 0 0% 5%;
+    
+    /* Primary - Terminal green */
+    --primary: 0 0% 5%;
+    --primary-foreground: 0 0% 98%;
+    
+    /* Secondary */
+    --secondary: 0 0% 92%;
+    --secondary-foreground: 0 0% 5%;
+    
+    /* Muted */
+    --muted: 0 0% 92%;
+    --muted-foreground: 0 0% 35%;
+    
+    /* Accent - Terminal green */
+    --accent: 120 100% 30%;
+    --accent-foreground: 0 0% 98%;
+    
+    /* Semantic */
+    --success: 120 100% 30%;
+    --success-foreground: 0 0% 98%;
+    --warning: 45 100% 45%;
+    --warning-foreground: 0 0% 5%;
+    --destructive: 0 100% 40%;
+    --destructive-foreground: 0 0% 98%;
+    
+    /* UI Elements - Bold borders */
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 5%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 5%;
+    --border: 0 0% 0%;
+    --input: 0 0% 0%;
+    --ring: 120 100% 30%;
+    
+    --radius: 0rem;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 0% 5%;
+    --sidebar-primary: 0 0% 5%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 0 0% 92%;
+    --sidebar-accent-foreground: 0 0% 5%;
+    --sidebar-border: 0 0% 0%;
+    --sidebar-ring: 120 100% 30%;
+    
+    /* Sidebar width variables */
+    --sidebar-width: 16rem;
+    --sidebar-width-icon: 3rem;
+  }
+
+  /* ============================================
+     3. OTHER THEMES
+     ============================================ */
+
   :root,
   .theme-default {
     /* Base - KEPT */
@@ -280,59 +532,82 @@ All colors MUST be HSL.
     --sidebar-width-icon: 3rem;
   }
 
-  .theme-terminal {
-    /* Base - Console log vibe */
-    --background: 0 0% 98%;
-    --foreground: 0 0% 5%;
-    
-    /* Primary - Terminal green */
-    --primary: 0 0% 5%;
-    --primary-foreground: 0 0% 98%;
-    
-    /* Secondary */
-    --secondary: 0 0% 92%;
-    --secondary-foreground: 0 0% 5%;
-    
-    /* Muted */
-    --muted: 0 0% 92%;
-    --muted-foreground: 0 0% 35%;
-    
-    /* Accent - Terminal green */
-    --accent: 120 100% 30%;
-    --accent-foreground: 0 0% 98%;
-    
-    /* Semantic */
-    --success: 120 100% 30%;
-    --success-foreground: 0 0% 98%;
-    --warning: 45 100% 45%;
-    --warning-foreground: 0 0% 5%;
-    --destructive: 0 100% 40%;
-    --destructive-foreground: 0 0% 98%;
-    
-    /* UI Elements - Bold borders */
+  .theme-vibrant {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 5%;
+    --card-foreground: 0 0% 0%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 5%;
+    --popover-foreground: 0 0% 0%;
+    --primary: 0 100% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 60 100% 50%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 0 0% 94.1176%;
+    --muted-foreground: 0 0% 20%;
+    --accent: 216 100% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 0% 0%;
+    --destructive-foreground: 0 0% 100%;
     --border: 0 0% 0%;
     --input: 0 0% 0%;
-    --ring: 120 100% 30%;
-    
-    --radius: 0rem;
-
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 0 0% 5%;
-    --sidebar-primary: 0 0% 5%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 0 0% 92%;
-    --sidebar-accent-foreground: 0 0% 5%;
+    --ring: 0 100% 60%;
+    --chart-1: 0 100% 60%;
+    --chart-2: 60 100% 50%;
+    --chart-3: 216 100% 50%;
+    --chart-4: 120 100% 40%;
+    --chart-5: 300 100% 40%;
+    --sidebar-background: 0 0% 94.1176%;
+    --sidebar-foreground: 0 0% 0%;
+    --sidebar-primary: 0 100% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 216 100% 50%;
+    --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 0 0% 0%;
-    --sidebar-ring: 120 100% 30%;
-    
-    /* Sidebar width variables */
+    --sidebar-ring: 0 100% 60%;
+    --radius: 0px;
     --sidebar-width: 16rem;
     --sidebar-width-icon: 3rem;
   }
+
+  .theme-vibrant-dark {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 20%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 20%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 100% 70%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 60 100% 60%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 0 0% 10.1961%;
+    --muted-foreground: 0 0% 80%;
+    --accent: 210 100% 60%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 0% 100%;
+    --destructive-foreground: 0 0% 0%;
+    --border: 0 0% 100%;
+    --input: 0 0% 100%;
+    --ring: 0 100% 70%;
+    --chart-1: 0 100% 70%;
+    --chart-2: 60 100% 60%;
+    --chart-3: 210 100% 60%;
+    --chart-4: 120 60% 50%;
+    --chart-5: 300 60% 50%;
+    --sidebar-background: 0 0% 0%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 0 100% 70%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 210 100% 60%;
+    --sidebar-accent-foreground: 0 0% 0%;
+    --sidebar-border: 0 0% 100%;
+    --sidebar-ring: 0 100% 70%;
+    --radius: 0px;
+    --sidebar-width: 16rem;
+    --sidebar-width-icon: 3rem;
+  }
+
   :root {
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;

@@ -4,209 +4,180 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, CheckCircle, XCircle, Clock, RefreshCw } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { RefreshCw, CheckCircle, XCircle, Clock, Loader2 } from "lucide-react";
+import { formatDistanceToNow, format } from "date-fns";
 
 interface SyncHistoryItem {
   id: string;
-  provider: 'bork' | 'eitje' | 'unknown';
+  provider: 'bork' | 'eitje';
   location: string;
-  locationId?: string;
+  locationId: string;
   syncType: string;
   status: string;
   success: boolean;
   recordsInserted: number;
-  errorMessage: string | null;
+  errorMessage?: string;
   startedAt: string;
-  completedAt: string | null;
-  duration: number | null;
+  completedAt?: string;
+  duration?: number;
 }
 
-interface CronSyncHistoryProps {
-  provider?: 'bork' | 'eitje';
-  limit?: number;
+interface CronStatus {
+  bork: boolean;
+  eitje: boolean;
 }
 
-export function CronSyncHistory({ provider = 'eitje', limit = 10 }: CronSyncHistoryProps) {
+interface SyncHistoryData {
+  history: SyncHistoryItem[];
+  cronStatus: CronStatus;
+  total: number;
+}
+
+export function CronSyncHistory() {
   const [history, setHistory] = useState<SyncHistoryItem[]>([]);
+  const [cronStatus, setCronStatus] = useState<CronStatus>({ bork: false, eitje: false });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadHistory();
-    // Refresh every 30 seconds
-    const interval = setInterval(loadHistory, 30000);
-    return () => clearInterval(interval);
-  }, [provider, limit]);
-
-  const loadHistory = async () => {
+  const fetchHistory = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      const url = `/api/cron/sync-history?provider=${provider}&limit=${limit}`;
-      const response = await fetch(url);
-      
-      // Check if response is OK
-      if (!response.ok) {
-        // Try to get error message from response
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Failed to fetch sync history: ${response.statusText}`);
-        } else {
-          // Response is HTML (error page) or other non-JSON
-          const text = await response.text();
-          throw new Error(`API returned non-JSON response (${response.status}): ${text.substring(0, 100)}`);
-        }
-      }
-
-      // Check content-type before parsing JSON
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        throw new Error(`Expected JSON but got ${contentType || 'unknown'}: ${text.substring(0, 100)}`);
-      }
-
+      const response = await fetch('/api/cron/sync-history?limit=10');
       const result = await response.json();
-      
-      if (result.success && result.data) {
-        setHistory(result.data.history || []);
-        setError(null);
-      } else {
-        throw new Error(result.error || 'Failed to load sync history');
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to fetch sync history');
       }
+
+      const data: SyncHistoryData = result.data;
+      setHistory(data.history);
+      setCronStatus(data.cronStatus);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.error('[CronSyncHistory] Load error:', errorMessage, err);
-      setError(errorMessage);
-      setHistory([]);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      console.error('Error fetching sync history:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDuration = (ms: number | null): string => {
-    if (!ms) return 'N/A';
+  useEffect(() => {
+    fetchHistory();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchHistory, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatDuration = (ms: number | null) => {
+    if (!ms) return '-';
     if (ms < 1000) return `${ms}ms`;
     if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-    return `${(ms / 60000).toFixed(1)}min`;
+    return `${(ms / 60000).toFixed(1)}m`;
   };
 
-  const formatDate = (dateStr: string): string => {
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
-    } catch {
-      return dateStr;
+  const getStatusBadge = (item: SyncHistoryItem) => {
+    if (item.status === 'completed' && item.success) {
+      return <Badge variant="default" className="bg-green-500">Success</Badge>;
     }
+    if (item.status === 'failed' || item.errorMessage) {
+      return <Badge variant="destructive">Failed</Badge>;
+    }
+    if (item.status === 'running' || item.status === 'pending') {
+      return <Badge variant="secondary">Running</Badge>;
+    }
+    return <Badge variant="outline">{item.status}</Badge>;
   };
 
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex justify-between items-center">
           <div>
-            <CardTitle>Sync History</CardTitle>
+            <CardTitle>Cron Job Sync History</CardTitle>
             <CardDescription>
-              Recent automated sync attempts from cron jobs
+              Last 10 automated syncs from Bork and Eitje
             </CardDescription>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadHistory}
-            disabled={loading}
-          >
-            {loading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4 mr-2" />
-            )}
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex gap-2 text-sm">
+              <Badge variant={cronStatus.bork ? "default" : "secondary"}>
+                Bork: {cronStatus.bork ? "Active" : "Inactive"}
+              </Badge>
+              <Badge variant={cronStatus.eitje ? "default" : "secondary"}>
+                Eitje: {cronStatus.eitje ? "Active" : "Inactive"}
+              </Badge>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchHistory}
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
-        {loading ? (
+        {loading && history.length === 0 ? (
           <div className="flex justify-center items-center h-40">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : error ? (
-          <div className="flex flex-col items-center justify-center h-40 text-center">
-            <XCircle className="h-8 w-8 text-destructive mb-2" />
-            <p className="text-sm text-muted-foreground">{error}</p>
-            <button
-              onClick={loadHistory}
-              className="mt-4 text-sm text-primary hover:underline"
-            >
-              Retry
-            </button>
-          </div>
+          <div className="text-center text-red-500 p-4">{error}</div>
         ) : history.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 text-center">
-            <Clock className="h-8 w-8 text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground">
-              No sync history found. Sync history will appear here after cron jobs run.
-            </p>
+          <div className="text-center text-muted-foreground p-4">
+            No sync history found. Cron jobs may not have run yet.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Records</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Error</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {history.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-mono text-xs">
-                      {formatDate(item.startedAt)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={item.success ? 'default' : 'destructive'}>
-                        {item.success ? (
-                          <>
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Success
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="h-3 w-3 mr-1" />
-                            Failed
-                          </>
-                        )}
+          <div className="space-y-2">
+            {history.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50"
+              >
+                <div className="flex items-center gap-3 flex-1">
+                  <div>
+                    {item.success ? (
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-red-500" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="uppercase">
+                        {item.provider}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {item.recordsInserted > 0 ? item.recordsInserted : 'N/A'}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {formatDuration(item.duration)}
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
-                      {item.errorMessage || '-'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      <span className="font-medium">{item.location}</span>
+                      {getStatusBadge(item)}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      {item.recordsInserted > 0 && (
+                        <span>{item.recordsInserted.toLocaleString()} records • </span>
+                      )}
+                      {item.startedAt && (
+                        <span>
+                          {formatDistanceToNow(new Date(item.startedAt), { addSuffix: true })}
+                        </span>
+                      )}
+                      {item.duration && (
+                        <span> • {formatDuration(item.duration)}</span>
+                      )}
+                    </div>
+                    {item.errorMessage && (
+                      <div className="text-xs text-red-500 mt-1">
+                        {item.errorMessage}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {item.startedAt && format(new Date(item.startedAt), 'HH:mm:ss')}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </CardContent>
