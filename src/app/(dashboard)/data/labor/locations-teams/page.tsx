@@ -69,11 +69,7 @@ export default function LocationsTeamsPage() {
   const teamsTotalPages = Math.ceil((teamsData?.total || 0) / ITEMS_PER_PAGE);
 
   return (
-<<<<<<< HEAD
-    <div className="space-y-6">
-=======
     <div className="container mx-auto py-6 space-y-6 min-w-0">
->>>>>>> eitje-api
       <Card className="border-0 bg-transparent shadow-none">
         <CardContent className="p-0">
           <Tabs value={activeTab} onValueChange={setActiveTab}>

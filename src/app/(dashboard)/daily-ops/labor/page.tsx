@@ -1,6 +1,5 @@
 "use client";
 
-<<<<<<< HEAD
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -371,27 +370,8 @@ export default function LaborPage() {
               </div>
             </div>
           </div>
-=======
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-
-export default function DailyOpsLaborPage() {
-  return (
-    <div className="container mx-auto py-6 space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Daily Ops - Labor</CardTitle>
-          <CardDescription>Labor management and insights</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">This page is under development.</p>
->>>>>>> eitje-api
         </CardContent>
       </Card>
     </div>
   );
 }
-
-<<<<<<< HEAD
-=======
-
->>>>>>> eitje-api

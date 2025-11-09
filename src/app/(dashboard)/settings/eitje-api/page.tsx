@@ -89,17 +89,11 @@ export default function EitjeSettingsPage() {
   const [progressData, setProgressData] = useState<any>(null);
   const [syncedMonths, setSyncedMonths] = useState<Set<string>>(new Set());
   const [monthlyProgress, setMonthlyProgress] = useState<Record<string, any>>({});
-<<<<<<< HEAD
-<<<<<<< HEAD
   const [monthlyProgressV2, setMonthlyProgressV2] = useState<Record<string, any>>({});
   const [isLoadingV2Progress, setIsLoadingV2Progress] = useState(false);
   const [processingV2Months, setProcessingV2Months] = useState<Set<string>>(new Set());
   const [historyExpanded, setHistoryExpanded] = useState<Record<string, boolean>>({});
   const [historyData, setHistoryData] = useState<Record<string, any[]>>({});
-=======
->>>>>>> eitje-api
-=======
->>>>>>> eitje-data-views
   const [dataStats, setDataStats] = useState({
     totalRecords: 0,
     totalRevenue: 0,
@@ -367,8 +361,6 @@ export default function EitjeSettingsPage() {
     }
   };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
   // DEFENSIVE: Load V2 progress for all months (lazy load)
   const loadMonthlyProgressV2 = async () => {
     try {
@@ -613,10 +605,6 @@ export default function EitjeSettingsPage() {
     }
   };
 
-=======
->>>>>>> eitje-api
-=======
->>>>>>> eitje-data-views
   // DEFENSIVE: Sync specific month
   const handleSyncMonth = async (month: number, year: number = 2024) => {
     const monthKey = `${year}-${month}`;
@@ -936,13 +924,7 @@ export default function EitjeSettingsPage() {
           <TabsTrigger value="credentials">Credentials</TabsTrigger>
           {/* <TabsTrigger value="sync">Data Sync</TabsTrigger> - Replaced by Progress tab */}
           <TabsTrigger value="progress">Progress</TabsTrigger>
-<<<<<<< HEAD
-<<<<<<< HEAD
           <TabsTrigger value="progress-v2">Progress V2</TabsTrigger>
-=======
->>>>>>> eitje-api
-=======
->>>>>>> eitje-data-views
           <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
           <TabsTrigger value="cronjob">Cronjob</TabsTrigger>
           {/* <TabsTrigger value="raw-data">Raw Data</TabsTrigger> - Replaced by Progress tab */}
@@ -1362,8 +1344,6 @@ export default function EitjeSettingsPage() {
           </Card>
         </TabsContent>
 
-<<<<<<< HEAD
-<<<<<<< HEAD
         {/* Progress V2 Tracking Tab */}
         <TabsContent value="progress-v2">
           <Card>
@@ -1638,10 +1618,6 @@ export default function EitjeSettingsPage() {
           </Card>
         </TabsContent>
 
-=======
->>>>>>> eitje-api
-=======
->>>>>>> eitje-data-views
         {/* Endpoints Tab */}
         <TabsContent value="endpoints">
           <Card>

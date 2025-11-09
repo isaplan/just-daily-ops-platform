@@ -1,10 +1,6 @@
 "use client";
 
-<<<<<<< HEAD
-import { useMemo, useState } from "react";
-=======
 import { useState, useMemo } from "react";
->>>>>>> eitje-api
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,25 +9,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { DatePreset, getDateRangeForPreset } from "@/components/view-data/DateFilterPresets";
-<<<<<<< HEAD
-import { format } from "date-fns";
-=======
 import { formatDateDDMMYY, formatDateDDMMYYTime } from "@/lib/dateFormatters";
->>>>>>> eitje-api
 
 const ITEMS_PER_PAGE = 50;
 
 export default function DataLaborHoursPage() {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
-<<<<<<< HEAD
-  const [selectedLocation, setSelectedLocation] = useState<string>("all");
-  const [selectedDatePreset, setSelectedDatePreset] = useState<DatePreset>("this-month");
-=======
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<string>("all");
   const [selectedDatePreset, setSelectedDatePreset] = useState<DatePreset>("this-year");
->>>>>>> eitje-api
   const [currentPage, setCurrentPage] = useState(1);
 
   const dateRange = useMemo(() => {
@@ -43,12 +30,6 @@ export default function DataLaborHoursPage() {
     queryKey: ["locations"],
     queryFn: async () => {
       const supabase = createClient();
-<<<<<<< HEAD
-      const { data, error } = await supabase.from("locations").select("id, name").order("name");
-      if (error) throw error;
-      return data || [];
-    },
-=======
       const { data, error } = await supabase
         .from("locations")
         .select("id, name")
@@ -59,25 +40,11 @@ export default function DataLaborHoursPage() {
       return data || [];
     },
     staleTime: 10 * 60 * 1000,
->>>>>>> eitje-api
   });
 
   const locationOptions = useMemo(() => {
     return [
       { value: "all", label: "All Locations" },
-<<<<<<< HEAD
-      ...locations.map((loc) => ({ value: loc.id, label: loc.name })),
-    ];
-  }, [locations]);
-
-  // Build query filters
-  const queryFilters = useMemo(() => {
-    const filters: any = {};
-
-    if (dateRange) {
-      filters.startDate = dateRange.start.toISOString().split("T")[0];
-      filters.endDate = dateRange.end.toISOString().split("T")[0];
-=======
       ...locations.map((loc: { id: string; name: string }) => ({ value: loc.id, label: loc.name })),
     ];
   }, [locations]);
@@ -133,7 +100,6 @@ export default function DataLaborHoursPage() {
     } else if (selectedDay !== null && selectedMonth !== null) {
       filters.startDate = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
       filters.endDate = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}`;
->>>>>>> eitje-api
     } else if (selectedMonth) {
       filters.startDate = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}-01`;
       const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
@@ -142,137 +108,6 @@ export default function DataLaborHoursPage() {
       filters.startDate = `${selectedYear}-01-01`;
       filters.endDate = `${selectedYear}-12-31`;
     }
-<<<<<<< HEAD
-
-    if (selectedLocation !== "all") {
-      filters.environmentId = selectedLocation;
-    }
-
-    return filters;
-  }, [selectedYear, selectedMonth, selectedLocation, dateRange]);
-
-  // Fetch environment ids mapped from selected location (UUID -> list of eitje_environment_id integers)
-  const { data: environmentIds, isLoading: isLoadingEnvIds } = useQuery({
-    queryKey: ["eitje-env-by-location", selectedLocation, locations],
-    queryFn: async () => {
-      if (selectedLocation === "all") return null;
-      const supabase = createClient();
-      // Find the selected location name locally
-      const selectedLoc = (locations as any[])?.find((l) => l.id === selectedLocation);
-      const selectedName = selectedLoc?.name?.toLowerCase();
-      if (!selectedName) return [];
-
-      // Fetch environments and match by name (works across schema variants)
-      const { data, error } = await supabase
-        .from("eitje_environments")
-        .select("eitje_environment_id, raw_data");
-      if (error) throw error;
-
-      const ids = (data || [])
-        .filter((env: any) => (env.raw_data?.name || "").toLowerCase() === selectedName)
-        .map((env: any) => env.eitje_environment_id)
-        .filter((id: any) => id != null);
-      return ids;
-    },
-    enabled: selectedLocation !== "all",
-    staleTime: 10 * 60 * 1000,
-  });
-
-  // Fetch processed shifts data
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["eitje-hours-processed", queryFilters, currentPage, environmentIds],
-    queryFn: async () => {
-      const supabase = createClient();
-
-      let query = supabase
-        .from("eitje_time_registration_shifts_processed")
-        .select(
-          `id,date,environment_id,team_id,user_id,hours_worked,hourly_rate,wage_cost,status,created_at`,
-          { count: "exact" }
-        )
-        .order("date", { ascending: false });
-
-      // Apply date filters
-      if (queryFilters.startDate && queryFilters.endDate) {
-        query = query.gte("date", queryFilters.startDate).lte("date", queryFilters.endDate);
-      }
-
-      // Apply location filter (mapped to environment ids)
-      if (selectedLocation !== "all") {
-        if (environmentIds && environmentIds.length > 0) {
-          query = query.in("environment_id", environmentIds);
-        } else {
-          // no matching environments -> return empty set
-          query = query.eq("environment_id", -999999);
-        }
-      }
-
-      // Apply pagination
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
-      query = query.range(from, to);
-
-      const { data: records, error: queryError, count } = await query;
-
-      if (queryError) throw queryError;
-
-      // Map environment/team/user ids to names for display
-      const envIds = [...new Set((records || []).map((r: any) => r.environment_id).filter(Boolean))];
-      const teamIds = [...new Set((records || []).map((r: any) => r.team_id).filter(Boolean))];
-      const userIds = [...new Set((records || []).map((r: any) => r.user_id).filter(Boolean))];
-
-      let envMap: Record<number, string> = {};
-      let teamMap: Record<number, string> = {};
-      let userMap: Record<number, string> = {};
-
-      if (envIds.length > 0) {
-        // Try to fetch names; be tolerant to schema differences (name may be in raw_data)
-        const { data: envs } = await supabase
-          .from("eitje_environments")
-          .select("eitje_environment_id, name, raw_data");
-        envMap = Object.fromEntries(
-          (envs || [])
-            .filter((e: any) => envIds.includes(e.eitje_environment_id))
-            .map((e: any) => [e.eitje_environment_id, e.name || e.raw_data?.name || `Environment ${e.eitje_environment_id}`])
-        );
-      }
-
-      if (teamIds.length > 0) {
-        const { data: teams } = await supabase
-          .from("eitje_teams")
-          .select("eitje_team_id, name")
-          .in("eitje_team_id", teamIds);
-        teamMap = Object.fromEntries((teams || []).map((t: any) => [t.eitje_team_id, t.name]));
-      }
-
-      if (userIds.length > 0) {
-        const { data: users } = await supabase
-          .from("eitje_users")
-          .select("eitje_user_id, name")
-          .in("eitje_user_id", userIds);
-        userMap = Object.fromEntries((users || []).map((u: any) => [u.eitje_user_id, u.name]));
-      }
-
-      const withNames = (records || []).map((r: any) => ({
-        ...r,
-        environment_name: envMap[r.environment_id] || r.environment_id,
-        team_name: r.team_id != null ? (teamMap[r.team_id] || r.team_id) : null,
-        user_name: r.user_id != null ? (userMap[r.user_id] || r.user_id) : null,
-      }));
-
-      return {
-        records: withNames,
-        total: count || 0,
-      };
-    },
-    enabled: !!queryFilters.startDate && (selectedLocation === "all" || !isLoadingEnvIds),
-  });
-
-  const totalPages = useMemo(() => {
-    if (!data?.total) return 1;
-    return Math.ceil(data.total / ITEMS_PER_PAGE);
-  }, [data?.total]);
-=======
     
     return filters;
   }, [selectedYear, selectedMonth, selectedDay, dateRange]);
@@ -349,7 +184,6 @@ export default function DataLaborHoursPage() {
   });
 
   const totalPages = Math.ceil((data?.total || 0) / ITEMS_PER_PAGE);
->>>>>>> eitje-api
 
   const handleDatePresetChange = (preset: DatePreset) => {
     setSelectedDatePreset(preset);
@@ -357,16 +191,7 @@ export default function DataLaborHoursPage() {
   };
 
   return (
-<<<<<<< HEAD
-    <div className="container mx-auto py-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Labor Data - Hours</h1>
-        <p className="text-muted-foreground">View labor hours data from Eitje</p>
-      </div>
-
-=======
     <div className="container mx-auto py-6 space-y-6 min-w-0">
->>>>>>> eitje-api
       <EitjeDataFilters
         selectedYear={selectedYear}
         onYearChange={(year) => {
@@ -376,12 +201,6 @@ export default function DataLaborHoursPage() {
         selectedMonth={selectedMonth}
         onMonthChange={(month) => {
           setSelectedMonth(month);
-<<<<<<< HEAD
-          setCurrentPage(1);
-        }}
-        selectedDay={null}
-        onDayChange={() => {}}
-=======
           if (month === null) {
             setSelectedDay(null);
           }
@@ -392,7 +211,6 @@ export default function DataLaborHoursPage() {
           setSelectedDay(day);
           setCurrentPage(1);
         }}
->>>>>>> eitje-api
         selectedLocation={selectedLocation}
         onLocationChange={(location) => {
           setSelectedLocation(location);
@@ -401,13 +219,6 @@ export default function DataLaborHoursPage() {
         selectedDatePreset={selectedDatePreset}
         onDatePresetChange={handleDatePresetChange}
         locations={locationOptions}
-<<<<<<< HEAD
-      />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Labor Hours (Processed)</CardTitle>
-=======
         onResetToDefault={() => {
           setSelectedYear(new Date().getFullYear());
           setSelectedMonth(null);
@@ -421,16 +232,11 @@ export default function DataLaborHoursPage() {
       <Card className="border-0 bg-transparent shadow-none">
         <CardHeader>
           <CardTitle>Hours Data Table</CardTitle>
->>>>>>> eitje-api
           <CardDescription>
             Showing {data?.records.length || 0} of {data?.total || 0} records
           </CardDescription>
         </CardHeader>
-<<<<<<< HEAD
-        <CardContent>
-=======
         <CardContent className="p-0">
->>>>>>> eitje-api
           {isLoading && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -445,20 +251,6 @@ export default function DataLaborHoursPage() {
 
           {!isLoading && !error && data && (
             <>
-<<<<<<< HEAD
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Environment</TableHead>
-                      <TableHead>Team</TableHead>
-                      <TableHead>User</TableHead>
-                      <TableHead>Hours Worked</TableHead>
-                      <TableHead>Wage Cost</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created At</TableHead>
-=======
               <div className="mt-16 bg-white rounded-sm border border-black px-4">
                 <Table>
                   <TableHeader>
@@ -485,33 +277,11 @@ export default function DataLaborHoursPage() {
                       <TableHead className="font-semibold">Notes</TableHead>
                       <TableHead className="font-semibold">Created At</TableHead>
                       <TableHead className="font-semibold">Updated At</TableHead>
->>>>>>> eitje-api
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data.records.length === 0 ? (
                       <TableRow>
-<<<<<<< HEAD
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                          No data found for the selected filters
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      data.records.map((record: any) => (
-                        <TableRow key={record.id}>
-                          <TableCell>{record.date ? format(new Date(record.date), "yyyy-MM-dd") : "-"}</TableCell>
-                          <TableCell>{record.environment_name || record.environment_id || "-"}</TableCell>
-                          <TableCell>{record.team_name || record.team_id || "-"}</TableCell>
-                          <TableCell>{record.user_name || record.user_id || "-"}</TableCell>
-                          <TableCell>{record.hours_worked || record.hours || record.total_hours || "-"}</TableCell>
-                          <TableCell>{record.wage_cost ? `€${Number(record.wage_cost).toFixed(2)}` : "-"}</TableCell>
-                          <TableCell>{record.status || "-"}</TableCell>
-                          <TableCell>
-                            {record.created_at ? format(new Date(record.created_at), "yyyy-MM-dd HH:mm") : "-"}
-                          </TableCell>
-                        </TableRow>
-                      ))
-=======
                         <TableCell colSpan={22} className="text-center py-8 text-muted-foreground">
                           No data found
                         </TableCell>
@@ -609,7 +379,6 @@ export default function DataLaborHoursPage() {
                           </TableRow>
                         );
                       })
->>>>>>> eitje-api
                     )}
                   </TableBody>
                 </Table>
@@ -647,7 +416,3 @@ export default function DataLaborHoursPage() {
     </div>
   );
 }
-<<<<<<< HEAD
-
-=======
->>>>>>> eitje-api

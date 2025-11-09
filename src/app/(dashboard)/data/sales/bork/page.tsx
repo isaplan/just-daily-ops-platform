@@ -226,11 +226,7 @@ export default function FinancePage() {
   }, [data?.total]);
 
   return (
-<<<<<<< HEAD
-    <div className="space-y-6">
-=======
     <div className="container mx-auto py-6 space-y-6 min-w-0">
->>>>>>> eitje-api
       <EitjeDataFilters
         selectedYear={selectedYear}
         onYearChange={(year) => {
