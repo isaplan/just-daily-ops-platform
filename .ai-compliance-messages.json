@@ -52,5 +52,59 @@
       "totalFunctions": 340
     },
     "timestamp": "2025-11-04T02:01:28.441Z"
+  },
+  {
+    "type": "INFO",
+    "title": "💤 REGISTRY IDLE",
+    "message": "No code changes for 20 minutes. Registry updates paused. Will reactivate on next code change.",
+    "details": {},
+    "timestamp": "2025-11-09T15:13:24.214Z"
+  },
+  {
+    "type": "INFO",
+    "title": "📋 REGISTRY UPDATED",
+    "message": "Registry updated: 1 new functions detected",
+    "details": {
+      "newFunctions": 1,
+      "totalFunctions": 341
+    },
+    "timestamp": "2025-11-09T21:20:34.142Z"
+  },
+  {
+    "type": "INFO",
+    "title": "📋 REGISTRY UPDATED",
+    "message": "Registry updated: 4 new functions detected",
+    "details": {
+      "newFunctions": 4,
+      "totalFunctions": 345
+    },
+    "timestamp": "2025-11-09T21:31:03.166Z"
+  },
+  {
+    "type": "INFO",
+    "title": "📋 REGISTRY UPDATED",
+    "message": "Registry updated: 17 new functions detected",
+    "details": {
+      "newFunctions": 17,
+      "totalFunctions": 362
+    },
+    "timestamp": "2025-11-09T21:37:53.950Z"
+  },
+  {
+    "type": "INFO",
+    "title": "📋 REGISTRY UPDATED",
+    "message": "Registry updated: 1 new functions detected",
+    "details": {
+      "newFunctions": 1,
+      "totalFunctions": 363
+    },
+    "timestamp": "2025-11-09T21:58:39.251Z"
+  },
+  {
+    "type": "INFO",
+    "title": "💤 REGISTRY IDLE",
+    "message": "No code changes for 20 minutes. Registry updates paused. Will reactivate on next code change.",
+    "details": {},
+    "timestamp": "2025-11-09T22:20:33.766Z"
   }
 ]
