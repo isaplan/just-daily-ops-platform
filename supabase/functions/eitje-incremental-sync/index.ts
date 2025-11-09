@@ -93,25 +93,81 @@ Deno.serve(async (req) => {
           });
           console.log(`[eitje-incremental-sync] ${endpoint}: ${data.records_inserted} records`);
 
-          // Automatically aggregate the data after successful sync
-          try {
-            console.log(`[eitje-incremental-sync] Triggering automatic aggregation for ${endpoint}...`);
-            const { data: aggregateResult, error: aggregateError } = await supabaseClient.functions.invoke('eitje-aggregate-data', {
-              body: {
-                endpoint,
-                startDate: dateStr,
-                endDate: dateStr
+          // V2 Flow: Process and Aggregate after successful sync
+          // Only for time_registration_shifts (V2 flow is implemented for this endpoint)
+          if (endpoint === 'time_registration_shifts') {
+            try {
+              console.log(`[eitje-incremental-sync] Starting V2 process and aggregate flow for ${endpoint}...`);
+              
+              const siteUrl = Deno.env.get('NEXT_PUBLIC_SITE_URL') || 'http://localhost:3000';
+              
+              // Step 3: Process raw → processed_v2
+              console.log(`[eitje-incremental-sync] Step 3: Processing raw data to processed_v2...`);
+              const processResponse = await fetch(`${siteUrl}/api/eitje/v2/process?startDate=${dateStr}&endDate=${dateStr}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+                }
+              });
+              
+              if (!processResponse.ok) {
+                throw new Error(`Process failed: HTTP ${processResponse.status}`);
               }
-            });
-
-            if (aggregateError) {
-              console.warn(`[eitje-incremental-sync] Aggregation failed for ${endpoint}:`, aggregateError);
-            } else {
-              console.log(`[eitje-incremental-sync] Successfully aggregated ${endpoint}:`, aggregateResult);
+              
+              const processData = await processResponse.json();
+              if (!processData.success) {
+                throw new Error(`Process failed: ${processData.error || 'Unknown error'}`);
+              }
+              
+              console.log(`[eitje-incremental-sync] Step 3 completed: ${processData.recordsProcessed || 0} records processed`);
+              
+              // Step 4: Aggregate processed_v2 → aggregated_v2
+              console.log(`[eitje-incremental-sync] Step 4: Aggregating processed_v2 to aggregated_v2...`);
+              const aggregateResponse = await fetch(`${siteUrl}/api/eitje/v2/aggregate?startDate=${dateStr}&endDate=${dateStr}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`
+                }
+              });
+              
+              if (!aggregateResponse.ok) {
+                throw new Error(`Aggregate failed: HTTP ${aggregateResponse.status}`);
+              }
+              
+              const aggregateData = await aggregateResponse.json();
+              if (!aggregateData.success) {
+                throw new Error(`Aggregate failed: ${aggregateData.error || 'Unknown error'}`);
+              }
+              
+              console.log(`[eitje-incremental-sync] Step 4 completed: ${aggregateData.recordsAggregated || 0} records aggregated`);
+              console.log(`[eitje-incremental-sync] V2 flow completed successfully for ${endpoint}`);
+            } catch (v2Error: any) {
+              console.warn(`[eitje-incremental-sync] V2 process/aggregate error for ${endpoint}:`, v2Error?.message || v2Error);
+              // Don't fail the sync if V2 processing fails - data is still in raw tables
             }
-          } catch (aggError: any) {
-            console.warn(`[eitje-incremental-sync] Aggregation error for ${endpoint}:`, aggError?.message || aggError);
-            // Don't fail the sync if aggregation fails
+          } else {
+            // For other endpoints, use old aggregation (if needed)
+            try {
+              console.log(`[eitje-incremental-sync] Triggering automatic aggregation for ${endpoint}...`);
+              const { data: aggregateResult, error: aggregateError } = await supabaseClient.functions.invoke('eitje-aggregate-data', {
+                body: {
+                  endpoint,
+                  startDate: dateStr,
+                  endDate: dateStr
+                }
+              });
+
+              if (aggregateError) {
+                console.warn(`[eitje-incremental-sync] Aggregation failed for ${endpoint}:`, aggregateError);
+              } else {
+                console.log(`[eitje-incremental-sync] Successfully aggregated ${endpoint}:`, aggregateResult);
+              }
+            } catch (aggError: any) {
+              console.warn(`[eitje-incremental-sync] Aggregation error for ${endpoint}:`, aggError?.message || aggError);
+              // Don't fail the sync if aggregation fails
+            }
           }
         }
       } catch (endpointError) {

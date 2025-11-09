@@ -51,3 +51,7 @@ next-env.d.ts
 # Git hooks (local only, not shared)
 .git/hooks/
 .githooks/
+
+# Function registry backups (keep current registry, ignore backups)
+function-registry.json.backup-*
+function-registry-v2-backup.json

@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { formatDateDDMMYYTime } from "@/lib/dateFormatters";
+import { ShowMoreColumnsToggle } from "@/components/view-data/ShowMoreColumnsToggle";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -16,6 +17,8 @@ export default function LocationsTeamsPage() {
   const [currentPageLocations, setCurrentPageLocations] = useState(1);
   const [currentPageTeams, setCurrentPageTeams] = useState(1);
   const [activeTab, setActiveTab] = useState("locations");
+  const [showAllColumnsLocations, setShowAllColumnsLocations] = useState(false);
+  const [showAllColumnsTeams, setShowAllColumnsTeams] = useState(false);
 
   // Fetch locations
   const { data: locationsData, isLoading: locationsLoading, error: locationsError } = useQuery({
@@ -28,7 +31,18 @@ export default function LocationsTeamsPage() {
 
       const { data: records, error: queryError, count } = await supabase
         .from("eitje_environments")
-        .select("*", { count: "exact" })
+        .select(`
+          id,
+          eitje_id,
+          name,
+          description,
+          city,
+          country,
+          is_active,
+          raw_data,
+          created_at,
+          updated_at
+        `, { count: "exact" })
         .order("created_at", { ascending: false })
         .range(from, to);
 
@@ -52,7 +66,17 @@ export default function LocationsTeamsPage() {
 
       const { data: records, error: queryError, count } = await supabase
         .from("eitje_teams")
-        .select("*", { count: "exact" })
+        .select(`
+          id,
+          eitje_id,
+          name,
+          description,
+          environment_id,
+          is_active,
+          raw_data,
+          created_at,
+          updated_at
+        `, { count: "exact" })
         .order("created_at", { ascending: false })
         .range(from, to);
 
@@ -101,7 +125,15 @@ export default function LocationsTeamsPage() {
 
               {!locationsLoading && !locationsError && locationsData && (
                 <>
-                  <div className="mt-16 bg-white rounded-sm border border-black px-4">
+                  <div className="mt-16">
+                    <ShowMoreColumnsToggle
+                      isExpanded={showAllColumnsLocations}
+                      onToggle={setShowAllColumnsLocations}
+                      coreColumnCount={7}
+                      totalColumnCount={7}
+                    />
+                  </div>
+                  <div className="mt-4 bg-white rounded-sm border border-black px-4">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -112,6 +144,7 @@ export default function LocationsTeamsPage() {
                           <TableHead className="font-semibold">Country</TableHead>
                           <TableHead className="font-semibold">Active</TableHead>
                           <TableHead className="font-semibold">Created At</TableHead>
+                          {/* Additional columns (address, postal_code, timezone, code, type) will be available after migrations run */}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -198,7 +231,15 @@ export default function LocationsTeamsPage() {
 
               {!teamsLoading && !teamsError && teamsData && (
                 <>
-                  <div className="mt-16 bg-white rounded-sm border border-black px-4">
+                  <div className="mt-16">
+                    <ShowMoreColumnsToggle
+                      isExpanded={showAllColumnsTeams}
+                      onToggle={setShowAllColumnsTeams}
+                      coreColumnCount={7}
+                      totalColumnCount={7}
+                    />
+                  </div>
+                  <div className="mt-4 bg-white rounded-sm border border-black px-4">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -209,6 +250,7 @@ export default function LocationsTeamsPage() {
                           <TableHead className="font-semibold">Team Type</TableHead>
                           <TableHead className="font-semibold">Active</TableHead>
                           <TableHead className="font-semibold">Created At</TableHead>
+                          {/* Additional columns (team_type, code, updated_at) will be available after migrations run */}
                         </TableRow>
                       </TableHeader>
                       <TableBody>

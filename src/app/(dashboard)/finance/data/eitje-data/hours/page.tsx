@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { DatePreset, getDateRangeForPreset } from "@/components/view-data/DateFilterPresets";
 import { formatDateDDMMYY, formatDateDDMMYYTime } from "@/lib/dateFormatters";
+import { getEnvIdsForLocation } from "@/lib/eitje/env-utils";
+import { ShowMoreColumnsToggle } from "@/components/view-data/ShowMoreColumnsToggle";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -20,6 +22,7 @@ export default function LaborCostsPage() {
   const [selectedLocation, setSelectedLocation] = useState<string>("all");
   const [selectedDatePreset, setSelectedDatePreset] = useState<DatePreset>("last-month");
   const [currentPage, setCurrentPage] = useState(1);
+  const [showAllColumns, setShowAllColumns] = useState(false);
 
   // Get date range from preset
   const dateRange = useMemo(() => {
@@ -50,49 +53,15 @@ export default function LaborCostsPage() {
     ];
   }, [locations]);
 
-  // Fetch environment IDs when a location is selected
+  // Fetch environment IDs (Eitje environment IDs) when a location is selected
   const { data: environmentIds, isLoading: isLoadingEnvIds } = useQuery({
     queryKey: ["eitje-environments", selectedLocation],
     queryFn: async () => {
       if (selectedLocation === "all") return null;
-      
-      const supabase = createClient();
-      // Match by name since there's no location_id column in eitje_environments
-      try {
-        // Get the selected location name (locations are already fetched in the component)
-        // Note: This depends on the locations query above, but we'll fetch if needed
-        const { data: locsData } = await supabase
-          .from("locations")
-          .select("id, name");
-        
-        const selectedLoc = locsData?.find((loc) => loc.id === selectedLocation);
-        if (!selectedLoc) return [];
-        
-        // Fetch all environments and match by name
-        const { data: allEnvs, error } = await supabase
-          .from("eitje_environments")
-          .select("id, raw_data");
-        
-        if (error) {
-          console.error("Error fetching environments:", error);
-          return [];
-        }
-        
-        // Match environment names to location name (case-insensitive)
-        const matchedIds = (allEnvs || [])
-          .filter((env: any) => {
-            const envName = env.raw_data?.name || "";
-            return envName.toLowerCase() === selectedLoc.name.toLowerCase();
-          })
-          .map((env: any) => env.id);
-        
-        return matchedIds;
-      } catch (error) {
-        console.error("Error in environment ID query:", error);
-        return [];
-      }
+      return await getEnvIdsForLocation(selectedLocation);
     },
     enabled: selectedLocation !== "all",
+    staleTime: 10 * 60 * 1000,
   });
 
   // Build query filters
@@ -124,28 +93,38 @@ export default function LaborCostsPage() {
     return filters;
   }, [selectedYear, selectedMonth, selectedDay, selectedLocation, dateRange]);
 
-  // Fetch aggregated data - COMPLIANCE: Use aggregated table, not raw
+  // Fetch processed shifts data – per-user hours
   const { data, isLoading, error } = useQuery({
-    queryKey: ["eitje-hours", queryFilters, currentPage, environmentIds],
+    queryKey: ["eitje-hours-processed", queryFilters, currentPage, environmentIds],
     queryFn: async () => {
       const supabase = createClient();
       
-      // Fetch aggregated data
+      // Base query: processed shifts - fetch all existing fields
+      // Note: New fields (approved, meals, etc.) will be available after migrations run
       let query = supabase
-        .from("eitje_labor_hours_aggregated")
+        .from("eitje_time_registration_shifts_processed")
         .select(`
-          id, 
-          date, 
+          id,
+          eitje_id,
+          date,
           environment_id,
+          environment_name,
           team_id,
-          total_hours_worked, 
-          total_breaks_minutes, 
-          total_wage_cost, 
-          employee_count, 
-          shift_count, 
-          avg_hours_per_employee, 
-          avg_wage_per_hour, 
-          created_at, 
+          team_name,
+          user_id,
+          user_name,
+          start_time,
+          end_time,
+          hours_worked,
+          break_minutes,
+          break_minutes_actual,
+          wage_cost,
+          status,
+          shift_type,
+          type_name,
+          notes,
+          remarks,
+          created_at,
           updated_at
         `, { count: "exact" });
 
@@ -156,13 +135,11 @@ export default function LaborCostsPage() {
           .lte("date", queryFilters.endDate);
       }
 
-      // Apply location filter - use environmentIds from hook (mapped from location UUID)
+      // Apply location filter - use environmentIds (Eitje environment IDs)
       if (selectedLocation !== "all" && environmentIds) {
         if (environmentIds.length > 0) {
           query = query.in("environment_id", environmentIds);
         } else {
-          // If location is selected but no environments found, return empty result
-          // by filtering for an impossible value
           query = query.eq("environment_id", -999);
         }
       }
@@ -182,149 +159,46 @@ export default function LaborCostsPage() {
         throw queryError;
       }
 
-      // Fetch environment and team names separately
-      // Filter out null/undefined and ensure we have valid integers
-      // Note: Renamed to avoid shadowing the hook's environmentIds variable
-      const recordEnvironmentIds = [...new Set((records || [])
-        .map((r: any) => r.environment_id)
-        .filter((id: any) => id != null && id !== undefined && !isNaN(Number(id)))
-        .map((id: any) => Number(id))
-      )];
-      const recordTeamIds = [...new Set((records || [])
-        .map((r: any) => r.team_id)
-        .filter((id: any) => id != null && id !== undefined && !isNaN(Number(id)))
-        .map((id: any) => Number(id))
-      )];
-      
-      let environmentMap: Record<number, string> = {};
-      let teamMap: Record<number, string> = {};
-      
-      if (recordEnvironmentIds.length > 0) {
-        try {
-          // Tables use id (not eitje_environment_id) and name is in raw_data
-          const { data: environments, error: envError } = await supabase
-            .from("eitje_environments")
-            .select("id, raw_data")
-            .in("id", recordEnvironmentIds);
-          
-          if (envError) {
-            console.error("Error fetching environments:", {
-              message: envError.message,
-              details: envError.details,
-              hint: envError.hint,
-              code: envError.code
-            });
-          } else if (environments) {
-            // Extract name from raw_data
-            environmentMap = Object.fromEntries(
-              environments.map((env: any) => [
-                env.id,
-                env.raw_data?.name || `Environment ${env.id}`
-              ])
-            );
-          }
-        } catch (error) {
-          console.error("Error in environment query:", error);
-        }
-      }
-
-      if (recordTeamIds.length > 0) {
-        try {
-          // Tables use id (not eitje_team_id) and name is in raw_data
-          const { data: teams, error: teamError } = await supabase
-            .from("eitje_teams")
-            .select("id, raw_data")
-            .in("id", recordTeamIds);
-          
-          if (teamError) {
-            console.error("Error fetching teams:", {
-              message: teamError.message,
-              details: teamError.details,
-              hint: teamError.hint,
-              code: teamError.code
-            });
-          } else if (teams) {
-            // Extract name from raw_data
-            teamMap = Object.fromEntries(
-              teams.map((team: any) => [
-                team.id,
-                team.raw_data?.name || `Team ${team.id}`
-              ])
-            );
-          }
-        } catch (error) {
-          console.error("Error in team query:", error);
-        }
-      }
-
-      // Merge names into records and filter to only show "Keuken" and "Bediening" teams
-      let recordsWithNames = (records || [])
-        .map((record: any) => ({
-          ...record,
-          environment_name: environmentMap[record.environment_id] || null,
-          team_name: record.team_id ? (teamMap[record.team_id] || null) : null,
-          // Recalculate avg_wage_per_hour if it's 0 but we have wage_cost and hours
-          avg_wage_per_hour: (record.avg_wage_per_hour && Number(record.avg_wage_per_hour) > 0) 
-            ? record.avg_wage_per_hour
-            : (record.total_wage_cost && record.total_hours_worked && Number(record.total_hours_worked) > 0)
-              ? Number(record.total_wage_cost) / Number(record.total_hours_worked)
-              : 0
-        }))
-        .filter((record: any) => {
-          // Only show records where team_name is "Keuken" or "Bediening"
-          const teamName = record.team_name?.toLowerCase() || "";
-          return teamName === "keuken" || teamName === "bediening";
-        });
-
-      // If "All Locations" is selected, aggregate by date and team (sum across all locations)
-      if (selectedLocation === "all") {
-        const aggregatedByDateTeam = new Map<string, any>();
-
-        recordsWithNames.forEach((record: any) => {
-          const key = `${record.date}-${record.team_id || 'null'}`;
-          
-          if (!aggregatedByDateTeam.has(key)) {
-            aggregatedByDateTeam.set(key, {
-              date: record.date,
-              team_id: record.team_id,
-              team_name: record.team_name,
-              environment_name: "All Locations",
-              total_hours_worked: 0,
-              total_breaks_minutes: 0,
-              total_wage_cost: 0,
-              employee_count: 0,
-              shift_count: 0,
-              id: `agg-${key}`
-            });
-          }
-          
-          const agg = aggregatedByDateTeam.get(key)!;
-          agg.total_hours_worked += Number(record.total_hours_worked || 0);
-          agg.total_breaks_minutes += Number(record.total_breaks_minutes || 0);
-          agg.total_wage_cost += Number(record.total_wage_cost || 0);
-          agg.employee_count += Number(record.employee_count || 0);
-          agg.shift_count += Number(record.shift_count || 0);
-        });
-
-        // Calculate averages and convert to array, sorted by date descending
-        recordsWithNames = Array.from(aggregatedByDateTeam.values())
-          .map(agg => ({
-            ...agg,
-            avg_hours_per_employee: agg.employee_count > 0 
-              ? agg.total_hours_worked / agg.employee_count 
-              : 0,
-            avg_wage_per_hour: agg.total_hours_worked > 0
-              ? agg.total_wage_cost / agg.total_hours_worked
-              : 0,
-            updated_at: null // No specific updated_at for aggregated records
-          }))
-          .sort((a, b) => {
-            // Sort by date descending, then by team name
-            const dateCompare = new Date(b.date).getTime() - new Date(a.date).getTime();
-            if (dateCompare !== 0) return dateCompare;
-            return (a.team_name || '').localeCompare(b.team_name || '');
-          });
-      }
+      // Process records - use extracted names directly from processed table
+      const recordsWithNames = (records || []).map((r: any) => {
+        const hours = Number(r.hours_worked ?? 0);
+        const breaks = r.break_minutes_actual ?? r.break_minutes ?? 0;
+        const wage = r.wage_cost ?? null;
+        // Calculate hourly rate
+        const hourlyRate = hours > 0 && wage ? Number(wage) / hours : null;
+        
+        return {
+          id: r.id,
+          eitje_id: r.eitje_id,
+          date: r.date,
+          environment_id: r.environment_id,
+          environment_name: r.environment_name || null,
+          team_id: r.team_id,
+          team_name: r.team_name || null,
+          user_id: r.user_id,
+          user_name: r.user_name || String(r.user_id),
+          start_time: r.start_time,
+          end_time: r.end_time,
+          hours_worked: hours,
+          break_minutes: breaks,
+          wage_cost: wage,
+          hourly_rate: hourlyRate,
+          status: r.status,
+          shift_type: r.shift_type,
+          type_name: r.type_name,
+          notes: r.notes,
+          remarks: r.remarks,
+          // New fields will be available after migrations run:
+          // approved, meals_count, check_in_ids, planning_shift_id, exported_to_hr_integration, api_created_at, api_updated_at
+          updated_at: r.updated_at ?? null,
+        };
+      });
+      // Sort by date desc, then user name
+      recordsWithNames.sort((a: any, b: any) => {
+        const dc = new Date(b.date).getTime() - new Date(a.date).getTime();
+        if (dc !== 0) return dc;
+        return String(a.user_name || "").localeCompare(String(b.user_name || ""));
+      });
 
       console.log("Hours query result:", {
         recordsCount: recordsWithNames.length,
@@ -335,7 +209,7 @@ export default function LaborCostsPage() {
 
       return {
         records: recordsWithNames,
-        total: recordsWithNames.length,
+        total: count || recordsWithNames.length,
       };
     },
     enabled: !!queryFilters.startDate && (selectedLocation === "all" || !isLoadingEnvIds),
@@ -406,62 +280,85 @@ export default function LaborCostsPage() {
 
           {!isLoading && !error && data && (
             <>
-              <div className="mt-16 bg-white rounded-sm border border-black px-4">
+              <div className="mt-16">
+                <ShowMoreColumnsToggle
+                  isExpanded={showAllColumns}
+                  onToggle={setShowAllColumns}
+                  coreColumnCount={8}
+                  totalColumnCount={15}
+                />
+              </div>
+              <div className="bg-white rounded-sm border border-black px-4">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="font-semibold">Date</TableHead>
                       <TableHead className="font-semibold">Location</TableHead>
                       <TableHead className="font-semibold">Team</TableHead>
-                      <TableHead className="font-semibold">Total Hours Worked</TableHead>
+                      <TableHead className="font-semibold">User</TableHead>
+                      <TableHead className="font-semibold">Hours Worked</TableHead>
                       <TableHead className="font-semibold">Break Minutes</TableHead>
-                      <TableHead className="font-semibold">Labor Cost</TableHead>
-                      <TableHead className="font-semibold">Employee Count</TableHead>
-                      <TableHead className="font-semibold">Shift Count</TableHead>
-                      <TableHead className="font-semibold">Avg Hours/Employee</TableHead>
-                      <TableHead className="font-semibold">Avg Wage/Hour</TableHead>
+                      <TableHead className="font-semibold">Wage Cost</TableHead>
                       <TableHead className="font-semibold">Updated At</TableHead>
+                      {showAllColumns && (
+                        <>
+                          <TableHead className="font-semibold">Eitje ID</TableHead>
+                          <TableHead className="font-semibold">Start Time</TableHead>
+                          <TableHead className="font-semibold">End Time</TableHead>
+                          <TableHead className="font-semibold">Hourly Rate</TableHead>
+                          <TableHead className="font-semibold">Status</TableHead>
+                          <TableHead className="font-semibold">Shift Type</TableHead>
+                          <TableHead className="font-semibold">Type Name</TableHead>
+                          <TableHead className="font-semibold">Notes</TableHead>
+                          <TableHead className="font-semibold">Remarks</TableHead>
+                        </>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {data.records.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={showAllColumns ? 15 : 8} className="text-center py-8 text-muted-foreground">
                           No data found for the selected filters
                         </TableCell>
                       </TableRow>
                     ) : (
                       data.records.map((record: any) => {
-                        // Calculate avg_wage_per_hour if missing but we have the data
-                        const avgWage = (record.avg_wage_per_hour && Number(record.avg_wage_per_hour) > 0)
-                          ? record.avg_wage_per_hour
-                          : (record.total_wage_cost && record.total_hours_worked && Number(record.total_hours_worked) > 0)
-                            ? Number(record.total_wage_cost) / Number(record.total_hours_worked)
-                            : 0;
-
                         return (
                           <TableRow key={record.id}>
                             <TableCell>{formatDateDDMMYY(record.date)}</TableCell>
                             <TableCell>{record.environment_name || record.environment_id || "-"}</TableCell>
                             <TableCell>{record.team_name || record.team_id || "-"}</TableCell>
-                            <TableCell>{Number(record.total_hours_worked || 0).toFixed(2)}</TableCell>
-                            <TableCell>{record.total_breaks_minutes || 0}</TableCell>
+                            <TableCell>{record.user_name || record.user_id || "-"}</TableCell>
+                            <TableCell>{record.hours_worked.toFixed(2)}</TableCell>
+                            <TableCell>{record.break_minutes || 0}</TableCell>
                             <TableCell className="font-semibold">
-                              {record.total_wage_cost && Number(record.total_wage_cost) > 0 
-                                ? `€${Math.round(Number(record.total_wage_cost))}` 
-                                : "-"}
-                            </TableCell>
-                            <TableCell>{record.employee_count || 0}</TableCell>
-                            <TableCell>{record.shift_count || 0}</TableCell>
-                            <TableCell>{Number(record.avg_hours_per_employee || 0).toFixed(2)}</TableCell>
-                            <TableCell className="font-semibold">
-                              {avgWage && Number(avgWage) > 0 
-                                ? `€${Math.round(Number(avgWage))}` 
+                              {record.wage_cost && Number(record.wage_cost) > 0 
+                                ? `€${Math.round(Number(record.wage_cost))}` 
                                 : "-"}
                             </TableCell>
                             <TableCell>
                               {record.updated_at ? formatDateDDMMYYTime(record.updated_at) : "-"}
                             </TableCell>
+                            {showAllColumns && (
+                              <>
+                                <TableCell>{record.eitje_id || "-"}</TableCell>
+                                <TableCell>
+                                  {record.start_time ? formatDateDDMMYYTime(record.start_time) : "-"}
+                                </TableCell>
+                                <TableCell>
+                                  {record.end_time ? formatDateDDMMYYTime(record.end_time) : "-"}
+                                </TableCell>
+                                <TableCell>
+                                  {record.hourly_rate ? `€${record.hourly_rate.toFixed(2)}` : "-"}
+                                </TableCell>
+                                <TableCell>{record.status || "-"}</TableCell>
+                                <TableCell>{record.shift_type || "-"}</TableCell>
+                                <TableCell>{record.type_name || "-"}</TableCell>
+                                <TableCell className="max-w-xs truncate">{record.notes || "-"}</TableCell>
+                                <TableCell className="max-w-xs truncate">{record.remarks || "-"}</TableCell>
+                              </>
+                            )}
                           </TableRow>
                         );
                       })

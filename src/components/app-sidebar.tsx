@@ -70,45 +70,50 @@ const operationsItems: MenuItem[] = [
 ];
 
 // Data section items (with collapsible sub-items)
+// Profit & Loss (PowerBI)
 const dataFinanceItems: MenuItem[] = [
-  { title: "PowerBI Data", url: "/data/finance/powerbi", icon: BarChart3 },
+  { title: "PowerBI", url: "/data/finance/powerbi", icon: BarChart3 },
 ];
 
-const dataLaborItems: MenuItem[] = [
-  { title: "Hours", url: "/data/labor/hours", icon: Clock },
-  { title: "Labor Costs", url: "/data/labor/costs", icon: DollarSign },
-  { title: "Workers", url: "/data/labor/workers", icon: Users },
-  { title: "Locations & Teams", url: "/data/labor/locations-teams", icon: Building2 },
+// Workforce (all Eitje sources)
+const dataWorkforceItems: MenuItem[] = [
+  { title: "Eitje Dashboard", url: "/finance/data/eitje-data", icon: Users },
+  { title: "Data View Hours", url: "/finance/data/eitje-data/hours", icon: Clock },
+  { title: "Data View Finance", url: "/finance/data/eitje-data/finance", icon: DollarSign },
+  { title: "Data View Workers", url: "/finance/data/eitje-data/workers", icon: UserCheck },
+  { title: "Data View Locations, Teams & Users", url: "/finance/data/eitje-data/locations-teams", icon: Building2 },
+  { title: "Data View Planning Shifts", url: "/finance/data/eitje-data/planning-shifts", icon: Calendar },
 ];
 
+// Workforce V2 (all new V2 pages)
+const dataWorkforceV2Items: MenuItem[] = [
+  { title: "Hours", url: "/finance/data/eitje-data/hours-v2", icon: Clock },
+  { title: "Workers", url: "/finance/data/eitje-data/workers-v2", icon: UserCheck },
+];
+
+// Sales (Bork)
 const dataSalesItems: MenuItem[] = [
-  { title: "Bork Sales Data", url: "/data/sales/bork", icon: TrendingUp },
+  { title: "Bork Dashboard", url: "/data/sales/bork", icon: TrendingUp },
 ];
 
+// Reservations (Formitable)
+const dataReservationsItems: MenuItem[] = [
+  { title: "Formitable Dashboard", url: "/data/reservations", icon: Calendar },
+];
+
+// Inventory (APICBASE)
+const dataInventoryItems: MenuItem[] = [
+  { title: "APICBASE Dashboard", url: "/data/inventory", icon: Package },
+];
+
+// Data groups
 const dataItems: MenuItem[] = [
-  { 
-    title: "Finance", 
-    url: "/data/finance", 
-    icon: DollarSign, 
-    isCollapsible: true, 
-    children: dataFinanceItems 
-  },
-  { 
-    title: "Labor", 
-    url: "/data/labor", 
-    icon: Users, 
-    isCollapsible: true, 
-    children: dataLaborItems 
-  },
-  { 
-    title: "Sales", 
-    url: "/data/sales", 
-    icon: TrendingUp, 
-    isCollapsible: true, 
-    children: dataSalesItems 
-  },
-  { title: "Reservations", url: "/data/reservations", icon: Calendar },
-  { title: "Inventory", url: "/data/inventory", icon: Package },
+  { title: "Profit & Loss", url: "/data/finance", icon: DollarSign, isCollapsible: true, children: dataFinanceItems },
+  { title: "Workforce", url: "/data/labor", icon: Users, isCollapsible: true, children: dataWorkforceItems },
+  { title: "Workforce V2", url: "/data/labor-v2", icon: Users, isCollapsible: true, children: dataWorkforceV2Items },
+  { title: "Sales", url: "/data/sales", icon: TrendingUp, isCollapsible: true, children: dataSalesItems },
+  { title: "Reservations", url: "/data/reservations", icon: Calendar, isCollapsible: true, children: dataReservationsItems },
+  { title: "Inventory", url: "/data/inventory", icon: Package, isCollapsible: true, children: dataInventoryItems },
 ];
 
 // Settings items
@@ -132,16 +137,22 @@ export function AppSidebar() {
   // State for collapsible menus
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
     dataFinance: false,
-    dataLabor: false,
+    dataWorkforce: false,
+    dataWorkforceV2: false,
     dataSales: false,
+    dataReservations: false,
+    dataInventory: false,
   });
   
   // Auto-expand collapsible menus if any child route is active
   useEffect(() => {
     const newOpenMenus: Record<string, boolean> = {
       dataFinance: isChildActive(dataFinanceItems),
-      dataLabor: isChildActive(dataLaborItems),
+      dataWorkforce: isChildActive(dataWorkforceItems),
+      dataWorkforceV2: isChildActive(dataWorkforceV2Items),
       dataSales: isChildActive(dataSalesItems),
+      dataReservations: isChildActive(dataReservationsItems),
+      dataInventory: isChildActive(dataInventoryItems),
     };
     setOpenMenus((prev) => ({ ...prev, ...newOpenMenus }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -218,8 +229,8 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={isActive("/dashboard") || pathname === "/"}>
-                    <Link href="/dashboard">
+                  <SidebarMenuButton asChild isActive={isActive("/") || pathname === "/"}>
+                    <Link href="/">
                       <LayoutDashboard />
                       <span>Daily Ops KPIs</span>
                     </Link>
@@ -260,10 +271,13 @@ export function AppSidebar() {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {dataItems.map((item) => renderMenuItem(item, 
-                  item.title === "Finance" ? "dataFinance" :
-                  item.title === "Labor" ? "dataLabor" :
-                  item.title === "Sales" ? "dataSales" : undefined
+                {dataItems.map((item) => renderMenuItem(item,
+                  item.title === "Profit & Loss" ? "dataFinance" :
+                  item.title === "Workforce" ? "dataWorkforce" :
+                  item.title === "Workforce V2" ? "dataWorkforceV2" :
+                  item.title === "Sales" ? "dataSales" :
+                  item.title === "Reservations" ? "dataReservations" :
+                  item.title === "Inventory" ? "dataInventory" : undefined
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>

@@ -89,6 +89,11 @@ export default function EitjeSettingsPage() {
   const [progressData, setProgressData] = useState<any>(null);
   const [syncedMonths, setSyncedMonths] = useState<Set<string>>(new Set());
   const [monthlyProgress, setMonthlyProgress] = useState<Record<string, any>>({});
+  const [monthlyProgressV2, setMonthlyProgressV2] = useState<Record<string, any>>({});
+  const [isLoadingV2Progress, setIsLoadingV2Progress] = useState(false);
+  const [processingV2Months, setProcessingV2Months] = useState<Set<string>>(new Set());
+  const [historyExpanded, setHistoryExpanded] = useState<Record<string, boolean>>({});
+  const [historyData, setHistoryData] = useState<Record<string, any[]>>({});
   const [dataStats, setDataStats] = useState({
     totalRecords: 0,
     totalRevenue: 0,
@@ -353,6 +358,250 @@ export default function EitjeSettingsPage() {
     } catch (error) {
       console.error(`Failed to load progress for ${year}-${month}:`, error);
       return null;
+    }
+  };
+
+  // DEFENSIVE: Load V2 progress for all months (lazy load)
+  const loadMonthlyProgressV2 = async () => {
+    try {
+      setIsLoadingV2Progress(true);
+      
+      // Load progress for all months in both years
+      const progressPromises = [];
+      
+      for (let month = 1; month <= 12; month++) {
+        progressPromises.push(
+          loadMonthProgressV2(2024, month).then(data => ({ month, year: 2024, data }))
+        );
+        progressPromises.push(
+          loadMonthProgressV2(2025, month).then(data => ({ month, year: 2025, data }))
+        );
+      }
+      
+      const allProgress = await Promise.all(progressPromises);
+      
+      const newMonthlyProgressV2: Record<string, any> = {};
+      
+      allProgress.forEach(({ month, year, data }) => {
+        if (data) {
+          const monthKey = `${year}-${month}`;
+          newMonthlyProgressV2[monthKey] = data;
+        }
+      });
+      
+      setMonthlyProgressV2(newMonthlyProgressV2);
+    } catch (error) {
+      console.error('Failed to load V2 progress:', error);
+    } finally {
+      setIsLoadingV2Progress(false);
+    }
+  };
+
+  // DEFENSIVE: Load V2 progress for specific month
+  const loadMonthProgressV2 = async (year: number, month: number) => {
+    try {
+      const response = await fetch(`/api/eitje/v2/progress?year=${year}&month=${month}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        return data.data;
+      }
+      return null;
+    } catch (error) {
+      console.error(`Failed to load V2 progress for ${year}-${month}:`, error);
+      return null;
+    }
+  };
+
+  // DEFENSIVE: Process V2 data for specific month
+  const handleProcessV2Month = async (month: number, year: number) => {
+    const monthKey = `${year}-${month}`;
+    setProcessingV2Months(prev => new Set(prev).add(monthKey));
+    
+    try {
+      // Calculate date range for the month
+      const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+      const lastDay = new Date(year, month, 0).getDate();
+      const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      
+      // Step 1-2: Sync from Eitje API to raw_data (COMMENTED OUT - raw data already exists)
+      // Uncomment below if you need to sync from Eitje API first
+      /*
+      console.log(`[V2 Process] Step 1-2: Syncing ${year}-${month} from Eitje API...`);
+      try {
+        // Use exact same sync logic as handleSyncMonth (proven, bug-free)
+        // Sync master data endpoints (no date restrictions)
+        const masterEndpoints = ['environments', 'teams', 'users', 'shift_types'];
+        
+        for (const endpoint of masterEndpoints) {
+          const response = await fetch('/api/eitje/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              endpoint,
+              startDate,
+              endDate,
+              batchSize: 100
+            })
+          });
+
+          const data = await response.json();
+          if (data.success) {
+            // Endpoint synced successfully
+          } else {
+            console.error(`${endpoint} sync failed:`, data.error);
+          }
+        }
+
+        // Sync data endpoints with 7-day chunking (proven strategy)
+        const dataEndpoints = ['time_registration_shifts', 'revenue_days'];
+        const daysDiff = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        
+        if (daysDiff > 7) {
+          // Chunking large date range (7-day batches)
+          const chunks = chunkDateRange(startDate, endDate);
+          
+          for (const endpoint of dataEndpoints) {
+            let totalRecords = 0;
+            for (let i = 0; i < chunks.length; i++) {
+              const chunk = chunks[i];
+              
+              const response = await fetch('/api/eitje/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  endpoint,
+                  startDate: chunk.start,
+                  endDate: chunk.end,
+                  batchSize: 100
+                })
+              });
+
+              const data = await response.json();
+              if (data.success) {
+                totalRecords += data.result.recordsProcessed || 0;
+              } else {
+                console.error(`${endpoint} chunk ${i + 1}/${chunks.length} sync failed:`, data.error);
+              }
+              
+              // Small delay between chunks
+              if (i < chunks.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+              }
+            }
+            console.log(`[V2 Process] ${endpoint} synced: ${totalRecords} total records`);
+          }
+        } else {
+          // Date range <= 7 days, sync normally
+          for (const endpoint of dataEndpoints) {
+            const response = await fetch('/api/eitje/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                endpoint,
+                startDate,
+                endDate,
+                batchSize: 100
+              })
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+              console.error(`${endpoint} sync failed:`, data.error);
+            }
+          }
+        }
+        
+        console.log(`[V2 Process] Step 1-2 completed: Sync from Eitje API finished`);
+      } catch (syncError) {
+        console.warn(`[V2 Process] Sync error (continuing anyway):`, syncError);
+        // Continue with processing - maybe data already exists in raw_data
+      }
+      */
+      console.log(`[V2 Process] Step 1-2: SKIPPED (raw data already exists, sync commented out)`);
+      
+      // Step 3: Process raw → processed_v2
+      const processResponse = await fetch(`/api/eitje/v2/process?startDate=${startDate}&endDate=${endDate}`, {
+        method: 'POST'
+      });
+      const processData = await processResponse.json();
+      
+      if (!processData.success) {
+        throw new Error(processData.error || 'Failed to process data');
+      }
+      
+      // Aggregate processed_v2 → aggregated_v2
+      // Use a longer timeout for aggregation (can take time with batching)
+      const aggregateController = new AbortController();
+      const aggregateTimeout = setTimeout(() => aggregateController.abort(), 5 * 60 * 1000); // 5 minutes timeout
+      
+      try {
+        const aggregateResponse = await fetch(`/api/eitje/v2/aggregate?startDate=${startDate}&endDate=${endDate}`, {
+          method: 'POST',
+          signal: aggregateController.signal
+        });
+        
+        clearTimeout(aggregateTimeout);
+        
+        if (!aggregateResponse.ok) {
+          throw new Error(`HTTP ${aggregateResponse.status}: ${aggregateResponse.statusText}`);
+        }
+        
+        const aggregateData = await aggregateResponse.json();
+        
+        if (!aggregateData.success) {
+          throw new Error(aggregateData.error || 'Failed to aggregate data');
+        }
+      } catch (fetchError) {
+        clearTimeout(aggregateTimeout);
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          throw new Error('Aggregation timed out after 5 minutes. The operation may still be processing in the background. Please check the server logs.');
+        }
+        throw fetchError;
+      }
+      
+      // Refresh progress data for this month
+      const monthProgress = await loadMonthProgressV2(year, month);
+      if (monthProgress) {
+        setMonthlyProgressV2(prev => ({
+          ...prev,
+          [monthKey]: monthProgress
+        }));
+      }
+      
+    } catch (error) {
+      console.error(`Failed to process V2 data for ${year} month ${month}:`, error);
+      alert(`Failed to process V2 data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setProcessingV2Months(prev => {
+        const next = new Set(prev);
+        next.delete(monthKey);
+        return next;
+      });
+    }
+  };
+
+  // DEFENSIVE: Load history for specific month (lazy load)
+  const loadHistoryV2 = async (year: number, month: number) => {
+    const monthKey = `${year}-${month}`;
+    
+    // If already loaded, don't reload
+    if (historyData[monthKey]) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/eitje/v2/progress-history?year=${year}&month=${month}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setHistoryData(prev => ({
+          ...prev,
+          [monthKey]: data.data.history || []
+        }));
+      }
+    } catch (error) {
+      console.error(`Failed to load V2 history for ${year}-${month}:`, error);
     }
   };
 
@@ -675,6 +924,7 @@ export default function EitjeSettingsPage() {
           <TabsTrigger value="credentials">Credentials</TabsTrigger>
           {/* <TabsTrigger value="sync">Data Sync</TabsTrigger> - Replaced by Progress tab */}
           <TabsTrigger value="progress">Progress</TabsTrigger>
+          <TabsTrigger value="progress-v2">Progress V2</TabsTrigger>
           <TabsTrigger value="endpoints">Endpoints</TabsTrigger>
           <TabsTrigger value="cronjob">Cronjob</TabsTrigger>
           {/* <TabsTrigger value="raw-data">Raw Data</TabsTrigger> - Replaced by Progress tab */}
@@ -1087,6 +1337,280 @@ export default function EitjeSettingsPage() {
                   <div className="flex items-center space-x-2">
                     <div className="w-3 h-3 rounded-full bg-red-500"></div>
                     <span>Not Synced - No data available</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Progress V2 Tracking Tab */}
+        <TabsContent value="progress-v2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <BarChart3 className="h-5 w-5" />
+                <span>Monthly Progress Tracking V2</span>
+              </CardTitle>
+              <CardDescription>
+                Track V2 processing status for each month - shows dots only if ALL endpoints are processed
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Load Progress Button (lazy load) */}
+              <div className="flex justify-between items-center">
+                <Button onClick={loadMonthlyProgressV2} disabled={isLoadingV2Progress}>
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  {isLoadingV2Progress ? 'Loading...' : 'Load Progress V2 Data'}
+                </Button>
+                {Object.keys(monthlyProgressV2).length > 0 && (
+                  <div className="text-sm text-muted-foreground">
+                    Last updated: {new Date().toLocaleTimeString()}
+                  </div>
+                )}
+              </div>
+
+              {/* 2024 Monthly Progress Grid */}
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">2024</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const month = i + 1;
+                      const monthName = new Date(2024, i).toLocaleString('default', { month: 'short' });
+                      const isCurrentMonth = month === new Date().getMonth() + 1 && new Date().getFullYear() === 2024;
+                      const monthKey = `2024-${month}`;
+                      const progress = monthlyProgressV2[monthKey];
+                      const allProcessed = progress?.allProcessed || false;
+                      const endpointData = progress?.endpoints?.time_registration_shifts || { processedV2Count: 0, isProcessed: false };
+                      
+                      return (
+                        <Card key={monthKey} className={`p-4 hover:shadow-md transition-shadow ${
+                          isCurrentMonth ? 'ring-2 ring-blue-500' : ''
+                        }`}>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-lg flex items-center justify-between">
+                              <span>{monthName} 2024</span>
+                              {isCurrentMonth && (
+                                <Badge variant="outline" className="text-xs">Current</Badge>
+                              )}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            {/* Status Summary - Only show dot if ALL endpoints processed */}
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Status:</span>
+                              <div className="flex items-center space-x-1">
+                                {allProcessed && (
+                                  <div className="w-2 h-2 rounded-full bg-green-500" title="All endpoints processed"></div>
+                                )}
+                                {!allProcessed && (
+                                  <div className="w-2 h-2 rounded-full bg-gray-300" title="Not all endpoints processed"></div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Endpoint Status List */}
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="capitalize">Hours Worked</span>
+                                <div className="flex items-center space-x-1">
+                                  {allProcessed && (
+                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                  )}
+                                  <span className="text-muted-foreground">{endpointData.processedV2Count || 0}</span>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Action Button */}
+                            <div className="pt-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleProcessV2Month(month, 2024)}
+                                disabled={processingV2Months.has(monthKey)}
+                                className="w-full"
+                              >
+                                {processingV2Months.has(monthKey) ? (
+                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                ) : (
+                                  <RefreshCw className="h-3 w-3 mr-1" />
+                                )}
+                                Process V2
+                              </Button>
+                            </div>
+
+                            {/* History Log (Lazy Loaded) */}
+                            <div className="pt-2 border-t">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="w-full text-xs"
+                                onClick={() => {
+                                  const newExpanded = { ...historyExpanded, [monthKey]: !historyExpanded[monthKey] };
+                                  setHistoryExpanded(newExpanded);
+                                  
+                                  // Load history when expanded
+                                  if (newExpanded[monthKey] && !historyData[monthKey]) {
+                                    loadHistoryV2(2024, month);
+                                  }
+                                }}
+                              >
+                                {historyExpanded[monthKey] ? 'Hide' : 'Show'} History
+                              </Button>
+                              
+                              {historyExpanded[monthKey] && (
+                                <div className="mt-2 text-xs text-muted-foreground">
+                                  {historyData[monthKey] && historyData[monthKey].length > 0 ? (
+                                    <div className="space-y-1">
+                                      {historyData[monthKey].map((entry: any, idx: number) => (
+                                        <div key={idx} className="p-2 bg-muted rounded">
+                                          <div>{entry.timestamp ? new Date(entry.timestamp).toLocaleString() : '-'}</div>
+                                          <div>{entry.action || '-'} - {entry.recordsProcessed || 0} records</div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="p-2 bg-muted rounded">
+                                      {historyData[monthKey] ? 'No history available' : 'Loading history...'}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2025 Monthly Progress Grid */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">2025</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const month = i + 1;
+                      const monthName = new Date(2025, i).toLocaleString('default', { month: 'short' });
+                      const isCurrentMonth = month === new Date().getMonth() + 1 && new Date().getFullYear() === 2025;
+                      const monthKey = `2025-${month}`;
+                      const progress = monthlyProgressV2[monthKey];
+                      const allProcessed = progress?.allProcessed || false;
+                      const endpointData = progress?.endpoints?.time_registration_shifts || { processedV2Count: 0, isProcessed: false };
+                      
+                      return (
+                        <Card key={monthKey} className={`p-4 hover:shadow-md transition-shadow ${
+                          isCurrentMonth ? 'ring-2 ring-blue-500' : ''
+                        }`}>
+                          <CardHeader className="pb-2">
+                            <CardTitle className="text-lg flex items-center justify-between">
+                              <span>{monthName} 2025</span>
+                              {isCurrentMonth && (
+                                <Badge variant="outline" className="text-xs">Current</Badge>
+                              )}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            {/* Status Summary - Only show dot if ALL endpoints processed */}
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-muted-foreground">Status:</span>
+                              <div className="flex items-center space-x-1">
+                                {allProcessed && (
+                                  <div className="w-2 h-2 rounded-full bg-green-500" title="All endpoints processed"></div>
+                                )}
+                                {!allProcessed && (
+                                  <div className="w-2 h-2 rounded-full bg-gray-300" title="Not all endpoints processed"></div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Endpoint Status List */}
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="capitalize">Hours Worked</span>
+                                <div className="flex items-center space-x-1">
+                                  {allProcessed && (
+                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                                  )}
+                                  <span className="text-muted-foreground">{endpointData.processedV2Count || 0}</span>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Action Button */}
+                            <div className="pt-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleProcessV2Month(month, 2025)}
+                                disabled={processingV2Months.has(monthKey)}
+                                className="w-full"
+                              >
+                                {processingV2Months.has(monthKey) ? (
+                                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                ) : (
+                                  <RefreshCw className="h-3 w-3 mr-1" />
+                                )}
+                                Process V2
+                              </Button>
+                            </div>
+
+                            {/* History Log (Lazy Loaded) */}
+                            <div className="pt-2 border-t">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="w-full text-xs"
+                                onClick={() => {
+                                  const newExpanded = { ...historyExpanded, [monthKey]: !historyExpanded[monthKey] };
+                                  setHistoryExpanded(newExpanded);
+                                  
+                                  // Load history when expanded
+                                  if (newExpanded[monthKey] && !historyData[monthKey]) {
+                                    loadHistoryV2(2025, month);
+                                  }
+                                }}
+                              >
+                                {historyExpanded[monthKey] ? 'Hide' : 'Show'} History
+                              </Button>
+                              
+                              {historyExpanded[monthKey] && (
+                                <div className="mt-2 text-xs text-muted-foreground">
+                                  {historyData[monthKey] && historyData[monthKey].length > 0 ? (
+                                    <div className="space-y-1">
+                                      {historyData[monthKey].map((entry: any, idx: number) => (
+                                        <div key={idx} className="p-2 bg-muted rounded">
+                                          <div>{entry.timestamp ? new Date(entry.timestamp).toLocaleString() : '-'}</div>
+                                          <div>{entry.action || '-'} - {entry.recordsProcessed || 0} records</div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="p-2 bg-muted rounded">
+                                      {historyData[monthKey] ? 'No history available' : 'Loading history...'}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Legend */}
+              <div className="mt-6 p-4 bg-muted rounded-lg">
+                <h4 className="font-medium mb-2">Status Legend V2</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span>All endpoints processed - Green dot shown only when ALL endpoints are processed</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-3 h-3 rounded-full bg-gray-300"></div>
+                    <span>Not all endpoints processed - No dot shown</span>
                   </div>
                 </div>
               </div>
