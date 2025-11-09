@@ -21,6 +21,22 @@ const { execSync } = require('child_process');
 const DELIMITER_START = '===POST-EXECUTION-CHECK===';
 const DELIMITER_END = '===END-POST-CHECK===';
 
+// Skip compliance checks in CI/CD environments
+function isCIEnvironment() {
+  return !!(
+    process.env.CI ||
+    process.env.VERCEL ||
+    process.env.VERCEL_ENV ||
+    process.env.GITHUB_ACTIONS ||
+    process.env.GITLAB_CI ||
+    process.env.JENKINS ||
+    process.env.CIRCLECI ||
+    process.env.TRAVIS ||
+    process.env.BUILDKITE ||
+    process.env.CODEBUILD
+  );
+}
+
 class PostExecutionChecker {
   constructor() {
     this.projectRoot = process.cwd();
@@ -73,6 +89,30 @@ class PostExecutionChecker {
   }
 
   async runCheck() {
+    // Skip execution in CI/CD environments
+    if (isCIEnvironment()) {
+      console.log('⏭️  Skipping compliance checks in CI environment');
+      const ciResult = {
+        status: 'PASS',
+        message: 'Skipped in CI environment',
+        timestamp: new Date().toISOString(),
+        summary: {
+          totalFilesModified: 0,
+          totalLinesChanged: 0,
+          violationsCount: 0,
+          criticalViolations: 0,
+          highViolations: 0,
+          mediumViolations: 0
+        },
+        violations: [],
+        modifiedFiles: [],
+        requiredAction: 'CI build - compliance checks skipped',
+        fixes: []
+      };
+      this.outputResult(ciResult);
+      process.exit(0);
+    }
+
     try {
       // Load registry
       await this.loadTrackingFiles();

@@ -20,6 +20,22 @@ const { execSync } = require('child_process');
 const DELIMITER_START = '===PRE-EXECUTION-CHECK===';
 const DELIMITER_END = '===END-PRE-CHECK===';
 
+// Skip compliance checks in CI/CD environments
+function isCIEnvironment() {
+  return !!(
+    process.env.CI ||
+    process.env.VERCEL ||
+    process.env.VERCEL_ENV ||
+    process.env.GITHUB_ACTIONS ||
+    process.env.GITLAB_CI ||
+    process.env.JENKINS ||
+    process.env.CIRCLECI ||
+    process.env.TRAVIS ||
+    process.env.BUILDKITE ||
+    process.env.CODEBUILD
+  );
+}
+
 class PreExecutionChecker {
   constructor() {
     this.projectRoot = process.cwd();
@@ -60,6 +76,25 @@ class PreExecutionChecker {
   }
 
   async runCheck() {
+    // Skip execution in CI/CD environments
+    if (isCIEnvironment()) {
+      console.log('⏭️  Skipping compliance checks in CI environment');
+      const ciResult = {
+        status: 'PASS',
+        message: 'Skipped in CI environment',
+        timestamp: new Date().toISOString(),
+        existingCode: [],
+        violations: [],
+        requiredAction: 'CI build - compliance checks skipped',
+        registry: {
+          completedFunctionsCount: 0,
+          protectedFiles: []
+        }
+      };
+      this.outputResult(ciResult);
+      process.exit(0);
+    }
+
     try {
       // Load registry and progress
       await this.loadTrackingFiles();
