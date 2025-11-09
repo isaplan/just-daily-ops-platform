@@ -2,12 +2,13 @@
 
 import { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { Database, ChevronRight } from "lucide-react";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import Link from "next/link";
 
 export default function EitjeDataLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   
-  // Page metadata for breadcrumbs and subtitles
+  // Page metadata for breadcrumbs
   const pageMetadata: Record<string, { label: string; subtitle: string }> = {
     "/finance/data/eitje-data": { 
       label: "Overview", 
@@ -16,6 +17,14 @@ export default function EitjeDataLayout({ children }: { children: ReactNode }) {
     "/finance/data/eitje-data/hours": { 
       label: "Hours", 
       subtitle: "View time registration shifts and labor hours data from Eitje" 
+    },
+    "/finance/data/eitje-data/hours-v2": { 
+      label: "Hours V2", 
+      subtitle: "View processed and aggregated hours data from Eitje" 
+    },
+    "/finance/data/eitje-data/workers-v2": { 
+      label: "Workers V2", 
+      subtitle: "Manage editable hourly wages, contract types, and contract hours" 
     },
     "/finance/data/eitje-data/labor-costs": { 
       label: "Labor Costs", 
@@ -43,20 +52,24 @@ export default function EitjeDataLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="container mx-auto py-6 space-y-6">
-      {/* Breadcrumb Header */}
-      <div className="flex items-center gap-2">
-        <Database className="h-5 w-5 text-primary" />
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-semibold">Eitje Data</span>
+      {/* Breadcrumb Navigation */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/finance/data/eitje-data" className="text-2xl font-semibold">Eitje Data</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
           {currentPage.label !== "Overview" && (
             <>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xl font-semibold">{currentPage.label}</span>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="text-2xl font-semibold">{currentPage.label}</BreadcrumbPage>
+              </BreadcrumbItem>
             </>
           )}
-        </div>
-      </div>
-      <p className="text-muted-foreground text-sm">{currentPage.subtitle}</p>
+        </BreadcrumbList>
+      </Breadcrumb>
 
       {children}
     </div>

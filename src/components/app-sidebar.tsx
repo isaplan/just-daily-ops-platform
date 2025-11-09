@@ -81,6 +81,12 @@ const dataLaborItems: MenuItem[] = [
   { title: "Locations & Teams", url: "/data/labor/locations-teams", icon: Building2 },
 ];
 
+// Workforce V2 (all new V2 pages)
+const dataWorkforceV2Items: MenuItem[] = [
+  { title: "Hours", url: "/finance/data/eitje-data/hours-v2", icon: Clock },
+  { title: "Workers", url: "/finance/data/eitje-data/workers-v2", icon: UserCheck },
+];
+
 const dataSalesItems: MenuItem[] = [
   { title: "Bork Sales Data", url: "/data/sales/bork", icon: TrendingUp },
 ];
@@ -99,6 +105,13 @@ const dataItems: MenuItem[] = [
     icon: Users, 
     isCollapsible: true, 
     children: dataLaborItems 
+  },
+  { 
+    title: "Workforce V2", 
+    url: "/data/labor-v2", 
+    icon: Users, 
+    isCollapsible: true, 
+    children: dataWorkforceV2Items 
   },
   { 
     title: "Sales", 
@@ -133,6 +146,7 @@ export function AppSidebar() {
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>({
     dataFinance: false,
     dataLabor: false,
+    dataWorkforceV2: false,
     dataSales: false,
   });
   
@@ -141,6 +155,7 @@ export function AppSidebar() {
     const newOpenMenus: Record<string, boolean> = {
       dataFinance: isChildActive(dataFinanceItems),
       dataLabor: isChildActive(dataLaborItems),
+      dataWorkforceV2: isChildActive(dataWorkforceV2Items),
       dataSales: isChildActive(dataSalesItems),
     };
     setOpenMenus((prev) => ({ ...prev, ...newOpenMenus }));
@@ -263,6 +278,7 @@ export function AppSidebar() {
                 {dataItems.map((item) => renderMenuItem(item, 
                   item.title === "Finance" ? "dataFinance" :
                   item.title === "Labor" ? "dataLabor" :
+                  item.title === "Workforce V2" ? "dataWorkforceV2" :
                   item.title === "Sales" ? "dataSales" : undefined
                 ))}
               </SidebarMenu>
