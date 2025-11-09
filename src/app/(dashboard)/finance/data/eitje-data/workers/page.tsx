@@ -8,11 +8,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { formatDateDDMMYY, formatDateDDMMYYTime } from "@/lib/dateFormatters";
+import { ShowMoreColumnsToggle } from "@/components/view-data/ShowMoreColumnsToggle";
 
 const ITEMS_PER_PAGE = 50;
 
 export default function WorkersPage() {
   const [currentPage, setCurrentPage] = useState(1);
+  const [showAllColumns, setShowAllColumns] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["eitje-workers", currentPage],
@@ -24,7 +26,20 @@ export default function WorkersPage() {
 
       const { data: records, error: queryError, count } = await supabase
         .from("eitje_users")
-        .select("*", { count: "exact" })
+        .select(`
+          id,
+          eitje_id,
+          first_name,
+          last_name,
+          email,
+          phone,
+          employee_number,
+          hire_date,
+          is_active,
+          raw_data,
+          created_at,
+          updated_at
+        `, { count: "exact" })
         .order("created_at", { ascending: false })
         .range(from, to);
 
@@ -63,7 +78,15 @@ export default function WorkersPage() {
 
           {!isLoading && !error && data && (
             <>
-              <div className="mt-16 bg-white rounded-sm border border-black px-4">
+              <div className="mt-16">
+                <ShowMoreColumnsToggle
+                  isExpanded={showAllColumns}
+                  onToggle={setShowAllColumns}
+                  coreColumnCount={9}
+                  totalColumnCount={9}
+                />
+              </div>
+              <div className="mt-4 bg-white rounded-sm border border-black px-4">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -76,6 +99,7 @@ export default function WorkersPage() {
                       <TableHead className="font-semibold">Hire Date</TableHead>
                       <TableHead className="font-semibold">Active</TableHead>
                       <TableHead className="font-semibold">Created At</TableHead>
+                      {/* Additional columns (name, code, contract_type, hourly_wage, contract_hours) will be available after migrations run */}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
