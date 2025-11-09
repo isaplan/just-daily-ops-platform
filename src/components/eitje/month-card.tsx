@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,8 +10,7 @@ import {
   AlertCircle, 
   RefreshCw, 
   Database,
-  Play,
-  RotateCcw
+  Play
 } from 'lucide-react';
 
 interface EndpointStatus {
@@ -39,14 +38,33 @@ const ENDPOINTS: Array<{ key: string; displayName: string; isMasterData: boolean
   { key: 'revenue_days', displayName: 'Revenue Days', isMasterData: false },
 ];
 
+// Cache for endpoint status requests (5 minute TTL)
+const statusCache = new Map<string, { data: EndpointStatus[]; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export function MonthCard({ year, month, monthName, onSyncAll }: MonthCardProps) {
   const [endpointStatuses, setEndpointStatuses] = useState<EndpointStatus[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const loadingRef = useRef(false);
 
-  // Load endpoint statuses for this month
-  const loadEndpointStatuses = async () => {
+  // Load endpoint statuses for this month with caching
+  const loadEndpointStatuses = async (forceRefresh = false) => {
+    // Prevent concurrent requests
+    if (loadingRef.current && !forceRefresh) {
+      return;
+    }
+
+    const cacheKey = `${year}-${month}`;
+    const cached = statusCache.get(cacheKey);
+    
+    // Return cached data if still valid and not forcing refresh
+    if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      setEndpointStatuses(cached.data);
+      return;
+    }
+
+    loadingRef.current = true;
     setLoading(true);
     try {
       const statuses: EndpointStatus[] = [];
@@ -67,8 +85,6 @@ export function MonthCard({ year, month, monthName, onSyncAll }: MonthCardProps)
             status = 'synced';
           }
           
-          console.log(`[MonthCard] ${endpoint.key}: rawDataCount=${data.data.rawDataCount}, aggregatedDataCount=${data.data.aggregatedDataCount}, status=${status}`);
-          
           statuses.push({
             endpoint: endpoint.key,
             displayName: endpoint.displayName,
@@ -88,28 +104,31 @@ export function MonthCard({ year, month, monthName, onSyncAll }: MonthCardProps)
         }
       }
       
-      console.log(`[MonthCard] Final statuses for ${year}-${month}:`, statuses);
+      // Update cache
+      statusCache.set(cacheKey, { data: statuses, timestamp: Date.now() });
       setEndpointStatuses(statuses);
-      setRefreshKey(prev => prev + 1); // Force re-render
     } catch (error) {
       console.error(`Failed to load statuses for ${year}-${month}:`, error);
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
   };
 
   useEffect(() => {
     loadEndpointStatuses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [year, month]);
 
   const handleSyncAll = async () => {
     setSyncing(true);
     try {
       await onSyncAll(year, month);
-      // Reload statuses after sync with a longer delay to ensure data is committed
+      // Clear cache and reload statuses after sync
+      const cacheKey = `${year}-${month}`;
+      statusCache.delete(cacheKey);
       setTimeout(async () => {
-        console.log(`[MonthCard] Refreshing statuses after sync for ${year}-${month}`);
-        await loadEndpointStatuses();
+        await loadEndpointStatuses(true);
       }, 2000);
     } catch (error) {
       console.error(`Sync all failed for ${year}-${month}:`, error);
@@ -147,7 +166,6 @@ export function MonthCard({ year, month, monthName, onSyncAll }: MonthCardProps)
   // Check if all endpoints are processed
   const allProcessed = endpointStatuses.length > 0 && endpointStatuses.every(ep => ep.status === 'processed');
   const hasErrors = endpointStatuses.some(ep => ep.status === 'error');
-  const hasData = endpointStatuses.some(ep => ep.recordsCount > 0);
 
   if (loading) {
     return (
@@ -170,7 +188,7 @@ export function MonthCard({ year, month, monthName, onSyncAll }: MonthCardProps)
           <Button
             size="sm"
             variant="ghost"
-            onClick={loadEndpointStatuses}
+            onClick={() => loadEndpointStatuses(true)}
             disabled={loading}
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />

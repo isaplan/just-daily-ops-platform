@@ -415,7 +415,7 @@ After any tool that modifies code completes:
 **IMPLEMENTATION STATUS:**
 - Pre/post-check scripts are implemented and available
 - Enforcement relies on AI compliance (scripts must be run manually)
-- True tool-level enforcement would require Cursor/VSCode extension (not yet implemented)
+- True tool-level enforcement would require Cursor extension (not yet implemented)
 - Scripts output structured JSON that AI must parse and act on
 
 **WORKFLOW:**

@@ -265,7 +265,7 @@ export async function getEitjeMissingDateRanges(
   );
 
   // Find missing date ranges (chunked into 7-day periods)
-  let currentDate = new Date(startOfMonth);
+  const currentDate = new Date(startOfMonth);
   
   while (currentDate <= endOfMonth) {
     const rangeStart = new Date(currentDate);

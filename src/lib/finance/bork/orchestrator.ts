@@ -95,7 +95,7 @@ export const processBorkSales = async (
           try {
             // Excel serial date
             // Prefer SSF if available
-            // @ts-ignore
+            // @ts-expect-error: XLSX.SSF is present at runtime but not typed in the package
             const parsed = XLSX.SSF && XLSX.SSF.parse_date_code ? XLSX.SSF.parse_date_code(v) : null;
             if (parsed) {
               return toDateString(parsed.y, parsed.m, parsed.d);

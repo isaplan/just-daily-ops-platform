@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+<<<<<<< HEAD
 import { FileText } from "lucide-react";
 
 export default function DailyOpsReportsPage() {
@@ -25,9 +26,26 @@ export default function DailyOpsReportsPage() {
           <div className="text-center py-8">
             <p className="text-muted-foreground">Content will be implemented here</p>
           </div>
+=======
+
+export default function DailyOpsReportsPage() {
+  return (
+    <div className="container mx-auto py-6 space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Daily Ops - Reports & Automation</CardTitle>
+          <CardDescription>Daily reports and automation</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">This page is under development.</p>
+>>>>>>> eitje-api
         </CardContent>
       </Card>
     </div>
   );
 }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> eitje-api

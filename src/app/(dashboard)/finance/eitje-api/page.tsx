@@ -191,7 +191,7 @@ export default function EitjeSettingsPage() {
     const end = new Date(endDate);
     const chunks = [];
     
-    let currentStart = new Date(start);
+    const currentStart = new Date(start);
     
     while (currentStart <= end) {
       const currentEnd = new Date(currentStart);
@@ -934,7 +934,7 @@ export default function EitjeSettingsPage() {
                                 
                                 // Get display name and format value
                                 let displayName = endpoint.replace('_', ' ');
-                                let displayValue = endpointData.recordsCount || 0;
+                                const displayValue = endpointData.recordsCount || 0;
                                 
                                 if (endpoint === 'time_registration_shifts') {
                                   displayName = 'Hours Worked';
@@ -1023,7 +1023,7 @@ export default function EitjeSettingsPage() {
                                 
                                 // Get display name and format value
                                 let displayName = endpoint.replace('_', ' ');
-                                let displayValue = endpointData.recordsCount || 0;
+                                const displayValue = endpointData.recordsCount || 0;
                                 
                                 if (endpoint === 'time_registration_shifts') {
                                   displayName = 'Hours Worked';

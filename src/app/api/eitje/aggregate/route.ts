@@ -3,24 +3,55 @@ import { createClient } from "@/integrations/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { endpoint, year, month } = await request.json();
+    const body = await request.json();
+    const { endpoint, year, month, startDate, endDate } = body;
     
-    console.log(`[API /eitje/aggregate] Processing ${endpoint} for ${year}-${month}`);
-    
-    if (!endpoint || !year || !month) {
+    if (!endpoint) {
       return NextResponse.json({ 
         success: false, 
-        error: "Missing required parameters: endpoint, year, month" 
+        error: "Missing required parameter: endpoint" 
       }, { status: 400 });
     }
 
     const supabase = await createClient();
     
+    // Calculate date range from year/month or use provided dates
+    let actualStartDate: string;
+    let actualEndDate: string;
+    
+    if (body.startDate && body.endDate) {
+      actualStartDate = body.startDate;
+      actualEndDate = body.endDate;
+    } else if (year && month) {
+      const now = new Date();
+      const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+      
+      actualStartDate = `${year}-${month.toString().padStart(2, '0')}-01`;
+      
+      if (isCurrentMonth) {
+        // Use "now" (1 hour ago for safety) if current month
+        const endDate = new Date();
+        endDate.setHours(endDate.getHours() - 1);
+        actualEndDate = endDate.toISOString().split('T')[0];
+      } else {
+        // Use full month for past months
+        const lastDay = new Date(year, month, 0).getDate();
+        actualEndDate = `${year}-${month.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
+      }
+    } else {
+      return NextResponse.json({ 
+        success: false, 
+        error: "Missing required parameters: either (year, month) or (startDate, endDate) must be provided" 
+      }, { status: 400 });
+    }
+    
     // Process based on endpoint
     if (endpoint === 'time_registration_shifts') {
-      await processTimeRegistrationShifts(supabase, year, month);
+      await processTimeRegistrationShifts(supabase, actualStartDate, actualEndDate);
+    } else if (endpoint === 'planning_shifts') {
+      await processPlanningShifts(supabase, actualStartDate, actualEndDate);
     } else if (endpoint === 'revenue_days') {
-      await processRevenueDays(supabase, year, month);
+      await processRevenueDays(supabase, actualStartDate, actualEndDate);
     } else {
       return NextResponse.json({ 
         success: false, 
@@ -30,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      message: `Successfully processed ${endpoint} for ${year}-${month}` 
+      message: `Successfully processed ${endpoint} for ${actualStartDate} to ${actualEndDate}` 
     });
     
   } catch (error) {
@@ -45,95 +76,85 @@ export async function POST(request: NextRequest) {
 /**
  * Process time registration shifts into aggregated format
  */
-async function processTimeRegistrationShifts(supabase: any, year: number, month: number) {
-  console.log(`[API /eitje/aggregate] Processing time registration shifts for ${year}-${month}`);
+async function processTimeRegistrationShifts(
+  supabase: any,
+  startDate: string,
+  endDate: string
+) {
+  console.log(`[API /eitje/aggregate] Processing time registration shifts for ${startDate} to ${endDate}`);
   
-  // Get raw data for the month - calculate correct last day
-  const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
-  const lastDay = new Date(year, month, 0).getDate(); // Get last day of month
-  const endDate = `${year}-${month.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
-  
-  const { data: rawData, error } = await supabase
-    .from('eitje_time_registration_shifts_raw')
+  // Read from processed table (all fields already normalized)
+  const { data: processedData, error } = await supabase
+    .from('eitje_time_registration_shifts_processed')
     .select('*')
     .gte('date', startDate)
     .lte('date', endDate);
     
   if (error) {
-    throw new Error(`Failed to fetch raw data: ${error.message}`);
+    throw new Error(`Failed to fetch processed data: ${error.message}`);
   }
   
-  console.log(`[API /eitje/aggregate] Found ${rawData?.length || 0} raw records`);
+  console.log(`[API /eitje/aggregate] Found ${processedData?.length || 0} processed records`);
   
-  if (!rawData || rawData.length === 0) {
-    console.log('[API /eitje/aggregate] No raw data found, skipping processing');
+  if (!processedData || processedData.length === 0) {
+    console.log('[API /eitje/aggregate] No processed data found, skipping aggregation');
     return;
   }
   
-  // Group by date, environment_id, and team_id
+  // Group by date, environment_id, team_id, and user_id (per worker per day)
   const groupedData = new Map();
   
-  for (const record of rawData) {
-    const rawDataObj = record.raw_data;
+  for (const record of processedData) {
     const date = record.date;
-    const environmentId = record.environment_id || rawDataObj.environment?.id;
-    const teamId = record.team_id || rawDataObj.team?.id || null;
+    const environmentId = record.environment_id;
+    const teamId = record.team_id;
+    const userId = record.user_id;
     
     if (!environmentId) {
       console.log(`[API /eitje/aggregate] Skipping record without environment_id:`, record.id);
       continue;
     }
     
-    const key = `${date}-${environmentId}-${teamId || 'null'}`;
+    // Log if user_id is missing for debugging
+    if (!userId) {
+      console.warn(`[API /eitje/aggregate] Record ${record.id} missing user_id`);
+      // Still process but with null user_id - will be grouped separately
+    }
+    
+    // Group by date, environment, team, and user (one row per worker per day)
+    // Use 'null-user' as placeholder if user_id is missing
+    const key = `${date}-${environmentId}-${teamId || 'null'}-${userId || 'null-user'}`;
     
     if (!groupedData.has(key)) {
       groupedData.set(key, {
         date,
         environment_id: environmentId,
         team_id: teamId,
+        user_id: userId,
         total_hours_worked: 0,
         total_breaks_minutes: 0,
         total_wage_cost: 0,
-        employee_count: 0,
-        shift_count: 0,
-        unique_employees: new Set()
+        shift_count: 0
       });
     }
     
     const group = groupedData.get(key);
     
-    // Calculate hours worked - try normalized columns first, then raw_data
+    // Use normalized columns directly (no JSONB parsing needed)
     const hoursWorked = Number(record.hours_worked || record.hours || record.total_hours || 0) ||
-      (rawDataObj.start && rawDataObj.end 
-        ? (new Date(rawDataObj.end).getTime() - new Date(rawDataObj.start).getTime()) / (1000 * 60 * 60)
+      (record.start && record.end 
+        ? (new Date(record.end).getTime() - new Date(record.start).getTime()) / (1000 * 60 * 60)
         : 0);
     
-    const breakMinutes = Number(record.break_minutes || record.breaks || record.break_minutes_actual || 0) ||
-      Number(rawDataObj.break_minutes || rawDataObj.breaks || 0);
+    const breakMinutes = Number(record.break_minutes || record.breaks || record.break_minutes_actual || 0);
     const actualHours = Math.max(0, hoursWorked - (breakMinutes / 60));
     
     group.total_hours_worked += actualHours;
     group.total_breaks_minutes += breakMinutes;
     
-    // Extract wage cost - prioritize normalized columns, then try multiple raw_data paths
-    let wageCost = Number(record.wage_cost || 0);
-    
-    // If no wage_cost in normalized column, check raw_data JSONB with multiple paths
-    if (!wageCost || wageCost === 0) {
-      wageCost = Number(
-        rawDataObj.wage_cost ||
-        rawDataObj.wageCost ||
-        rawDataObj.costs?.wage ||
-        rawDataObj.costs?.wage_cost ||
-        rawDataObj.labor_cost ||
-        rawDataObj.laborCost ||
-        rawDataObj.total_cost ||
-        rawDataObj.totalCost ||
-        rawDataObj.cost ||
-        rawDataObj.price ||
-        0
-      );
-    }
+    // Extract wage cost from normalized columns
+    let wageCost = Number(record.wage_cost || record.costs_wage || record.costs_wage_cost || 
+      record.labor_cost || record.total_cost || 0);
     
     // If still no cost, use fallback calculation (€15/hour)
     if (!wageCost || wageCost === 0) {
@@ -141,22 +162,11 @@ async function processTimeRegistrationShifts(supabase: any, year: number, month:
     }
     
     group.total_wage_cost += wageCost;
-    
-    // Track unique employees
-    const userId = record.user_id || rawDataObj.user?.id;
-    if (userId) {
-      group.unique_employees.add(userId);
-    }
-    
     group.shift_count += 1;
-    group.employee_count = group.unique_employees.size;
   }
   
-  // Convert to array and calculate averages
+  // Convert to array - each row represents one worker per day
   const aggregatedData = Array.from(groupedData.values()).map(group => {
-    const avgHoursPerEmployee = group.employee_count > 0 
-      ? group.total_hours_worked / group.employee_count 
-      : 0;
     const avgWagePerHour = group.total_hours_worked > 0
       ? group.total_wage_cost / group.total_hours_worked
       : 0;
@@ -165,12 +175,13 @@ async function processTimeRegistrationShifts(supabase: any, year: number, month:
       date: group.date,
       environment_id: group.environment_id,
       team_id: group.team_id,
+      user_id: group.user_id,
       total_hours_worked: Math.round(group.total_hours_worked * 100) / 100,
       total_breaks_minutes: group.total_breaks_minutes,
       total_wage_cost: Math.round(group.total_wage_cost * 100) / 100,
-      employee_count: group.employee_count,
       shift_count: group.shift_count,
-      avg_hours_per_employee: Math.round(avgHoursPerEmployee * 100) / 100,
+      employee_count: 1, // Always 1 since this is per worker
+      avg_hours_per_employee: Math.round(group.total_hours_worked * 100) / 100, // Same as total_hours for single worker
       avg_wage_per_hour: Math.round(avgWagePerHour * 100) / 100,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -179,55 +190,223 @@ async function processTimeRegistrationShifts(supabase: any, year: number, month:
   
   console.log(`[API /eitje/aggregate] Created ${aggregatedData.length} aggregated records`);
   
-  // Upsert aggregated data (handle duplicates)
-  const { error: upsertError } = await supabase
-    .from('eitje_labor_hours_aggregated')
-    .upsert(aggregatedData, {
-      onConflict: 'date,environment_id,team_id'
-    });
+  // Upsert aggregated data (handle duplicates) - now grouped by user_id too
+  if (aggregatedData.length > 0) {
+    console.log(`[API /eitje/aggregate] Upserting ${aggregatedData.length} records with user_id`);
+    const { error: upsertError } = await supabase
+      .from('eitje_labor_hours_aggregated')
+      .upsert(aggregatedData, {
+        onConflict: 'date,environment_id,team_id,user_id'
+      });
+      
+    if (upsertError) {
+      console.error('[API /eitje/aggregate] Upsert error:', upsertError);
+      // If constraint doesn't exist, try with old constraint
+      if (upsertError.message?.includes('constraint') || upsertError.code === '42P10') {
+        console.log('[API /eitje/aggregate] Trying with old constraint (without user_id)...');
+        const { error: retryError } = await supabase
+          .from('eitje_labor_hours_aggregated')
+          .upsert(aggregatedData.map(({ user_id, ...rest }) => rest), {
+            onConflict: 'date,environment_id,team_id'
+          });
+        if (retryError) {
+          throw new Error(`Failed to upsert aggregated data: ${retryError.message}`);
+        }
+      } else {
+        throw new Error(`Failed to upsert aggregated data: ${upsertError.message}`);
+      }
+    }
     
-  if (upsertError) {
-    throw new Error(`Failed to upsert aggregated data: ${upsertError.message}`);
+    console.log('[API /eitje/aggregate] Successfully processed time registration shifts');
+  } else {
+    console.log('[API /eitje/aggregate] No data to upsert');
   }
-  
-  console.log('[API /eitje/aggregate] Successfully processed time registration shifts');
 }
 
 /**
- * Process revenue days into aggregated format
+ * Process planning shifts into aggregated format
  */
-async function processRevenueDays(supabase: any, year: number, month: number) {
-  console.log(`[API /eitje/aggregate] Processing revenue days for ${year}-${month}`);
+async function processPlanningShifts(
+  supabase: any,
+  startDate: string,
+  endDate: string
+) {
+  console.log(`[API /eitje/aggregate] Processing planning shifts for ${startDate} to ${endDate}`);
   
-  // Get raw data for the month - calculate correct last day
-  const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
-  const lastDay = new Date(year, month, 0).getDate(); // Get last day of month
-  const endDate = `${year}-${month.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
-  
-  const { data: rawData, error } = await supabase
-    .from('eitje_revenue_days_raw')
+  // Read from processed table (all fields already normalized)
+  const { data: processedData, error } = await supabase
+    .from('eitje_planning_shifts_processed')
     .select('*')
     .gte('date', startDate)
     .lte('date', endDate);
     
   if (error) {
-    throw new Error(`Failed to fetch raw data: ${error.message}`);
+    throw new Error(`Failed to fetch processed data: ${error.message}`);
   }
   
-  console.log(`[API /eitje/aggregate] Found ${rawData?.length || 0} raw revenue records`);
+  console.log(`[API /eitje/aggregate] Found ${processedData?.length || 0} processed planning shift records`);
   
-  if (!rawData || rawData.length === 0) {
-    console.log('[API /eitje/aggregate] No raw revenue data found, skipping processing');
+  if (!processedData || processedData.length === 0) {
+    console.log('[API /eitje/aggregate] No processed planning shift data found, skipping aggregation');
     return;
   }
   
-  // Group by date and environment_id - COMPLIANCE: Extract from normalized columns
+  // Group by date, environment_id, team_id, and user_id (per worker per day)
   const groupedData = new Map();
   
-  for (const record of rawData) {
-    // COMPLIANCE: Use normalized columns, fallback to raw_data only if needed
+  for (const record of processedData) {
     const date = record.date;
-    const environmentId = record.environment_id || record.raw_data?.environment?.id || 0;
+    const environmentId = record.environment_id;
+    const teamId = record.team_id;
+    const userId = record.user_id;
+    
+    if (!environmentId) {
+      console.log(`[API /eitje/aggregate] Skipping planning shift record without environment_id:`, record.id);
+      continue;
+    }
+    
+    // Group by date, environment, team, and user (one row per worker per day)
+    const key = `${date}-${environmentId}-${teamId || 'null'}-${userId || 'null-user'}`;
+    
+    if (!groupedData.has(key)) {
+      groupedData.set(key, {
+        date,
+        environment_id: environmentId,
+        team_id: teamId,
+        user_id: userId,
+        planned_hours_total: 0,
+        total_breaks_minutes: 0,
+        total_planned_cost: 0,
+        shift_count: 0,
+        confirmed_count: 0,
+        cancelled_count: 0,
+        planned_count: 0
+      });
+    }
+    
+    const group = groupedData.get(key);
+    
+    // Use normalized columns directly
+    const plannedHours = Number(record.planned_hours || record.hours_planned || record.hours || record.total_hours || 0);
+    const breakMinutes = Number(record.break_minutes || record.breaks || record.break_minutes_planned || 0);
+    
+    group.planned_hours_total += plannedHours;
+    group.total_breaks_minutes += breakMinutes;
+    
+    // Extract planned cost from normalized columns
+    let plannedCost = Number(record.planned_cost || record.wage_cost || record.costs_wage || record.costs_wage_cost || 0);
+    
+    // If still no cost, use fallback calculation (€15/hour)
+    if (!plannedCost || plannedCost === 0) {
+      plannedCost = plannedHours * 15;
+    }
+    
+    group.total_planned_cost += plannedCost;
+    group.shift_count += 1;
+    
+    // Count status
+    if (record.confirmed === true) {
+      group.confirmed_count += 1;
+    } else if (record.cancelled === true) {
+      group.cancelled_count += 1;
+    } else {
+      group.planned_count += 1;
+    }
+  }
+  
+  // Convert to array - each row represents one worker per day
+  const aggregatedData = Array.from(groupedData.values()).map(group => {
+    const avgHoursPerEmployee = group.planned_hours_total; // Same as total for single worker
+    const avgCostPerHour = group.planned_hours_total > 0
+      ? group.total_planned_cost / group.planned_hours_total
+      : 0;
+    
+    return {
+      date: group.date,
+      environment_id: group.environment_id,
+      team_id: group.team_id,
+      user_id: group.user_id,
+      planned_hours_total: Math.round(group.planned_hours_total * 100) / 100,
+      total_breaks_minutes: group.total_breaks_minutes,
+      total_planned_cost: Math.round(group.total_planned_cost * 100) / 100,
+      shift_count: group.shift_count,
+      employee_count: 1, // Always 1 since this is per worker
+      confirmed_count: group.confirmed_count,
+      cancelled_count: group.cancelled_count,
+      planned_count: group.planned_count,
+      avg_hours_per_employee: Math.round(avgHoursPerEmployee * 100) / 100,
+      avg_cost_per_hour: Math.round(avgCostPerHour * 100) / 100,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+  });
+  
+  console.log(`[API /eitje/aggregate] Created ${aggregatedData.length} aggregated planning shift records`);
+  
+  // Upsert aggregated data (handle duplicates) - grouped by user_id
+  if (aggregatedData.length > 0) {
+    console.log(`[API /eitje/aggregate] Upserting ${aggregatedData.length} planning shift records with user_id`);
+    const { error: upsertError } = await supabase
+      .from('eitje_planning_hours_aggregated')
+      .upsert(aggregatedData, {
+        onConflict: 'date,environment_id,team_id,user_id'
+      });
+      
+    if (upsertError) {
+      console.error('[API /eitje/aggregate] Upsert error:', upsertError);
+      // If constraint doesn't exist, try with old constraint
+      if (upsertError.message?.includes('constraint') || upsertError.code === '42P10') {
+        console.log('[API /eitje/aggregate] Trying with old constraint (without user_id)...');
+        const { error: retryError } = await supabase
+          .from('eitje_planning_hours_aggregated')
+          .upsert(aggregatedData.map(({ user_id, ...rest }) => rest), {
+            onConflict: 'date,environment_id,team_id'
+          });
+        if (retryError) {
+          throw new Error(`Failed to upsert aggregated planning shift data: ${retryError.message}`);
+        }
+      } else {
+        throw new Error(`Failed to upsert aggregated planning shift data: ${upsertError.message}`);
+      }
+    }
+    
+    console.log('[API /eitje/aggregate] Successfully processed planning shifts');
+  } else {
+    console.log('[API /eitje/aggregate] No planning shift data to upsert');
+  }
+}
+
+/**
+ * Process revenue days into aggregated format
+ */
+async function processRevenueDays(supabase: any, startDate: string, endDate: string) {
+  console.log(`[API /eitje/aggregate] Processing revenue days for ${startDate} to ${endDate}`);
+  
+  // Read from processed table (all fields already normalized)
+  const { data: processedData, error } = await supabase
+    .from('eitje_revenue_days_processed')
+    .select('*')
+    .gte('date', startDate)
+    .lte('date', endDate);
+    
+  if (error) {
+    throw new Error(`Failed to fetch processed data: ${error.message}`);
+  }
+  
+  console.log(`[API /eitje/aggregate] Found ${processedData?.length || 0} processed revenue records`);
+  
+  if (!processedData || processedData.length === 0) {
+    console.log('[API /eitje/aggregate] No processed revenue data found, skipping aggregation');
+    return;
+  }
+  
+  // Group by date and environment_id - Use normalized columns directly
+  const groupedData = new Map();
+  
+  for (const record of processedData) {
+    // Use normalized columns directly (no JSONB parsing needed)
+    const date = record.date;
+    const environmentId = record.environment_id;
     
     if (!environmentId) {
       console.log(`[API /eitje/aggregate] Skipping revenue record without environment_id:`, record.id);
@@ -260,54 +439,20 @@ async function processRevenueDays(supabase: any, year: number, month: number) {
     
     const group = groupedData.get(key);
     
-    // COMPLIANCE: Extract from normalized columns first, fallback to raw_data JSONB
-    const rawData = record.raw_data || {};
-    
-    // Helper to extract value: prioritize normalized column, then raw_data JSONB paths
-    const extractValue = (normalizedValue: any, jsonPaths: string[], defaultValue: any = 0) => {
-      if (normalizedValue !== null && normalizedValue !== undefined && normalizedValue !== 0) {
-        return Number(normalizedValue);
-      }
-      // Fallback to raw_data JSONB
-      for (const path of jsonPaths) {
-        const keys = path.split('.');
-        let value = rawData;
-        for (const key of keys) {
-          value = value?.[key];
-          if (value === null || value === undefined) break;
-        }
-        if (value !== null && value !== undefined) {
-          return Number(value) || defaultValue;
-        }
-      }
-      return defaultValue;
-    };
-    
-    // Revenue: amt_in_cents is in cents, convert to euros (no decimals)
-    const revenueInCents = extractValue(record.total_revenue || record.revenue, 
-      ['amt_in_cents', 'amount', 'revenue', 'total', 'total_revenue'], 0);
-    const revenue = Math.round(revenueInCents / 100); // Convert cents to euros, no decimals
-    const revenueExclVat = extractValue(record.net_revenue || record.revenue_excl_vat,
-      ['revenue_excl_vat', 'net_revenue', 'revenue_ex_vat', 'net'], 0);
-    const revenueInclVat = extractValue(record.gross_revenue || record.revenue_incl_vat,
-      ['revenue_incl_vat', 'gross_revenue', 'revenue', 'total'], 0);
-    const vatAmount = extractValue(record.vat_amount,
-      ['vat_amount', 'vat', 'tax_amount'], 0);
-    const vatPercentage = extractValue(record.vat_percentage || record.vat_rate,
-      ['vat_percentage', 'vat_rate', 'tax_rate', 'vat'], 0);
-    // Payment methods - may not exist in this structure, check if there are nested objects
-    const cashRev = extractValue(record.cash_revenue,
-      ['cash_revenue', 'cash', 'payment_methods.cash', 'payments.cash'], 0);
-    const cardRev = extractValue(record.card_revenue,
-      ['card_revenue', 'card', 'payment_methods.card', 'payments.card'], 0);
-    const digitalRev = extractValue(record.digital_revenue,
-      ['digital_revenue', 'digital', 'payment_methods.digital', 'payments.digital'], 0);
-    const otherRev = extractValue(record.other_revenue || 0,
-      ['other_revenue', 'other', 'payment_methods.other', 'payments.other'], 0);
-    const netRev = extractValue(record.net_revenue,
-      ['net_revenue', 'net'], 0);
-    const grossRev = extractValue(record.gross_revenue,
-      ['gross_revenue', 'gross'], 0);
+    // Use normalized columns directly (no JSONB parsing needed)
+    // Revenue: amt_in_cents is in cents, convert to euros
+    const amtInCents = Number(record.amt_in_cents || 0);
+    const revenue = amtInCents > 0 ? Math.round(amtInCents / 100) : Number(record.total_revenue || record.revenue || 0);
+    const revenueExclVat = Number(record.net_revenue || record.revenue_excl_vat || 0);
+    const revenueInclVat = Number(record.gross_revenue || record.revenue_incl_vat || 0);
+    const vatAmount = Number(record.vat_amount || 0);
+    const vatPercentage = Number(record.vat_percentage || record.vat_rate || 0);
+    const cashRev = Number(record.cash_revenue || 0);
+    const cardRev = Number(record.card_revenue || 0);
+    const digitalRev = Number(record.digital_revenue || 0);
+    const otherRev = Number(record.other_revenue || 0);
+    const netRev = Number(record.net_revenue || 0);
+    const grossRev = Number(record.gross_revenue || 0);
     
     group.total_revenue += revenue;
     group.total_revenue_excl_vat += revenueExclVat;
@@ -329,17 +474,13 @@ async function processRevenueDays(supabase: any, year: number, month: number) {
       group.transaction_values.push(revenue);
     }
     
-    // Transaction count: prioritize normalized, fallback to raw_data
-    const transactionCount = extractValue(record.transaction_count,
-      ['transaction_count', 'transactions_count', 'count', 'number_of_transactions'], 1);
+    // Transaction count: use normalized column
+    const transactionCount = Number(record.transaction_count || record.transactions_count || record.count || 1);
     group.transaction_count += transactionCount || 1;
     
-    // Currency: prioritize normalized, fallback to raw_data
+    // Currency: use normalized column
     if (!group.currency || group.currency === 'EUR') {
-      group.currency = record.currency || 
-        rawData.currency || 
-        rawData.currency_code || 
-        'EUR';
+      group.currency = record.currency || 'EUR';
     }
   }
   

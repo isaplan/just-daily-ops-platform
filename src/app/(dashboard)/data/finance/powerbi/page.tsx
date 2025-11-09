@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+<<<<<<< HEAD
 import { BarChart3 } from "lucide-react";
 
 export default function DataFinancePowerBIPage() {
@@ -25,9 +26,26 @@ export default function DataFinancePowerBIPage() {
           <div className="text-center py-8">
             <p className="text-muted-foreground">Content will be implemented here</p>
           </div>
+=======
+
+export default function DataFinancePowerBIPage() {
+  return (
+    <div className="container mx-auto py-6 space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Data - Finance - PowerBI</CardTitle>
+          <CardDescription>PowerBI finance data</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">This page is under development.</p>
+>>>>>>> eitje-api
         </CardContent>
       </Card>
     </div>
   );
 }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> eitje-api

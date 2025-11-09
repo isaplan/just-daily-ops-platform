@@ -214,41 +214,49 @@ export async function aggregateLaborHours(dateRange: DateRange): Promise<Aggrega
         
         records.forEach(record => {
           // COMPLIANCE: Prioritize normalized columns over raw_data JSONB
-          // Extract hours worked - try normalized columns first, then fallback to raw_data
+          // Extract ALL possible fields from JSONB to ensure nothing is missed
+          
+          // Extract hours worked - try normalized columns first, then fallback to raw_data with comprehensive paths
           const hoursWorked = Number(record.hours_worked || record.hours || record.total_hours || 0) ||
             extractFieldValue(record.raw_data, [
-              'hours_worked', 'hours', 'totalHours', 'total_hours'
+              'hours_worked', 'hours', 'totalHours', 'total_hours', 'hoursWorked',
+              'duration', 'duration_hours', 'work_hours', 'worked_hours',
+              'time.hours', 'shift.hours', 'shift_data.hours'
             ]) || calculateHoursFromTimes(
-              record.start_time || record.start_datetime || extractFieldValue(record.raw_data, ['start_time', 'start', 'startDateTime']),
-              record.end_time || record.end_datetime || extractFieldValue(record.raw_data, ['end_time', 'end', 'endDateTime'])
+              record.start_time || record.start_datetime || extractFieldValue(record.raw_data, [
+                'start_time', 'start', 'startDateTime', 'startTime', 'clock_in', 'clockIn',
+                'time.start', 'shift.start', 'shift_data.start'
+              ]),
+              record.end_time || record.end_datetime || extractFieldValue(record.raw_data, [
+                'end_time', 'end', 'endDateTime', 'endTime', 'clock_out', 'clockOut',
+                'time.end', 'shift.end', 'shift_data.end'
+              ])
             );
           
           totalHoursWorked += Number(hoursWorked) || 0;
           
-          // Extract breaks - prioritize normalized columns
+          // Extract breaks - prioritize normalized columns, then comprehensive JSONB paths
           const breaks = Number(record.break_minutes || record.breaks || record.break_minutes_actual || 0) ||
             extractFieldValue(record.raw_data, [
-              'break_minutes', 'breaks', 'breakMinutes', 'break_minutes_actual'
+              'break_minutes', 'breaks', 'breakMinutes', 'break_minutes_actual',
+              'break_time', 'breakTime', 'break_duration', 'breakDuration',
+              'time.breaks', 'shift.breaks', 'shift_data.breaks'
             ]) || 0;
           totalBreaksMinutes += Number(breaks) || 0;
           
-          // Extract wage cost - prioritize normalized columns, then try multiple raw_data paths
+          // Extract wage cost - prioritize normalized columns, then comprehensive raw_data JSONB paths
           let wageCost = Number(record.wage_cost || 0);
           
-          // If no wage_cost in normalized column, check raw_data JSONB with multiple paths
+          // If no wage_cost in normalized column, check raw_data JSONB with comprehensive paths
           if (!wageCost || wageCost === 0) {
             wageCost = Number(
               extractFieldValue(record.raw_data, [
-                'wage_cost',
-                'wageCost',
-                'costs.wage',
-                'costs.wage_cost',
-                'labor_cost',
-                'laborCost',
-                'total_cost',
-                'totalCost',
-                'cost',
-                'price'
+                'wage_cost', 'wageCost', 'wage', 'total_wage', 'totalWage',
+                'costs.wage', 'costs.wage_cost', 'costs.wageCost',
+                'labor_cost', 'laborCost', 'laborCosts', 'labor_costs',
+                'total_cost', 'totalCost', 'total_costs', 'totalCosts',
+                'cost', 'price', 'amount', 'cost_amount',
+                'shift.cost', 'shift.wage', 'shift_data.cost', 'shift_data.wage'
               ]) || 0
             );
           }
@@ -261,9 +269,14 @@ export async function aggregateLaborHours(dateRange: DateRange): Promise<Aggrega
           
           totalWageCost += Number(wageCost) || 0;
           
-          // Track unique employees
-          if (record.user_id) {
-            uniqueEmployees.add(record.user_id);
+          // Track unique employees - extract from multiple possible paths
+          const userId = record.user_id || 
+            extractFieldValue(record.raw_data, [
+              'user_id', 'userId', 'user.id', 'employee_id', 'employeeId',
+              'employee.id', 'worker_id', 'workerId', 'worker.id'
+            ]);
+          if (userId) {
+            uniqueEmployees.add(Number(userId));
           }
         });
         

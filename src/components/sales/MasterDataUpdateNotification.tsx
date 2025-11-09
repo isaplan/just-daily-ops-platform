@@ -93,7 +93,7 @@ export function MasterDataUpdateNotification({ onUpdateMasterData }: MasterDataU
         <div>
           <strong>Master Data Update Available</strong>
           <p className="text-sm text-muted-foreground mt-1">
-            Some sales data contains "Unknown" references. Update master data to improve data quality.
+            Some sales data contains &quot;Unknown&quot; references. Update master data to improve data quality.
           </p>
         </div>
         <div className="flex gap-2">

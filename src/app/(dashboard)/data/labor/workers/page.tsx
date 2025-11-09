@@ -40,10 +40,17 @@ export default function WorkersPage() {
   const totalPages = Math.ceil((data?.total || 0) / ITEMS_PER_PAGE);
 
   return (
+<<<<<<< HEAD
     <div className="space-y-6">
       <Card className="border-0 bg-transparent shadow-none">
         <CardHeader>
           <CardTitle>Data Table</CardTitle>
+=======
+    <div className="container mx-auto py-6 space-y-6 min-w-0">
+      <Card className="border-0 bg-transparent shadow-none">
+        <CardHeader>
+          <CardTitle>Workers Data Table</CardTitle>
+>>>>>>> eitje-api
           <CardDescription>
             Showing {data?.records.length || 0} of {data?.total || 0} records
           </CardDescription>

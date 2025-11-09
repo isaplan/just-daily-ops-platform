@@ -382,7 +382,11 @@ export default function LaborCostsPage() {
   };
 
   return (
+<<<<<<< HEAD
     <div className="space-y-6">
+=======
+    <div className="container mx-auto py-6 space-y-6 min-w-0">
+>>>>>>> eitje-api
       <EitjeDataFilters
         selectedYear={selectedYear}
         onYearChange={(year) => {
@@ -454,7 +458,11 @@ export default function LaborCostsPage() {
                       <TableHead className="font-semibold">Total Breaks (min)</TableHead>
                       <TableHead className="font-semibold">Employee Count</TableHead>
                       <TableHead className="font-semibold">Shift Count</TableHead>
+<<<<<<< HEAD
                       <TableHead className="font-semibold">Avg Hours/Employee</TableHead>
+=======
+                      <TableHead className="font-semibold">Hours per Worker</TableHead>
+>>>>>>> eitje-api
                       <TableHead className="font-semibold">Avg Wage/Hour</TableHead>
                       <TableHead className="font-semibold">Updated At</TableHead>
                     </TableRow>

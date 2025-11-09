@@ -277,10 +277,10 @@ async function processEndpointWithPagination(
     
     // For now, just count the records fetched - aggregation will be done once at the end
     // This avoids the issue of processing the same date range multiple times
-    let batchSuccess = true;
-    let batchErrors: string[] = [];
-    let batchRecordsProcessed = records.length;
-    let batchRecordsAggregated = 0; // Will be calculated at the end
+    const batchSuccess = true;
+    const batchErrors: string[] = [];
+    const batchRecordsProcessed = records.length;
+    const batchRecordsAggregated = 0; // Will be calculated at the end
     
     console.log(`[Eitje Batch Process] ${endpoint} batch ${batchNumber}: fetched ${records.length} records`);
     
