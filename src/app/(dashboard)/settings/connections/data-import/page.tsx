@@ -181,6 +181,7 @@ export default function FinanceImports() {
   );
 }
 
+<<<<<<< HEAD
 =======
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -202,3 +203,6 @@ export default function SettingsDataImportPage() {
 
 
 >>>>>>> eitje-api
+=======
+
+>>>>>>> eitje-data-views

@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { EitjeDataFilters } from "@/components/view-data/EitjeDataFilters";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -391,12 +391,6 @@ export default function LaborCostsPage() {
       />
 
       <Card className="border-0 bg-transparent shadow-none">
-        <CardHeader>
-          <CardTitle>Aggregated Hours Data</CardTitle>
-          <CardDescription>
-            Showing {data?.records.length || 0} of {data?.total || 0} aggregated records (daily metrics per environment/team)
-          </CardDescription>
-        </CardHeader>
         <CardContent className="p-0">
           {isLoading && (
             <div className="flex items-center justify-center py-8">

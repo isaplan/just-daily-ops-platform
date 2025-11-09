@@ -48,7 +48,10 @@ COMMENT ON VIEW public.unified_user_latest_hourly_rate IS 'Latest available hour
 
 
 
+<<<<<<< HEAD
 
 
 
 
+=======
+>>>>>>> eitje-data-views

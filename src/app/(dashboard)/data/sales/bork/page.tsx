@@ -3,13 +3,14 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { EitjeDataFilters } from "@/components/view-data/EitjeDataFilters";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { DatePreset, getDateRangeForPreset } from "@/components/view-data/DateFilterPresets";
 import { formatDateDDMMYY, formatDateDDMMYYTime } from "@/lib/dateFormatters";
+import { getEnvIdsForLocation } from "@/lib/eitje/env-utils";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -49,44 +50,11 @@ export default function FinancePage() {
     ];
   }, [locations]);
 
-  // Fetch environment IDs when a location is selected
-  // Match by name since there's no location_id column in eitje_environments
+  // Fetch environment IDs when a location is selected (schema-safe helper)
   const { data: environmentIds, isLoading: isLoadingEnvIds } = useQuery({
-    queryKey: ["eitje-environments", selectedLocation],
-    queryFn: async () => {
-      if (selectedLocation === "all") return null;
-      
-      const supabase = createClient();
-      try {
-        // Get the selected location name
-        const selectedLoc = locations.find((loc) => loc.id === selectedLocation);
-        if (!selectedLoc) return [];
-        
-        // Fetch all environments and match by name
-        const { data: allEnvs, error } = await supabase
-          .from("eitje_environments")
-          .select("id, raw_data");
-        
-        if (error) {
-          console.error("Error fetching environments:", error);
-          return [];
-        }
-        
-        // Match environment names to location name (case-insensitive)
-        const matchedIds = (allEnvs || [])
-          .filter((env: any) => {
-            const envName = env.raw_data?.name || "";
-            return envName.toLowerCase() === selectedLoc.name.toLowerCase();
-          })
-          .map((env: any) => env.id);
-        
-        return matchedIds;
-      } catch (error) {
-        console.error("Error in environment ID query:", error);
-        return [];
-      }
-    },
-    enabled: selectedLocation !== "all" && locations.length > 0,
+    queryKey: ["eitje-env-by-location", selectedLocation],
+    queryFn: async () => (selectedLocation === "all" ? null : getEnvIdsForLocation(selectedLocation)),
+    enabled: selectedLocation !== "all",
   });
 
   const queryFilters = useMemo(() => {
@@ -304,12 +272,6 @@ export default function FinancePage() {
       />
 
       <Card className="border-0 bg-transparent shadow-none">
-        <CardHeader>
-          <CardTitle>Aggregated Revenue Data</CardTitle>
-          <CardDescription>
-            Showing {data?.records.length || 0} of {data?.total || 0} aggregated records (daily metrics per environment)
-          </CardDescription>
-        </CardHeader>
         <CardContent className="p-0">
           {isLoading && (
             <div className="flex items-center justify-center py-8">
