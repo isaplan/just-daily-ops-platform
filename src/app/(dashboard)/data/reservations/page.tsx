@@ -1,9 +1,16 @@
+/**
+ * Data Reservations View Layer
+ * Pure presentational component - all business logic is in ViewModel
+ */
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "lucide-react";
+import { useReservationsViewModel } from "@/viewmodels/data/useReservationsViewModel";
 
 export default function DataReservationsPage() {
+  useReservationsViewModel(); // ViewModel ready for future use
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div>

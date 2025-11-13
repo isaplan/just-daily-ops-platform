@@ -1,9 +1,16 @@
+/**
+ * Operations Locations View Layer
+ * Pure presentational component - all business logic is in ViewModel
+ */
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin } from "lucide-react";
+import { useLocationsViewModel } from "@/viewmodels/operations/useLocationsViewModel";
 
 export default function OperationsLocationsPage() {
+  useLocationsViewModel(); // ViewModel ready for future use
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div>

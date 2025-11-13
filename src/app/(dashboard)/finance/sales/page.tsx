@@ -1,348 +1,63 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Filter, Calendar, Database, TrendingUp, CheckCircle, RefreshCw, Loader2 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/integrations/supabase/client";
+import { Filter, Calendar, Database, CheckCircle, RefreshCw, Loader2 } from "lucide-react";
 import { SalesKpiCard } from "@/components/sales/SalesKpiCard";
-import { SalesCategoryFilter, CategorySelection } from "@/components/sales/SalesCategoryFilter";
+import { SalesCategoryFilter } from "@/components/sales/SalesCategoryFilter";
 import { SalesChart } from "@/components/sales/SalesChart";
 import { MasterDataUpdateNotification } from "@/components/sales/MasterDataUpdateNotification";
 import SmartPeriodSelector, { PeriodPreset } from "@/components/finance/SmartPeriodSelector";
 import LocationMultiSelect from "@/components/finance/LocationMultiSelect";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useSalesData, useSalesTimeSeries, SalesMetricType } from "@/hooks/useSalesData";
-import { useSalesByCategory } from "@/hooks/useSalesByCategory";
+import { useSalesViewModel } from "@/viewmodels/finance/useSalesViewModel";
 import { cn } from "@/lib/utils";
 
-interface DateRange {
-  start: Date;
-  end: Date;
-}
-
 export default function Sales() {
-  // Initialize default date range (current month)
-  const getDefaultDateRange = (): DateRange => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    return { start, end };
-  };
-
-  // State management
-  const [activeLocations, setActiveLocations] = useState<string[]>([]);
-  const [isCategoryFilterOpen, setIsCategoryFilterOpen] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<CategorySelection[]>([]);
-  const [selectedMetric, setSelectedMetric] = useState<SalesMetricType>("revenue");
-  const [comparisonMode, setComparisonMode] = useState(false);
-  const [chartType, setChartType] = useState<"line" | "bar">("line");
-  const [granularity, setGranularity] = useState<"day" | "week" | "month" | "quarter" | "year">("month");
-  const [includeVat, setIncludeVat] = useState(false); // Default to excl. VAT
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
-  
-  // Period presets and date ranges - initialize with current month
-  const [periodPreset, setPeriodPreset] = useState<string>("this-month");
-  const [dateRange, setDateRange] = useState<DateRange | null>(getDefaultDateRange());
-  const [comparisonPeriodPreset, setComparisonPeriodPreset] = useState<string>("last-month");
-  const [comparisonDateRange, setComparisonDateRange] = useState<DateRange | null>(null);
-
-  // Fetch locations
-  const { data: locations = [] } = useQuery({
-    queryKey: ["locations"],
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase.from("locations").select("*").order("name");
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  // Default to "All Locations" on initial load
-  useEffect(() => {
-    if (locations.length > 0 && activeLocations.length === 0) {
-      setActiveLocations(["all"]);
-    }
-  }, [locations, activeLocations.length]);
-
-  // Safety guard: reset to "all" if pseudo location is selected
-  useEffect(() => {
-    if (activeLocations.length === 1 && activeLocations[0] === '93cd36b7-790c-4d29-9344-631188af32e4') {
-      setActiveLocations(["all"]);
-    }
-  }, [activeLocations]);
-
-  // Smart default granularity based on date range
-  useEffect(() => {
-    if (!dateRange) return;
-    
-    const daysDiff = Math.ceil(
-      (dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    
-    // Auto-select granularity based on range
-    if (daysDiff <= 7) {
-      setGranularity("day");
-    } else if (daysDiff <= 60) {
-      setGranularity("week");
-    } else if (daysDiff <= 365) {
-      setGranularity("month");
-    } else if (daysDiff <= 1095) {
-      setGranularity("quarter");
-    } else {
-      setGranularity("year");
-    }
-  }, [dateRange]);
-
-  // Auto-refresh mechanism (every 5 minutes)
-  useEffect(() => {
-    if (!autoRefreshEnabled) return;
-
-    const interval = setInterval(async () => {
-      try {
-        console.log('[Sales] Auto-refresh triggered');
-        
-        // Check if there's new data by calling the aggregate API
-        const response = await fetch('/api/bork/aggregate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
-        });
-        
-        const result = await response.json();
-        
-        if (result.success && result.summary.totalAggregatedDates > 0) {
-          console.log('[Sales] Auto-refresh found new data:', result.summary);
-          setLastRefreshTime(new Date());
-          
-          // Only reload if we actually aggregated new data
-          if (result.summary.totalAggregatedDates > 0) {
-            window.location.reload();
-          }
-        } else {
-          console.log('[Sales] Auto-refresh: No new data found');
-        }
-      } catch (error) {
-        console.error('[Sales] Auto-refresh error:', error);
-        // Don't show alerts for auto-refresh errors
-      }
-    }, 5 * 60 * 1000); // 5 minutes
-
-    return () => clearInterval(interval);
-  }, [autoRefreshEnabled]);
-
-  // Manual refresh function
-  const handleRefreshSalesData = async () => {
-    setIsRefreshing(true);
-    try {
-      console.log('[Sales] Manual refresh triggered');
-      
-      const response = await fetch('/api/bork/aggregate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          // No specific location - aggregate all
-          // No specific date range - use existing data range
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        setLastRefreshTime(new Date());
-        console.log('[Sales] Manual refresh successful:', result.summary);
-        
-        // Invalidate and refetch sales data
-        // This will trigger a refetch of the sales data
-        window.location.reload(); // Simple approach for now
-      } else {
-        console.error('[Sales] Manual refresh failed:', result.error);
-        alert(`Refresh failed: ${result.error}`);
-      }
-    } catch (error) {
-      console.error('[Sales] Manual refresh error:', error);
-      alert(`Refresh error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  // Compute location filter: "all" if selected, else array of location IDs
-  // DEFENSIVE: Handle empty array case
-  const locationFilter = activeLocations.includes("all") || activeLocations.length === 0 ? "all" : activeLocations;
-
-  // Fetch sales data for primary period
-  const { data: primaryRawData, isLoading: primaryLoading, error: primaryError } = useSalesData({
-    locationFilter,
-    dateRange,
-    includeVat
-  });
-
-  // DEFENSIVE: Aggregate raw data into summary metrics
-  const primaryData = primaryRawData && primaryRawData.length > 0 ? {
-    revenue: primaryRawData.reduce((sum, record) => sum + (includeVat ? record.total_revenue_incl_vat : record.total_revenue_excl_vat), 0),
-    quantity: primaryRawData.reduce((sum, record) => sum + record.total_quantity, 0),
-    avgPrice: primaryRawData.reduce((sum, record) => sum + record.avg_price, 0) / primaryRawData.length,
-    productCount: primaryRawData.reduce((sum, record) => sum + record.product_count, 0),
-    topCategory: primaryRawData.reduce((acc, record) => {
-      if (!acc || record.total_revenue_incl_vat > acc.revenue) {
-        return { category: record.top_category, revenue: record.total_revenue_incl_vat };
-      }
-      return acc;
-    }, null as { category: string | null; revenue: number } | null)?.category || null,
-    vatAmount: primaryRawData.reduce((sum, record) => sum + record.total_vat_amount, 0),
-    vat9Base: primaryRawData.reduce((sum, record) => sum + record.vat_9_base, 0),
-    vat9Amount: primaryRawData.reduce((sum, record) => sum + record.vat_9_amount, 0),
-    vat21Base: primaryRawData.reduce((sum, record) => sum + record.vat_21_base, 0),
-    vat21Amount: primaryRawData.reduce((sum, record) => sum + record.vat_21_amount, 0),
-    totalCost: primaryRawData.reduce((sum, record) => sum + record.total_cost, 0),
-    // Additional properties needed by the UI
-    vatBreakdown: {
-      vat9Base: primaryRawData.reduce((sum, record) => sum + record.vat_9_base, 0),
-      vat9Amount: primaryRawData.reduce((sum, record) => sum + record.vat_9_amount, 0),
-      vat21Base: primaryRawData.reduce((sum, record) => sum + record.vat_21_base, 0),
-      vat21Amount: primaryRawData.reduce((sum, record) => sum + record.vat_21_amount, 0)
-    },
-    costTotal: primaryRawData.reduce((sum, record) => sum + record.total_cost, 0),
-    profitMargin: (() => {
-      const revenue = primaryRawData.reduce((sum, record) => sum + (includeVat ? record.total_revenue_incl_vat : record.total_revenue_excl_vat), 0);
-      const cost = primaryRawData.reduce((sum, record) => sum + record.total_cost, 0);
-      return revenue > 0 ? ((revenue - cost) / revenue) * 100 : 0;
-    })(),
-    revenueExVat: primaryRawData.reduce((sum, record) => sum + record.total_revenue_excl_vat, 0),
-    revenueIncVat: primaryRawData.reduce((sum, record) => sum + record.total_revenue_incl_vat, 0)
-  } : null;
-
-  // Check data source status
-  const { data: dataSourceStatus } = useQuery({
-    queryKey: ["sales-data-source-status"],
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("bork_sales_aggregated")
-        .select("id")
-        .limit(1);
-      
-      if (error) {
-        // If table doesn't exist, return empty status
-        if (error.message?.includes('Could not find the table') || error.message?.includes('relation') || error.message?.includes('does not exist')) {
-          return {
-            hasProcessedData: false,
-            recordCount: 0
-          };
-        }
-        throw error;
-      }
-      return {
-        hasProcessedData: data && data.length > 0,
-        recordCount: data ? data.length : 0
-      };
-    },
-  });
-
-  // Fetch sales data for comparison period
-  const { data: comparisonRawData, isLoading: comparisonLoading } = useSalesData({
-    locationFilter,
-    dateRange: comparisonMode ? comparisonDateRange : null,
-    includeVat
-  });
-
-  // DEFENSIVE: Aggregate comparison data into summary metrics
-  const comparisonData = comparisonRawData && comparisonRawData.length > 0 ? {
-    revenue: comparisonRawData.reduce((sum, record) => sum + (includeVat ? record.total_revenue_incl_vat : record.total_revenue_excl_vat), 0),
-    quantity: comparisonRawData.reduce((sum, record) => sum + record.total_quantity, 0),
-    avgPrice: comparisonRawData.reduce((sum, record) => sum + record.avg_price, 0) / comparisonRawData.length,
-    productCount: comparisonRawData.reduce((sum, record) => sum + record.product_count, 0),
-    topCategory: comparisonRawData.reduce((acc, record) => {
-      if (!acc || record.total_revenue_incl_vat > acc.revenue) {
-        return { category: record.top_category, revenue: record.total_revenue_incl_vat };
-      }
-      return acc;
-    }, null as { category: string | null; revenue: number } | null)?.category || null,
-    vatAmount: comparisonRawData.reduce((sum, record) => sum + record.total_vat_amount, 0),
-    vat9Base: comparisonRawData.reduce((sum, record) => sum + record.vat_9_base, 0),
-    vat9Amount: comparisonRawData.reduce((sum, record) => sum + record.vat_9_amount, 0),
-    vat21Base: comparisonRawData.reduce((sum, record) => sum + record.vat_21_base, 0),
-    vat21Amount: comparisonRawData.reduce((sum, record) => sum + record.vat_21_amount, 0),
-    totalCost: comparisonRawData.reduce((sum, record) => sum + record.total_cost, 0),
-    // Additional properties needed by the UI
-    vatBreakdown: {
-      vat9Base: comparisonRawData.reduce((sum, record) => sum + record.vat_9_base, 0),
-      vat9Amount: comparisonRawData.reduce((sum, record) => sum + record.vat_9_amount, 0),
-      vat21Base: comparisonRawData.reduce((sum, record) => sum + record.vat_21_base, 0),
-      vat21Amount: comparisonRawData.reduce((sum, record) => sum + record.vat_21_amount, 0)
-    },
-    costTotal: comparisonRawData.reduce((sum, record) => sum + record.total_cost, 0),
-    profitMargin: (() => {
-      const revenue = comparisonRawData.reduce((sum, record) => sum + (includeVat ? record.total_revenue_incl_vat : record.total_revenue_excl_vat), 0);
-      const cost = comparisonRawData.reduce((sum, record) => sum + record.total_cost, 0);
-      return revenue > 0 ? ((revenue - cost) / revenue) * 100 : 0;
-    })(),
-    revenueExVat: comparisonRawData.reduce((sum, record) => sum + record.total_revenue_excl_vat, 0),
-    revenueIncVat: comparisonRawData.reduce((sum, record) => sum + record.total_revenue_incl_vat, 0)
-  } : null;
-
-  // Fetch category-specific data when categories are selected
-  const { data: categoryData = [] } = useSalesByCategory(
-    locationFilter,
-    dateRange,
+  const {
+    activeLocations,
+    isCategoryFilterOpen,
     selectedCategories,
+    selectedMetric,
+    comparisonMode,
+    chartType,
     granularity,
-    includeVat
-  );
-
-  // Format currency
-  const formatCurrency = (value: number): string => {
-    return new Intl.NumberFormat("nl-NL", {
-      style: "currency",
-      currency: "EUR",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  // Format number
-  const formatNumber = (value: number): string => {
-    return new Intl.NumberFormat("nl-NL", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  // Calculate percentage change
-  const calculatePercentChange = (current: number, previous: number): number => {
-    if (previous === 0) return 0;
-    return ((current - previous) / previous) * 100;
-  };
-
-  // Get comparison label
-  const getComparisonLabel = (): string => {
-    if (!comparisonDateRange) return "previous period";
-    const start = comparisonDateRange.start.toLocaleDateString("nl-NL", { month: "short", year: "numeric" });
-    return start;
-  };
-
-  // Handle period selection
-  const handlePeriodChange = (preset: string, range: DateRange) => {
-    setPeriodPreset(preset);
-    setDateRange(range);
-  };
-
-  const handleComparisonPeriodChange = (preset: string, range: DateRange) => {
-    setComparisonPeriodPreset(preset);
-    setComparisonDateRange(range);
-  };
+    includeVat,
+    isRefreshing,
+    lastRefreshTime,
+    autoRefreshEnabled,
+    periodPreset,
+    dateRange,
+    comparisonPeriodPreset,
+    comparisonDateRange,
+    locations,
+    primaryData,
+    comparisonData,
+    categoryData,
+    dataSourceStatus,
+    primaryLoading,
+    isLoading,
+    setActiveLocations,
+    setIsCategoryFilterOpen,
+    setSelectedCategories,
+    setSelectedMetric,
+    setComparisonMode,
+    setChartType,
+    setGranularity,
+    setIncludeVat,
+    setAutoRefreshEnabled,
+    handlePeriodChange,
+    handleComparisonPeriodChange,
+    handleRefreshSalesData,
+    formatCurrency,
+    getComparisonLabel,
+  } = useSalesViewModel();
 
   // Handle metric selection from KPI cards
-  const handleMetricSelect = (metric: SalesMetricType) => {
+  const handleMetricSelect = (metric: "revenue" | "quantity" | "avg_price") => {
     setSelectedMetric(metric);
-    // Clear category selections when selecting a primary metric
-    setSelectedCategories([]);
   };
 
   return (

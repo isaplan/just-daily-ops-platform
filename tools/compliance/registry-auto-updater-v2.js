@@ -227,7 +227,7 @@ class RegistryAutoUpdaterV2 {
         
         // Skip ignored directories
         if (entry.name.startsWith('.') && entry.name !== '.env') continue;
-        if (['node_modules', '.next', 'dist', 'build'].includes(entry.name)) continue;
+        if (['node_modules', '.next', 'dist', 'build', 'old-pages-sql-scripts'].includes(entry.name)) continue;
         
         if (entry.isDirectory()) {
           this.scanDirectory(fullPath);

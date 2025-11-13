@@ -1,9 +1,12 @@
+/**
+ * Daily Ops Labor View Layer
+ * Pure presentational component - all business logic is in ViewModel
+ */
+
 "use client";
 
-import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
@@ -18,13 +21,12 @@ import {
   Target,
   BarChart3,
   Calendar as CalendarIcon,
-  Filter,
   Download
 } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/integrations/supabase/client";
+import { useState } from "react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useLaborViewModel } from "@/viewmodels/daily-ops/useLaborViewModel";
 
 interface LaborKpiCardProps {
   title: string;
@@ -75,65 +77,22 @@ function LaborKpiCard({ title, value, subtitle, trend, isLoading, icon }: LaborK
 }
 
 export default function LaborPage() {
-  const [selectedLocation, setSelectedLocation] = useState<string>("all");
-  const [dateRange, setDateRange] = useState<{ from: Date; to: Date } | undefined>({
-    from: new Date(new Date().setDate(new Date().getDate() - 30)),
-    to: new Date()
-  });
+  const {
+    selectedLocation,
+    dateRange,
+    showComparison,
+    setSelectedLocation,
+    setDateRange,
+    setShowComparison,
+    locations,
+    laborData,
+    isLoading: laborLoading,
+    formatCurrency,
+    formatHours,
+    formatPercentage,
+  } = useLaborViewModel();
+
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [showComparison, setShowComparison] = useState(false);
-
-  // Fetch locations
-  const { data: locations } = useQuery({
-    queryKey: ["locations"],
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("locations")
-        .select("*")
-        .order("name");
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Fetch labor data
-  const { data: laborData, isLoading: laborLoading } = useQuery({
-    queryKey: ["labor-data", selectedLocation, dateRange],
-    queryFn: async () => {
-      const supabase = createClient();
-      
-      // Mock data for now - replace with actual labor data queries
-      return {
-        totalHours: 1240,
-        totalCost: 18600,
-        totalRevenue: 45000,
-        productivity: 3.63,
-        avgRate: 15.0,
-        efficiency: 87.5,
-        peakHours: 18,
-        activeStaff: 12
-      };
-    },
-    enabled: !!dateRange,
-  });
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("nl-NL", {
-      style: "currency",
-      currency: "EUR",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  const formatHours = (hours: number) => {
-    return `${hours.toFixed(1)}h`;
-  };
-
-  const formatPercentage = (value: number) => {
-    return `${value.toFixed(1)}%`;
-  };
 
   return (
     <div className="container mx-auto py-6 space-y-6">

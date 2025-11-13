@@ -53,7 +53,7 @@ class PreExecutionChecker {
       maxLinesPerChange: 100,
       maxDeletions: 20,
       fullReplacementThreshold: 0.8,
-      excludedPaths: ['node_modules', '.git', '.next', 'dist', 'build'],
+      excludedPaths: ['node_modules', '.git', '.next', 'dist', 'build', 'old-pages-sql-scripts'],
       fileExtensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
       search: {
         maxResults: 5,

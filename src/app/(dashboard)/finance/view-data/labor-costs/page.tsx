@@ -1,7 +1,10 @@
+/**
+ * Finance View Data Labor Costs View Layer
+ * Pure presentational component - all business logic is in ViewModel
+ */
+
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -9,54 +12,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ChevronLeft, ChevronRight, Loader2, DollarSign } from "lucide-react";
 import { format } from "date-fns";
+import { useViewDataLaborCostsViewModel } from "@/viewmodels/finance/useViewDataLaborCostsViewModel";
 
 export default function LaborCostsPage() {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [dateFilter, setDateFilter] = useState("");
+  const {
+    // State
+    currentPage,
+    setCurrentPage,
+    rowsPerPage,
+    setRowsPerPage,
+    dateFilter,
+    setDateFilter,
 
-  // Fetch aggregated labor costs data
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["eitje-labor-costs-aggregated", currentPage, rowsPerPage, dateFilter],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        table: "eitje_labor_hours_aggregated",
-        page: currentPage.toString(),
-        limit: rowsPerPage.toString(),
-      });
-      
-      const response = await fetch(`/api/raw-data?${params}`);
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || "Failed to fetch labor costs data");
-      }
-      
-      // Filter by date if provided
-      let records = result.data || [];
-      if (dateFilter) {
-        records = records.filter((r: any) => r.date?.startsWith(dateFilter));
-      }
-      
-      // Calculate totals
-      const totalCost = records.reduce((sum: number, r: any) => sum + (r.total_wage_cost || 0), 0);
-      const totalHours = records.reduce((sum: number, r: any) => sum + (r.total_hours_worked || 0), 0);
-      const avgCostPerHour = totalHours > 0 ? totalCost / totalHours : 0;
-      
-      return {
-        records,
-        total: result.pagination?.total || 0,
-        totalPages: result.pagination?.totalPages || 1,
-        totals: {
-          totalCost,
-          totalHours,
-          avgCostPerHour,
-        },
-      };
-    },
-  });
+    // Data
+    data,
+    isLoading,
+    error,
 
-  const totalPages = data?.totalPages || 1;
+    // Computed
+    totalPages,
+  } = useViewDataLaborCostsViewModel();
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -111,10 +86,7 @@ export default function LaborCostsPage() {
                 id="date-filter"
                 type="month"
                 value={dateFilter}
-                onChange={(e) => {
-                  setDateFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
+                onChange={(e) => setDateFilter(e.target.value)}
                 placeholder="YYYY-MM"
               />
             </div>
@@ -126,10 +98,7 @@ export default function LaborCostsPage() {
                 min="10"
                 max="100"
                 value={rowsPerPage}
-                onChange={(e) => {
-                  setRowsPerPage(parseInt(e.target.value) || 20);
-                  setCurrentPage(1);
-                }}
+                onChange={(e) => setRowsPerPage(parseInt(e.target.value) || 20)}
               />
             </div>
           </div>
@@ -167,11 +136,12 @@ export default function LaborCostsPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      data?.records?.map((record: any) => {
-                        const costPerEmployee = record.employee_count > 0
-                          ? (record.total_wage_cost || 0) / record.employee_count
-                          : 0;
-                        
+                      data?.records?.map((record) => {
+                        const costPerEmployee =
+                          record.employee_count && record.employee_count > 0
+                            ? (record.total_wage_cost || 0) / record.employee_count
+                            : 0;
+
                         return (
                           <TableRow key={record.id}>
                             <TableCell>
@@ -235,5 +205,3 @@ export default function LaborCostsPage() {
     </div>
   );
 }
-
-

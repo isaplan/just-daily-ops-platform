@@ -18,14 +18,6 @@ export default function EitjeDataLayout({ children }: { children: ReactNode }) {
       label: "Hours", 
       subtitle: "View time registration shifts and labor hours data from Eitje" 
     },
-    "/finance/data/eitje-data/hours-v2": { 
-      label: "Hours V2", 
-      subtitle: "View processed and aggregated hours data from Eitje" 
-    },
-    "/finance/data/eitje-data/workers-v2": { 
-      label: "Workers V2", 
-      subtitle: "Manage editable hourly wages, contract types, and contract hours" 
-    },
     "/finance/data/eitje-data/labor-costs": { 
       label: "Labor Costs", 
       subtitle: "View aggregated labor costs, wage expenses, and cost metrics from Eitje" 

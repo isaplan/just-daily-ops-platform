@@ -24,6 +24,7 @@ import {
   Settings,
   Calendar,
   ChevronRight,
+  ShoppingCart,
 } from "lucide-react";
 import {
   Sidebar,
@@ -71,7 +72,8 @@ const operationsItems: MenuItem[] = [
 
 // Data section items (with collapsible sub-items)
 const dataFinanceItems: MenuItem[] = [
-  { title: "PowerBI Data", url: "/data/finance/powerbi", icon: BarChart3 },
+  { title: "Profit & Loss", url: "/data/finance/profit-and-loss", icon: BarChart3 },
+  { title: "PNL Balance", url: "/data/finance/pnl-balance", icon: BarChart3 },
 ];
 
 const dataLaborItems: MenuItem[] = [
@@ -83,8 +85,8 @@ const dataLaborItems: MenuItem[] = [
 
 // Workforce V2 (all new V2 pages)
 const dataWorkforceV2Items: MenuItem[] = [
-  { title: "Hours", url: "/finance/data/eitje-data/hours-v2", icon: Clock },
-  { title: "Workers", url: "/finance/data/eitje-data/workers-v2", icon: UserCheck },
+  { title: "Hours", url: "/data/workforce/hours", icon: Clock },
+  { title: "Workers", url: "/data/workforce/workers", icon: UserCheck },
 ];
 
 const dataSalesItems: MenuItem[] = [
@@ -148,6 +150,7 @@ export function AppSidebar() {
     dataLabor: false,
     dataWorkforceV2: false,
     dataSales: false,
+    products: false,
   });
   
   // Auto-expand collapsible menus if any child route is active
@@ -157,6 +160,7 @@ export function AppSidebar() {
       dataLabor: isChildActive(dataLaborItems),
       dataWorkforceV2: isChildActive(dataWorkforceV2Items),
       dataSales: isChildActive(dataSalesItems),
+      products: pathname.startsWith("/products"),
     };
     setOpenMenus((prev) => ({ ...prev, ...newOpenMenus }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -329,6 +333,62 @@ export function AppSidebar() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              <Collapsible 
+                open={openMenus.products || pathname.startsWith("/products")}
+                onOpenChange={() => toggleMenu("products")}
+              >
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton isActive={pathname.startsWith("/products")}>
+                      <ShoppingCart />
+                      <span>Products</span>
+                      <ChevronRight className={cn(
+                        "ml-auto transition-transform duration-200",
+                        openMenus.products && "rotate-90"
+                      )} />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={isActive("/products")}>
+                          <Link href="/products">
+                            <span>Product Catalog</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={isActive("/products/dashboard")}>
+                          <Link href="/products/dashboard">
+                            <span>Sales Dashboard</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={isActive("/products/opp")}>
+                          <Link href="/products/opp">
+                            <span>Products (OPP Checkout)</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={isActive("/products/checkout") && !pathname.includes("/opp")}>
+                          <Link href="/products/checkout">
+                            <span>Checkout (Custom)</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={pathname.includes("/products/checkout/opp")}>
+                          <Link href="/products/checkout/opp">
+                            <span>Embedded Checkout</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={isActive("/roadmap")}>
                   <Link href="/roadmap">

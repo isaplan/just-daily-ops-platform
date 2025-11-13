@@ -31,15 +31,31 @@
       "file": "modules.json",
       "count": 0,
       "updated": "2025-11-08T01:16:18.671Z"
+    },
+    "archive-reference": {
+      "file": "archive-reference.json",
+      "count": 1,
+      "updated": "2025-01-27T00:00:00.000Z"
     }
   },
   "summary": {
     "total_functions": 343,
     "by_status": {
       "completed": 286,
-      "in-progress": 57
+      "in-progress": 57,
+      "archived": 1
     },
     "protected": 283
+  },
+  "archive_config": {
+    "folder": "old-pages-sql-scripts",
+    "status": "reference_only",
+    "excluded_from_checks": true,
+    "usage_restrictions": {
+      "direct_copy": false,
+      "direct_import": false,
+      "direct_reference": false
+    }
   },
   "last_scan": {
     "timestamp": "2025-11-08T01:16:18.671Z",

@@ -1,7 +1,10 @@
+/**
+ * Finance View Data Sales View Layer
+ * Pure presentational component - all business logic is in ViewModel
+ */
+
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -9,59 +12,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ChevronLeft, ChevronRight, Loader2, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
+import { useViewDataSalesViewModel } from "@/viewmodels/finance/useViewDataSalesViewModel";
 
 export default function SalesDataPage() {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(20);
-  const [dateFilter, setDateFilter] = useState("");
+  const {
+    // State
+    currentPage,
+    setCurrentPage,
+    rowsPerPage,
+    setRowsPerPage,
+    dateFilter,
+    setDateFilter,
 
-  // Fetch aggregated revenue data (Eitje)
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["eitje-revenue-aggregated", currentPage, rowsPerPage, dateFilter],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        table: "eitje_revenue_days_aggregated",
-        page: currentPage.toString(),
-        limit: rowsPerPage.toString(),
-      });
-      
-      const response = await fetch(`/api/raw-data?${params}`);
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error || "Failed to fetch revenue data");
-      }
-      
-      // Filter by date if provided
-      let records = result.data || [];
-      if (dateFilter) {
-        records = records.filter((r: any) => r.date?.startsWith(dateFilter));
-      }
-      
-      // Calculate totals
-      const totalRevenue = records.reduce((sum: number, r: any) => sum + (r.total_revenue || 0), 0);
-      const totalTransactions = records.reduce((sum: number, r: any) => sum + (r.transaction_count || 0), 0);
-      const totalCash = records.reduce((sum: number, r: any) => sum + (r.total_cash_revenue || 0), 0);
-      const totalCard = records.reduce((sum: number, r: any) => sum + (r.total_card_revenue || 0), 0);
-      const totalDigital = records.reduce((sum: number, r: any) => sum + (r.total_digital_revenue || 0), 0);
-      
-      return {
-        records,
-        total: result.pagination?.total || 0,
-        totalPages: result.pagination?.totalPages || 1,
-        totals: {
-          totalRevenue,
-          totalTransactions,
-          totalCash,
-          totalCard,
-          totalDigital,
-          avgTransactionValue: totalTransactions > 0 ? totalRevenue / totalTransactions : 0,
-        },
-      };
-    },
-  });
+    // Data
+    data,
+    isLoading,
+    error,
 
-  const totalPages = data?.totalPages || 1;
+    // Computed
+    totalPages,
+  } = useViewDataSalesViewModel();
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -100,7 +70,7 @@ export default function SalesDataPage() {
               €{data?.totals?.totalCash?.toFixed(2) || "0.00"}
             </div>
             <p className="text-xs text-muted-foreground">
-              {data?.totals?.totalRevenue > 0 
+              {data?.totals?.totalRevenue && data.totals.totalRevenue > 0
                 ? `${((data.totals.totalCash / data.totals.totalRevenue) * 100).toFixed(1)}%`
                 : "0%"}
             </p>
@@ -115,7 +85,7 @@ export default function SalesDataPage() {
               €{data?.totals?.totalCard?.toFixed(2) || "0.00"}
             </div>
             <p className="text-xs text-muted-foreground">
-              {data?.totals?.totalRevenue > 0 
+              {data?.totals?.totalRevenue && data.totals.totalRevenue > 0
                 ? `${((data.totals.totalCard / data.totals.totalRevenue) * 100).toFixed(1)}%`
                 : "0%"}
             </p>
@@ -139,10 +109,7 @@ export default function SalesDataPage() {
                 id="date-filter"
                 type="month"
                 value={dateFilter}
-                onChange={(e) => {
-                  setDateFilter(e.target.value);
-                  setCurrentPage(1);
-                }}
+                onChange={(e) => setDateFilter(e.target.value)}
                 placeholder="YYYY-MM"
               />
             </div>
@@ -154,10 +121,7 @@ export default function SalesDataPage() {
                 min="10"
                 max="100"
                 value={rowsPerPage}
-                onChange={(e) => {
-                  setRowsPerPage(parseInt(e.target.value) || 20);
-                  setCurrentPage(1);
-                }}
+                onChange={(e) => setRowsPerPage(parseInt(e.target.value) || 20)}
               />
             </div>
           </div>
@@ -199,7 +163,7 @@ export default function SalesDataPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      data?.records?.map((record: any) => (
+                      data?.records?.map((record) => (
                         <TableRow key={record.id}>
                           <TableCell>
                             {record.date ? format(new Date(record.date), "PPP") : "-"}
@@ -222,7 +186,7 @@ export default function SalesDataPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             €{record.total_cash_revenue?.toFixed(2) || "0.00"}
-                            {record.cash_percentage > 0 && (
+                            {record.cash_percentage && record.cash_percentage > 0 && (
                               <span className="text-xs text-muted-foreground ml-1">
                                 ({record.cash_percentage.toFixed(1)}%)
                               </span>
@@ -230,7 +194,7 @@ export default function SalesDataPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             €{record.total_card_revenue?.toFixed(2) || "0.00"}
-                            {record.card_percentage > 0 && (
+                            {record.card_percentage && record.card_percentage > 0 && (
                               <span className="text-xs text-muted-foreground ml-1">
                                 ({record.card_percentage.toFixed(1)}%)
                               </span>
@@ -238,7 +202,7 @@ export default function SalesDataPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             €{record.total_digital_revenue?.toFixed(2) || "0.00"}
-                            {record.digital_percentage > 0 && (
+                            {record.digital_percentage && record.digital_percentage > 0 && (
                               <span className="text-xs text-muted-foreground ml-1">
                                 ({record.digital_percentage.toFixed(1)}%)
                               </span>
@@ -290,5 +254,3 @@ export default function SalesDataPage() {
     </div>
   );
 }
-
-

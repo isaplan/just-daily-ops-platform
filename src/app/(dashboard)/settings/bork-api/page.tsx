@@ -1,6 +1,10 @@
+/**
+ * Settings Bork API View Layer
+ * Pure presentational component - all business logic is in ViewModel
+ */
+
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,124 +31,91 @@ import {
   Loader2,
   Check
 } from "lucide-react";
-import { createClient } from "@/integrations/supabase/client";
-import { formatDistanceToNow, format, subDays } from 'date-fns';
-import { useToast } from "@/hooks/use-toast";
+import { formatDistanceToNow } from 'date-fns';
 import { RawDataStorage } from "@/components/finance/RawDataStorage";
-import { updateConnectionStatus } from "@/lib/finance/bork/connectionStatusService";
 import { CronSyncHistory } from "@/components/finance/CronSyncHistory";
-// import { BorkCronjobConfig } from "@/components/finance/BorkCronjobConfig";
-
-interface ApiConnection {
-  id: string;
-  location: string;
-  locationId: string;
-  apiKey: string;
-  baseUrl: string;
-  isActive: boolean;
-}
-
-interface ConnectionTestResult {
-  locationId: string;
-  success: boolean;
-  message: string;
-  data?: Record<string, unknown>;
-  testedAt?: string;
-}
-
-interface ValidationResult {
-  locationId: string;
-  locationName: string;
-  expectedDates: string[];
-  actualDates: string[];
-  missingDates: string[];
-  extraDates: string[];
-  totalExpected: number;
-  totalActual: number;
-  completionPercentage: number;
-  status: 'complete' | 'partial' | 'missing';
-  monthlyBreakdown: {
-    [month: string]: {
-      expected: number;
-      actual: number;
-      missing: string[];
-      completionPercentage: number;
-    };
-  };
-}
-
-interface RevenueMismatch {
-  date: string;
-  referenceRevenue: number;
-  databaseRevenue: number;
-  difference: number;
-  percentageDiff: number;
-  severity: 'exact' | 'minor' | 'major';
-}
-
-interface RevenueValidationResult {
-  locationId: string;
-  locationName: string;
-  matchedField: 'incl_vat' | 'excl_vat';
-  mismatches: RevenueMismatch[];
-  totalDates: number;
-  exactMatches: number;
-  minorMismatches: number;
-  majorMismatches: number;
-}
-
-
+import { useBorkApiViewModel } from "@/viewmodels/settings/useBorkApiViewModel";
 
 export default function BorkApiConnectPage() {
-  const { toast } = useToast();
-  const [selectedTab, setSelectedTab] = useState("connection-test");
-  const [isClient, setIsClient] = useState(false);
+  const {
+    // Tab state
+    selectedTab,
+    setSelectedTab,
+    isClient,
+    
+    // UI state
+    expandedCards,
+    showSettings,
+    setShowSettings,
+    editingConnection,
+    setEditingConnection,
+    
+    // Connections
+    connections,
+    isLoadingConnections,
+    
+    // Connection testing
+    testResults,
+    isTesting,
+    handleTestConnection,
+    
+    // Connection management
+    addConnection,
+    editConnection,
+    deleteConnection,
+    saveConnection,
+    toggleCardExpansion,
+    
+    // Manual sync
+    selectedLocations,
+    selectedPeriod,
+    selectedPeriodType,
+    setSelectedPeriod,
+    setSelectedPeriodType,
+    isSyncing,
+    syncingLocations,
+    syncResults,
+    monthlySyncStatus,
+    generatePeriods,
+    toggleLocationSelection,
+    startManualSync,
+    retryLocationSync,
+    
+    // Raw data processing
+    isProcessingRawData,
+    rawDataProcessingResults,
+    processingDates,
+    processRawData,
+    
+    // Data validation
+    validationData,
+    isValidating,
+    syncingDates,
+    completedMonths,
+    setCompletedMonths,
+    runValidation,
+    
+    // Revenue validation
+    revenueValidationData,
+    isValidatingRevenue,
+    runRevenueValidation,
+    
+    // Combined operations
+    syncAndProcessDateRange,
+  } = useBorkApiViewModel();
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-  
-  // New state for enhanced functionality
-  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
-  const [testResults, setTestResults] = useState<Map<string, ConnectionTestResult>>(new Map());
-  const [isTesting, setIsTesting] = useState<Set<string>>(new Set());
-  const [showSettings, setShowSettings] = useState(false);
-  const [editingConnection, setEditingConnection] = useState<ApiConnection | null>(null);
-  
-  // Manual sync state
-  const [selectedLocations, setSelectedLocations] = useState<Set<string>>(new Set());
-  const [selectedPeriod, setSelectedPeriod] = useState<string>("");
-  const [selectedPeriodType, setSelectedPeriodType] = useState<'weekly' | 'monthly'>('weekly');
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncingLocations, setSyncingLocations] = useState<Set<string>>(new Set());
-  const [syncResults, setSyncResults] = useState<Map<string, { success: boolean; message: string; data?: Record<string, unknown>; error?: string }>>(new Map());
-  const [monthlySyncStatus, setMonthlySyncStatus] = useState<Map<string, { hasData: boolean; recordCount: number }>>(new Map());
-  
-  // Raw data processing state
-  const [isProcessingRawData, setIsProcessingRawData] = useState(false);
-  const [rawDataProcessingResults, setRawDataProcessingResults] = useState<Map<string, { success: boolean; message: string; data?: Record<string, unknown>; error?: string }>>(new Map());
-  
-  // Data validation state
-  const [validationData, setValidationData] = useState<Map<string, ValidationResult>>(new Map());
-  const [isValidating, setIsValidating] = useState(false);
-  const [syncingDates, setSyncingDates] = useState<Set<string>>(new Set());
-  const [processingDates, setProcessingDates] = useState<Set<string>>(new Set());
-  const [completedMonths, setCompletedMonths] = useState<Set<string>>(new Set());
-  
-  // Revenue validation state
-  const [revenueValidationData, setRevenueValidationData] = useState<Map<string, RevenueValidationResult>>(new Map());
-  const [isValidatingRevenue, setIsValidatingRevenue] = useState(false);
-  const [connections, setConnections] = useState<ApiConnection[]>([
-        {
-          id: "1",
+  // Fallback connections if ViewModel returns empty
+  const fallbackConnections = [
+    {
+      id: "1",
       location: "Bar Bea",
       locationId: "550e8400-e29b-41d4-a716-446655440002",
       apiKey: "1f518c6dce0a466d8d0f7c95b0717de4",
       baseUrl: "https://GGRZ28Q3MDRQ2UQ3MDRQ.trivecgateway.com",
       isActive: true
-        },
-        {
-          id: "2", 
+    },
+    {
+      id: "2", 
       location: "Van Kinsbergen",
       locationId: "550e8400-e29b-41d4-a716-446655440001",
       apiKey: "1f518c6dce0a466d8d0f7c95b0717de4",
@@ -159,958 +130,9 @@ export default function BorkApiConnectPage() {
       baseUrl: "https://7JFC2JUXTGVR2UTXUARY28QX.trivecgateway.com",
       isActive: true
     }
-  ]);
+  ];
 
-  // Load connection status from database on mount
-  useEffect(() => {
-    const loadConnectionStatus = async () => {
-      const supabase = createClient();
-      if (!supabase) return;
-
-      const response = await fetch('/api/locations');
-      const result = await response.json();
-
-      if (result.success && result.data) {
-        const results = new Map();
-        result.data.forEach((loc: { id: string; bork_connection_status: string; bork_connection_tested_at: string; bork_connection_message: string }) => {
-          if (loc.bork_connection_status !== 'not_tested') {
-            results.set(loc.id, {
-              locationId: loc.id,
-              success: loc.bork_connection_status === 'success',
-              message: loc.bork_connection_message || '',
-              testedAt: loc.bork_connection_tested_at
-            });
-          }
-        });
-        setTestResults(results);
-      }
-    };
-
-    if (isClient) {
-      loadConnectionStatus();
-    }
-  }, [isClient, connections]);
-
-  // Load credentials from database
-  useEffect(() => {
-    const loadCredentials = async () => {
-      try {
-        console.log('🔄 Loading credentials from API...');
-        const response = await fetch('/api/bork/credentials');
-        const result = await response.json();
-        
-        console.log('📊 Credentials API response:', result);
-        
-        if (result.success && result.data && result.data.length > 0) {
-          console.log('✅ Using database credentials');
-          const locationNames: Record<string, string> = {
-            '550e8400-e29b-41d4-a716-446655440002': 'Bar Bea',
-            '550e8400-e29b-41d4-a716-446655440001': 'Van Kinsbergen',
-            '550e8400-e29b-41d4-a716-446655440003': "L'Amour Toujours"
-          };
-          
-          const mappedConnections = result.data.map((cred: { id: string; location_id: string; api_key: string; api_url: string; is_active: boolean }) => ({
-            id: cred.id,
-            location: locationNames[cred.location_id] || 'Unknown',
-            locationId: cred.location_id,
-            apiKey: cred.api_key,
-            baseUrl: cred.api_url,
-            isActive: cred.is_active
-          }));
-          
-          setConnections(mappedConnections);
-        } else {
-          // Fallback to hardcoded credentials if API fails or no data
-          console.log('⚠️ Using fallback credentials - API returned no data');
-          setConnections([
-        {
-          id: "1",
-              location: "Bar Bea",
-              locationId: "550e8400-e29b-41d4-a716-446655440002",
-              apiKey: "1f518c6dce0a466d8d0f7c95b0717de4",
-              baseUrl: "https://GGRZ28Q3MDRQ2UQ3MDRQ.trivecgateway.com",
-              isActive: true
-        },
-        {
-          id: "2", 
-              location: "Van Kinsbergen",
-              locationId: "550e8400-e29b-41d4-a716-446655440001",
-              apiKey: "1f518c6dce0a466d8d0f7c95b0717de4",
-              baseUrl: "https://7ARQ28QXMGRQ6UUXTGVW2UQ.trivecgateway.com",
-              isActive: true
-            },
-            {
-              id: "3",
-              location: "L'Amour Toujours", 
-              locationId: "550e8400-e29b-41d4-a716-446655440003",
-              apiKey: "1f518c6dce0a466d8d0f7c95b0717de4",
-              baseUrl: "https://7JFC2JUXTGVR2UTXUARY28QX.trivecgateway.com",
-              isActive: true
-            }
-          ]);
-        }
-      } catch (error) {
-        console.error('Failed to load credentials, using fallback:', error);
-        // Use fallback credentials on error
-        setConnections([
-          {
-            id: "1",
-            location: "Bar Bea",
-            locationId: "550e8400-e29b-41d4-a716-446655440002",
-            apiKey: "1f518c6dce0a466d8d0f7c95b0717de4",
-            baseUrl: "https://GGRZ28Q3MDRQ2UQ3MDRQ.trivecgateway.com",
-            isActive: true
-          },
-          {
-            id: "2", 
-            location: "Van Kinsbergen",
-            locationId: "550e8400-e29b-41d4-a716-446655440001",
-            apiKey: "1f518c6dce0a466d8d0f7c95b0717de4",
-            baseUrl: "https://7ARQ28QXMGRQ6UUXTGVW2UQ.trivecgateway.com",
-            isActive: true
-          },
-          {
-            id: "3",
-            location: "L'Amour Toujours", 
-            locationId: "550e8400-e29b-41d4-a716-446655440003",
-            apiKey: "1f518c6dce0a466d8d0f7c95b0717de4",
-            baseUrl: "https://7JFC2JUXTGVR2UTXUARY28QX.trivecgateway.com",
-            isActive: true
-          }
-        ]);
-      }
-    };
-    
-    if (isClient) {
-      loadCredentials();
-    }
-  }, [isClient, toast]);
-
-
-  // Helper functions
-  const toggleCardExpansion = (locationId: string) => {
-    const newExpanded = new Set(expandedCards);
-    if (newExpanded.has(locationId)) {
-      newExpanded.delete(locationId);
-    } else {
-      newExpanded.add(locationId);
-    }
-    setExpandedCards(newExpanded);
-  };
-
-  const testConnection = async (connection: ApiConnection) => {
-    setIsTesting(prev => new Set(prev).add(connection.locationId));
-    
-    try {
-      const supabase = createClient();
-      if (!supabase) {
-        throw new Error("Supabase client not available");
-      }
-      
-      const testDate = format(subDays(new Date(), 30), 'yyyyMMdd');
-      
-      const response = await fetch('/api/bork/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          locationId: connection.locationId,
-          testDate: testDate,
-        })
-      });
-      
-      const data = await response.json();
-      const error = !response.ok ? new Error(data.error || 'Test failed') : null;
-
-      if (error) throw error;
-      
-      const result: ConnectionTestResult = {
-        locationId: connection.locationId,
-        success: data.success,
-        message: data.success 
-          ? `✅ ${connection.location} API Connection Successful! ${data.recordCount || 0} records found.`
-          : `❌ ${connection.location} API Connection Failed: ${data.errorMessage || 'Unknown error'}`,
-        data: data
-      };
-      
-      setTestResults(prev => new Map(prev).set(connection.locationId, result));
-
-      // Update database with test result
-      const dbResult = await updateConnectionStatus(
-        connection.locationId,
-        data.success ? 'success' : 'failed',
-        result.message
-      );
-
-      if (!dbResult.success) {
-        console.warn('Database update failed:', dbResult.error);
-        toast({
-          title: "Warning",
-          description: "Connection test succeeded but status was not saved",
-          variant: "destructive"
-        });
-      }
-
-      if (data.success) {
-        toast({
-          title: "Connection Successful",
-          description: `${connection.location} API connection is working`,
-        });
-      } else {
-        throw new Error(data.errorMessage || 'Connection failed');
-      }
-      } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      const result: ConnectionTestResult = {
-        locationId: connection.locationId,
-        success: false,
-        message: `❌ ${connection.location} API Connection Failed: ${errorMessage}`
-      };
-      
-      setTestResults(prev => new Map(prev).set(connection.locationId, result));
-
-      // Update database with failed test result
-      const dbResult = await updateConnectionStatus(
-        connection.locationId,
-        'failed',
-        result.message
-      );
-
-      if (!dbResult.success) {
-        console.warn('Database update failed:', dbResult.error);
-      }
-
-      toast({
-        title: "Connection Failed",
-        description: errorMessage,
-        variant: "destructive"
-      });
-    } finally {
-      setIsTesting(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(connection.locationId);
-        return newSet;
-      });
-    }
-  };
-
-  const addConnection = () => {
-    const newConnection: ApiConnection = {
-      id: Date.now().toString(),
-      location: "",
-      locationId: "",
-      apiKey: "",
-      baseUrl: "",
-      isActive: true
-    };
-    setEditingConnection(newConnection);
-  };
-
-  const editConnection = (connection: ApiConnection) => {
-    setEditingConnection(connection);
-  };
-
-  const deleteConnection = (id: string) => {
-    setConnections(prev => prev.filter(conn => conn.id !== id));
-  };
-
-  const saveConnection = () => {
-    if (!editingConnection) return;
-    
-    if (editingConnection.id && connections.find(c => c.id === editingConnection.id)) {
-      // Update existing
-      setConnections(prev => prev.map(conn => 
-        conn.id === editingConnection.id ? editingConnection : conn
-      ));
-    } else {
-      // Add new
-      setConnections(prev => [...prev, editingConnection]);
-    }
-    
-    setEditingConnection(null);
-  };
-
-  // Generate weekly periods from Jan 1, 2024 to current week
-  const generateWeeklyPeriods = () => {
-    const periods = [];
-    const startDate = new Date(2024, 0, 1); // Jan 1, 2024
-    const currentDate = new Date();
-    
-    // Get current week start (Monday)
-    const currentWeekStart = new Date(currentDate);
-    const dayOfWeek = currentWeekStart.getDay();
-    const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    currentWeekStart.setDate(currentWeekStart.getDate() + daysToMonday);
-    
-    const currentPeriod = new Date(startDate);
-    
-    while (currentPeriod <= currentWeekStart) {
-      const periodEnd = new Date(currentPeriod);
-      periodEnd.setDate(periodEnd.getDate() + 6); // End of week (Sunday)
-      
-      const periodKey = `${currentPeriod.toISOString().split('T')[0]}_${periodEnd.toISOString().split('T')[0]}`;
-      const periodLabel = `${currentPeriod.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${periodEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-      
-      periods.push({
-        key: periodKey,
-        label: periodLabel,
-        startDate: currentPeriod.toISOString().split('T')[0],
-        endDate: periodEnd.toISOString().split('T')[0]
-      });
-      
-      // Move to next week
-      currentPeriod.setDate(currentPeriod.getDate() + 7);
-    }
-    
-    return periods.reverse(); // Most recent first
-  };
-
-  // Generate monthly periods from Jan 1, 2024 to current month
-  const generateMonthlyPeriods = useCallback(() => {
-    const periods = [];
-    const startDate = new Date(2024, 0, 1); // Jan 1, 2024
-    const currentDate = new Date();
-    
-    const currentPeriod = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-    const currentMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    
-    while (currentPeriod <= currentMonth) {
-      const periodEnd = new Date(currentPeriod.getFullYear(), currentPeriod.getMonth() + 1, 0); // Last day of month
-      
-      const periodKey = `${currentPeriod.toISOString().split('T')[0]}_${periodEnd.toISOString().split('T')[0]}`;
-      const periodLabel = `${currentPeriod.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
-      
-      // Check if this month has data in the database
-      const monthStatus = monthlySyncStatus.get(periodKey);
-      
-      periods.push({
-        key: periodKey,
-        label: periodLabel,
-        startDate: currentPeriod.toISOString().split('T')[0],
-        endDate: periodEnd.toISOString().split('T')[0],
-        hasData: monthStatus?.hasData || false,
-        recordCount: monthStatus?.recordCount || 0
-      });
-      
-      // Move to next month
-      currentPeriod.setMonth(currentPeriod.getMonth() + 1);
-    }
-    
-    return periods.reverse(); // Most recent first
-  }, [monthlySyncStatus]);
-
-  // Generate periods based on selected type
-  const generatePeriods = () => {
-    return selectedPeriodType === 'weekly' ? generateWeeklyPeriods() : generateMonthlyPeriods();
-  };
-
-  // Check monthly sync status when switching to monthly view
-  useEffect(() => {
-    const checkMonthlySyncStatus = async () => {
-      try {
-        const supabase = createClient();
-        if (!supabase) return;
-
-        const monthlyStatus = new Map();
-        const months = generateMonthlyPeriods();
-        
-        for (const month of months) {
-          const { data, error } = await supabase
-            .from('bork_sales_data')
-            .select('id')
-            .gte('date', month.startDate)
-            .lte('date', month.endDate)
-            .limit(1);
-
-          if (!error && data && data.length > 0) {
-            // Get total count for this month
-            const { count } = await supabase
-              .from('bork_sales_data')
-              .select('*', { count: 'exact', head: true })
-              .gte('date', month.startDate)
-              .lte('date', month.endDate);
-
-            monthlyStatus.set(month.key, {
-              hasData: true,
-              recordCount: count || 0
-            });
-          } else {
-            monthlyStatus.set(month.key, {
-              hasData: false,
-              recordCount: 0
-            });
-          }
-        }
-        
-        setMonthlySyncStatus(monthlyStatus);
-      } catch (error) {
-        console.error('Error checking monthly sync status:', error);
-      }
-    };
-
-    if (selectedPeriodType === 'monthly') {
-      checkMonthlySyncStatus();
-    }
-  }, [selectedPeriodType, generateMonthlyPeriods]);
-
-
-  const toggleLocationSelection = (locationId: string) => {
-    const newSelected = new Set(selectedLocations);
-    if (newSelected.has(locationId)) {
-      newSelected.delete(locationId);
-    } else {
-      newSelected.add(locationId);
-    }
-    setSelectedLocations(newSelected);
-  };
-
-  const startManualSync = async () => {
-    if (selectedLocations.size === 0 || !selectedPeriod) {
-      alert("Please select at least one location and a period");
-      return;
-    }
-
-    setIsSyncing(true);
-    const results = new Map();
-
-    try {
-      const supabase = createClient();
-      if (!supabase) {
-        throw new Error("Supabase client not available");
-      }
-
-      const [startDate, endDate] = selectedPeriod.split('_');
-      
-      // Process locations in parallel with timeout
-      const syncPromises = Array.from(selectedLocations).map(async (locationId) => {
-        const connection = connections.find(c => c.locationId === locationId);
-        if (!connection) return;
-
-        // Add to syncing locations
-        setSyncingLocations(prev => new Set(prev).add(locationId));
-
-        try {
-          console.log(`Starting sync for ${connection.location}...`);
-          
-          const response = await fetch('/api/bork/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              locationId,
-              startDate,
-              endDate,
-            })
-          });
-          
-          const data = await response.json();
-          const error = !response.ok ? new Error(data.error || 'Sync failed') : null;
-
-        if (error) throw error;
-
-          results.set(locationId, {
-            success: data.success,
-            data: data,
-            message: data.success 
-              ? `✅ ${connection.location} sync completed successfully - ${data.records_stored || 0} records stored`
-              : `❌ ${connection.location} sync failed: ${data.error || 'Unknown error'}`
-          });
-      } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : "Unknown error";
-          console.error(`Sync error for ${connection.location}:`, error);
-          
-          results.set(locationId, {
-            success: false,
-            error: errorMessage,
-            message: `❌ ${connection.location} sync failed: ${errorMessage}`
-          });
-        } finally {
-          // Remove from syncing locations
-          setSyncingLocations(prev => {
-            const next = new Set(prev);
-            next.delete(locationId);
-            return next;
-          });
-        }
-      });
-
-      // Wait for all syncs to complete
-      await Promise.allSettled(syncPromises);
-      setSyncResults(results);
-
-    } catch (error) {
-      console.error('Manual sync error:', error);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const retryLocationSync = async (locationId: string) => {
-    const connection = connections.find(c => c.locationId === locationId);
-    if (!connection) return;
-
-    // Add to syncing locations
-    setSyncingLocations(prev => new Set(prev).add(locationId));
-
-    try {
-      console.log(`Retrying sync for ${connection.location}...`);
-      
-      const [startDate, endDate] = selectedPeriod.split('_');
-      
-      const response = await fetch('/api/bork/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          locationId,
-          startDate,
-          endDate,
-        })
-      });
-      
-      const data = await response.json();
-      const error = !response.ok ? new Error(data.error || 'Sync failed') : null;
-
-      if (error) throw error;
-
-      const syncData = data as { success: boolean; processedCount: number; totalRecords: number; apiFailures: number; message: string };
-      
-      // Update the specific location result
-      setSyncResults(prev => {
-        const newResults = new Map(prev);
-        newResults.set(locationId, {
-          success: true,
-          data: data,
-          message: `✅ ${connection.location} sync completed successfully - ${syncData?.totalRecords || 0} records stored`
-        });
-        return newResults;
-      });
-
-      toast({
-        title: "Sync Retry Successful",
-        description: `${connection.location} sync completed successfully`,
-      });
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      console.error(`Retry sync error for ${connection.location}:`, error);
-      
-      // Update the specific location result
-      setSyncResults(prev => {
-        const newResults = new Map(prev);
-        newResults.set(locationId, {
-          success: false,
-          error: errorMessage,
-          message: `❌ ${connection.location} sync failed: ${errorMessage}`
-        });
-        return newResults;
-      });
-
-      toast({
-        title: "Sync Retry Failed",
-        description: `${connection.location} sync failed: ${errorMessage}`,
-        variant: "destructive"
-      });
-    } finally {
-      // Remove from syncing locations
-      setSyncingLocations(prev => {
-        const next = new Set(prev);
-        next.delete(locationId);
-        return next;
-      });
-    }
-  };
-
-  const resyncLocation = async (locationId: string) => {
-    const connection = connections.find(c => c.locationId === locationId);
-    if (!connection) return;
-
-    setSyncingLocations(prev => new Set(prev).add(locationId));
-
-    try {
-      console.log(`Resyncing ${connection.location}...`);
-      
-      const [startDate, endDate] = selectedPeriod.split('_');
-      
-      const response = await fetch('/api/bork/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          locationId,
-          startDate,
-          endDate,
-        })
-      });
-      
-      const data = await response.json();
-      const error = !response.ok ? new Error(data.error || 'Sync failed') : null;
-
-      if (error) throw error;
-
-      setSyncResults(prev => new Map(prev).set(locationId, {
-        success: data.success,
-        data: data,
-        message: data.success 
-          ? `✅ ${connection.location} resync completed successfully - ${data.totalRecords || 0} records stored`
-          : `❌ ${connection.location} resync failed: ${data.error || 'Unknown error'}`
-      }));
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      console.error(`Resync error for ${connection.location}:`, error);
-      
-      setSyncResults(prev => new Map(prev).set(locationId, {
-        success: false,
-        error: errorMessage,
-        message: `❌ ${connection.location} resync failed: ${errorMessage}`
-      }));
-    } finally {
-      setSyncingLocations(prev => {
-        const next = new Set(prev);
-        next.delete(locationId);
-        return next;
-      });
-    }
-  };
-
-  const reprocessLocation = async (locationId: string) => {
-    const connection = connections.find(c => c.locationId === locationId);
-    if (!connection) return;
-
-    setIsProcessingRawData(true);
-
-    try {
-      console.log(`Reprocessing ${connection.location}...`);
-      
-      const response = await fetch('/api/bork/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          location_id: locationId,
-          process_all: false
-        })
-      });
-      
-      const data = await response.json();
-      const error = !response.ok ? new Error(data.error || 'Process failed') : null;
-
-      if (error) throw error;
-
-      setRawDataProcessingResults(prev => new Map(prev).set(locationId, {
-        success: data.success,
-        data: data,
-        message: data.success 
-          ? `✅ ${connection.location} reprocess completed successfully - ${data.processedCount || 0} records processed`
-          : `❌ ${connection.location} reprocess failed: ${data.error || 'Unknown error'}`
-      }));
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      console.error(`Reprocess error for ${connection.location}:`, error);
-      
-      setRawDataProcessingResults(prev => new Map(prev).set(locationId, {
-        success: false,
-        error: errorMessage,
-        message: `❌ ${connection.location} reprocess failed: ${errorMessage}`
-      }));
-    } finally {
-      setIsProcessingRawData(false);
-    }
-  };
-
-  const processRawData = async () => {
-    setIsProcessingRawData(true);
-    const results = new Map();
-
-    try {
-      console.log('Processing all raw data...');
-      
-      const supabase = createClient();
-      if (!supabase) {
-        throw new Error("Supabase client not available");
-      }
-      
-      const response = await fetch('/api/bork/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          process_all: true,
-        })
-      });
-      
-      const data = await response.json();
-      const error = !response.ok ? new Error(data.error || 'Processing failed') : null;
-
-      if (error) throw error;
-
-      // Show results for all active locations with actual per-location processing counts
-      for (const connection of connections.filter(c => c.isActive)) {
-        // Use actual processed count per location from API response
-        const recordsProcessed = data?.processedByLocation?.[connection.locationId] || 0;
-        
-        results.set(connection.locationId, {
-          success: data.success,
-          data: data,
-          message: data.success 
-            ? `✅ ${connection.location} raw data processed successfully - ${recordsProcessed} records processed`
-            : `❌ ${connection.location} processing failed: ${data.error || 'Unknown error'}`
-        });
-      }
-
-      setRawDataProcessingResults(results);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      console.error('Raw data processing error:', error);
-      
-      // Show error for all active locations
-      for (const connection of connections.filter(c => c.isActive)) {
-        results.set(connection.locationId, {
-          success: false,
-          error: errorMessage,
-          message: `❌ ${connection.location} processing failed: ${errorMessage}`
-        });
-      }
-      
-      setRawDataProcessingResults(results);
-    } finally {
-      setIsProcessingRawData(false);
-    }
-  };
-
-  // Data validation functions
-  const validateAllLocations = useCallback(async () => {
-    setIsValidating(true);
-    try {
-      console.log('[Validation] Starting validation for all locations...');
-      
-      const response = await fetch('/api/bork/validate');
-      const result = await response.json();
-      
-      if (result.success && result.results) {
-        const validationMap = new Map();
-        result.results.forEach((validation: ValidationResult) => {
-          validationMap.set(validation.locationId, validation);
-        });
-        setValidationData(validationMap);
-        
-        toast({
-          title: "Validation Complete",
-          description: `Validated ${result.results.length} locations`,
-        });
-      } else {
-        throw new Error(result.error || 'Validation failed');
-      }
-    } catch (error) {
-      console.error('[Validation] Error:', error);
-      toast({
-        title: "Validation Failed",
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: "destructive"
-      });
-    } finally {
-      setIsValidating(false);
-    }
-  }, [toast]);
-
-  // Revenue validation functions
-  const validateRevenue = useCallback(async () => {
-    setIsValidatingRevenue(true);
-    try {
-      console.log('[Revenue Validation] Starting revenue validation for all locations...');
-      
-      const response = await fetch('/api/bork/validate-revenue');
-      const result = await response.json();
-      
-      if (result.success && result.results) {
-        const validationMap = new Map();
-        result.results.forEach((validation: RevenueValidationResult) => {
-          validationMap.set(validation.locationId, validation);
-        });
-        setRevenueValidationData(validationMap);
-        
-        toast({
-          title: "Revenue Validation Complete",
-          description: `Validated ${result.results.length} locations`,
-        });
-      } else {
-        throw new Error(result.error || 'Revenue validation failed');
-      }
-    } catch (error) {
-      console.error('[Revenue Validation] Error:', error);
-      toast({
-        title: "Revenue Validation Failed",
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: "destructive"
-      });
-    } finally {
-      setIsValidatingRevenue(false);
-    }
-  }, [toast]);
-
-  const syncMissingDate = async (locationId: string, date: string) => {
-    const dateKey = `${locationId}-${date}`;
-    setSyncingDates(prev => new Set(prev).add(dateKey));
-    
-    try {
-      console.log(`[Validation] Syncing missing date ${date} for location ${locationId}...`);
-      
-      // Sync the specific date
-      const syncResponse = await fetch('/api/bork/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          locationId,
-          startDate: date,
-          endDate: date
-        })
-      });
-      
-      const syncResult = await syncResponse.json();
-      
-      if (syncResult.success) {
-        // Process the data after successful sync
-        const processResponse = await fetch('/api/bork/process', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ locationId })
-        });
-        
-        const processResult = await processResponse.json();
-        
-        if (processResult.success) {
-          // Refresh validation data
-          await validateAllLocations();
-          
-          toast({
-            title: "Sync & Process Complete",
-            description: `Successfully synced and processed ${date}`,
-          });
-        } else {
-          throw new Error(processResult.error || 'Processing failed');
-        }
-      } else {
-        throw new Error(syncResult.error || 'Sync failed');
-      }
-    } catch (error) {
-      console.error(`[Validation] Error syncing date ${date}:`, error);
-      toast({
-        title: "Sync Failed",
-        description: `Failed to sync ${date}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: "destructive"
-      });
-    } finally {
-      setSyncingDates(prev => {
-        const next = new Set(prev);
-        next.delete(dateKey);
-        return next;
-      });
-    }
-  };
-
-  const syncMonth = async (locationId: string, month: string) => {
-    const monthKey = `${locationId}-${month}`;
-    setSyncingDates(prev => new Set(prev).add(monthKey));
-    
-    try {
-      console.log(`[Validation] Syncing month ${month} for location ${locationId}...`);
-      
-      // Calculate start and end dates for the month
-      const [year, monthNum] = month.split('-').map(Number);
-      const startDate = new Date(year, monthNum - 1, 1);
-      const endDate = new Date(year, monthNum, 0); // Last day of the month
-      
-      const startDateStr = startDate.toISOString().split('T')[0];
-      const endDateStr = endDate.toISOString().split('T')[0];
-      
-      // Sync the entire month
-      const syncResponse = await fetch('/api/bork/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          locationId,
-          startDate: startDateStr,
-          endDate: endDateStr
-        })
-      });
-      
-      const syncResult = await syncResponse.json();
-      
-      if (syncResult.success) {
-        // Mark month as completed
-        setCompletedMonths(prev => new Set(prev).add(monthKey));
-        
-        toast({
-          title: "Month Sync Complete",
-          description: `Successfully synced ${month} (${syncResult.totalRecords || 0} records)`,
-        });
-      } else {
-        throw new Error(syncResult.error || 'Month sync failed');
-      }
-    } catch (error) {
-      console.error(`[Validation] Error syncing month ${month}:`, error);
-      toast({
-        title: "Month Sync Failed",
-        description: `Failed to sync ${month}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: "destructive"
-      });
-    } finally {
-      setSyncingDates(prev => {
-        const next = new Set(prev);
-        next.delete(monthKey);
-        return next;
-      });
-    }
-  };
-
-  const processMonth = async (locationId: string, month: string) => {
-    const monthKey = `${locationId}-${month}`;
-    setProcessingDates(prev => new Set(prev).add(monthKey));
-    
-    try {
-      console.log(`[Validation] Processing month ${month} for location ${locationId}...`);
-      
-      // Process the entire month
-      const processResponse = await fetch('/api/bork/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ locationId })
-      });
-      
-      const processResult = await processResponse.json();
-      
-      if (processResult.success) {
-        // Mark month as completed
-        setCompletedMonths(prev => new Set(prev).add(monthKey));
-        
-        // Refresh validation data
-        await validateAllLocations();
-        
-        toast({
-          title: "Month Process Complete",
-          description: `Successfully processed ${month} (${processResult.totalProcessed || 0} records)`,
-        });
-      } else {
-        throw new Error(processResult.error || 'Month processing failed');
-      }
-    } catch (error) {
-      console.error(`[Validation] Error processing month ${month}:`, error);
-      toast({
-        title: "Month Process Failed",
-        description: `Failed to process ${month}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        variant: "destructive"
-      });
-    } finally {
-      setProcessingDates(prev => {
-        const next = new Set(prev);
-        next.delete(monthKey);
-        return next;
-      });
-    }
-  };
-
-  // Auto-validate on page load
-  useEffect(() => {
-    if (isClient) {
-      validateAllLocations();
-    }
-  }, [isClient, validateAllLocations]);
+  const displayConnections = connections.length > 0 ? connections : fallbackConnections;
 
 
   return (
@@ -1291,7 +313,7 @@ export default function BorkApiConnectPage() {
                             )}
                             
                             <Button 
-                              onClick={() => testConnection(connection)}
+                              onClick={() => handleTestConnection(connection)}
                               disabled={isTestingConnection}
                               className="w-full"
                               variant={testResult?.success ? "default" : "outline"}
@@ -1516,7 +538,7 @@ export default function BorkApiConnectPage() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => resyncLocation(locationId)}
+                                  onClick={() => retryLocationSync(locationId)}
                                   disabled={syncingLocations.has(locationId)}
                                   className="text-xs"
                                 >
@@ -1535,7 +557,7 @@ export default function BorkApiConnectPage() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => reprocessLocation(locationId)}
+                                  onClick={() => processRawData()}
                                   disabled={isProcessingRawData}
                                   className="text-xs"
                                 >
@@ -1591,7 +613,7 @@ export default function BorkApiConnectPage() {
                   
                   <Button 
                     className="w-full"
-                    onClick={processRawData}
+                    onClick={() => processRawData()}
                     disabled={isProcessingRawData}
                     size="lg"
                   >
@@ -1654,7 +676,7 @@ export default function BorkApiConnectPage() {
                         variant="outline"
                         onClick={() => {
                           setSelectedTab('revenue');
-                          validateRevenue();
+                          runRevenueValidation();
                         }}
                         className="flex items-center gap-2"
                       >
@@ -1778,7 +800,7 @@ export default function BorkApiConnectPage() {
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
                 <Button 
-                  onClick={validateAllLocations}
+                  onClick={runValidation}
                   disabled={isValidating}
                   className="flex items-center gap-2"
                 >
@@ -1852,8 +874,10 @@ export default function BorkApiConnectPage() {
                             <div id={`missing-dates-${locationId}`} className="hidden">
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                                 {validation.missingDates.map((date: string) => {
-                                  const dateKey = `${locationId}-${date}`;
-                                  const isSyncing = syncingDates.has(dateKey);
+                                  // Extract month from date for syncAndProcessDateRange
+                                  const dateObj = new Date(date);
+                                  const monthKey = `${dateObj.getFullYear()}-${dateObj.getMonth() + 1}`;
+                                  const monthDateKey = `${locationId}-${monthKey}`;
                                   
                                   return (
                                     <div key={date} className="flex items-center justify-between p-2 border rounded bg-gray-50">
@@ -1861,11 +885,11 @@ export default function BorkApiConnectPage() {
                                       <Button
                                         size="sm"
                                         variant="outline"
-                                        onClick={() => syncMissingDate(locationId, date)}
-                                        disabled={isSyncing}
+                                        onClick={() => syncAndProcessDateRange(locationId, monthKey)}
+                                        disabled={syncingDates.has(monthDateKey) || processingDates.has(monthDateKey)}
                                         className="ml-2"
                                       >
-                                        {isSyncing ? (
+                                        {syncingDates.has(monthDateKey) || processingDates.has(monthDateKey) ? (
                                           <Loader2 className="h-3 w-3 animate-spin" />
                                         ) : (
                                           'Sync & Process'
@@ -1959,31 +983,16 @@ export default function BorkApiConnectPage() {
                                               <Button
                                                 size="sm"
                                                 variant="outline"
-                                                onClick={() => syncMonth(locationId, month)}
-                                                disabled={isSyncingMonth || isProcessingMonth}
+                                                onClick={() => syncAndProcessDateRange(locationId, month)}
+                                                disabled={syncingDates.has(`${locationId}-${month}`) || processingDates.has(`${locationId}-${month}`)}
                                                 className="text-xs"
                                               >
-                                                {isSyncingMonth ? (
+                                                {syncingDates.has(`${locationId}-${month}`) || processingDates.has(`${locationId}-${month}`) ? (
                                                   <Loader2 className="h-3 w-3 animate-spin" />
-                                                ) : isCompletedMonth ? (
+                                                ) : completedMonths.has(`${locationId}-${month}`) ? (
                                                   <Check className="h-3 w-3 text-green-500" />
                                                 ) : (
-                                                  'Sync'
-                                                )}
-                                              </Button>
-                                              <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => processMonth(locationId, month)}
-                                                disabled={isSyncingMonth || isProcessingMonth}
-                                                className="text-xs"
-                                              >
-                                                {isProcessingMonth ? (
-                                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                                ) : isCompletedMonth ? (
-                                                  <Check className="h-3 w-3 text-green-500" />
-                                                ) : (
-                                                  'Process'
+                                                  'Sync & Process'
                                                 )}
                                               </Button>
                                             </div>
@@ -2048,7 +1057,7 @@ export default function BorkApiConnectPage() {
             <CardContent className="space-y-4">
               <div className="flex items-center gap-4">
                 <Button 
-                  onClick={validateRevenue}
+                  onClick={runRevenueValidation}
                   disabled={isValidatingRevenue}
                   className="flex items-center gap-2"
                 >

@@ -42,12 +42,16 @@ class PostExecutionChecker {
     this.projectRoot = process.cwd();
     this.registryPath = path.join(this.projectRoot, 'function-registry.json');
     this.rulesPath = path.join(this.projectRoot, 'tools/compliance/config/.ai-compliance-rules.json');
+    this.permissionLogPath = path.join(this.projectRoot, '.ai-compliance-permissions.json');
     this.violations = [];
     this.modifiedFiles = [];
     this.totalLinesChanged = 0;
     this.completedFunctions = new Set();
     this.backupDir = path.join(this.projectRoot, 'tools/compliance/backups');
     this.config = this.loadConfig();
+    this.currentBranch = this.getCurrentBranch();
+    this.isMainBranch = this.checkIfMainBranch();
+    this.permissionLog = this.loadPermissionLog();
   }
 
   loadConfig() {
@@ -55,7 +59,7 @@ class PostExecutionChecker {
       maxLinesPerChange: 100,
       maxDeletions: 20,
       fullReplacementThreshold: 0.8,
-      excludedPaths: ['node_modules', '.git', '.next', 'dist', 'build'],
+      excludedPaths: ['node_modules', '.git', '.next', 'dist', 'build', 'old-pages-sql-scripts'],
       fileExtensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
       exemptFiles: [
         'function-registry.json',
@@ -153,6 +157,44 @@ class PostExecutionChecker {
     }
   }
 
+  getCurrentBranch() {
+    try {
+      const branch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
+      return branch;
+    } catch (e) {
+      console.warn('⚠️  Could not detect current branch:', e.message);
+      return 'unknown';
+    }
+  }
+
+  checkIfMainBranch() {
+    const mainBranches = ['main', 'master', 'production'];
+    return mainBranches.includes(this.currentBranch);
+  }
+
+  loadPermissionLog() {
+    if (fs.existsSync(this.permissionLogPath)) {
+      try {
+        const log = JSON.parse(fs.readFileSync(this.permissionLogPath, 'utf8'));
+        return log.permissions || [];
+      } catch (e) {
+        console.warn('⚠️  Could not parse permission log:', e.message);
+        return [];
+      }
+    }
+    return [];
+  }
+
+  hasPermission(filePath) {
+    // Check if file modification was approved in permission log
+    return this.permissionLog.some(permission => {
+      // Check if file matches and branch matches
+      return permission.file === filePath && 
+             permission.branch === this.currentBranch &&
+             permission.approved_by === 'user';
+    });
+  }
+
   async loadTrackingFiles() {
     // Load function registry
     if (fs.existsSync(this.registryPath)) {
@@ -186,7 +228,8 @@ class PostExecutionChecker {
           // Only check code files
           return file.match(/\.(ts|tsx|js|jsx|json)$/) && 
                  !file.includes('node_modules') &&
-                 !file.includes('.git');
+                 !file.includes('.git') &&
+                 !file.includes('old-pages-sql-scripts');
         });
       
       return files;
@@ -212,16 +255,48 @@ class PostExecutionChecker {
       return;
     }
     
-    // Check 1: Registry protection
+    // Check 1: Registry protection (branch-aware)
     const fileName = path.basename(filePath);
     if (this.completedFunctions.has(fileName) || this.completedFunctions.has(filePath)) {
-      this.violations.push({
-        type: 'REGISTRY_VIOLATION',
-        file: filePath,
-        message: `File ${filePath} is marked as "completed" and "do not touch"`,
-        severity: 'CRITICAL',
-        requiredAction: 'REVERT CHANGES - This file is protected'
-      });
+      // Branch-aware enforcement
+      if (this.isMainBranch) {
+        // MAIN BRANCH: CRITICAL - Hard block
+        this.violations.push({
+          type: 'REGISTRY_VIOLATION',
+          file: filePath,
+          message: `File ${filePath} is marked as "completed" and "do not touch" on main branch`,
+          severity: 'CRITICAL',
+          branch: this.currentBranch,
+          requiredAction: 'REVERT CHANGES - This file is protected on main branch'
+        });
+      } else {
+        // FEATURE BRANCH: Check for permission
+        const hasPermission = this.hasPermission(filePath);
+        
+        if (hasPermission) {
+          // Permission was granted - downgrade to warning
+          this.violations.push({
+            type: 'PROTECTED_FILE_WITH_PERMISSION',
+            file: filePath,
+            message: `File ${filePath} is protected but permission was granted on feature branch`,
+            severity: 'LOW',
+            branch: this.currentBranch,
+            permissionGranted: true,
+            requiredAction: 'Review changes - permission was logged'
+          });
+        } else {
+          // No permission found - high severity warning
+          this.violations.push({
+            type: 'REGISTRY_VIOLATION',
+            file: filePath,
+            message: `File ${filePath} is marked as "completed" on main. Permission required on feature branch.`,
+            severity: 'HIGH',
+            branch: this.currentBranch,
+            permissionGranted: false,
+            requiredAction: 'Verify user approval was given. If approved, permission should be logged in .ai-compliance-permissions.json'
+          });
+        }
+      }
     }
     
     // Check 2: Count lines changed (skip for exempt files)

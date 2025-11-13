@@ -1,3 +1,8 @@
+/**
+ * Settings Data Import View Layer
+ * Pure presentational component - all business logic is in ViewModel
+ */
+
 "use client";
 
 import { useState } from "react";
@@ -9,8 +14,10 @@ import { FinanceImportProvider } from "@/contexts/FinanceImportContext";
 import { DollarSign, Package, FileText, History, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useDataImportViewModel } from "@/viewmodels/settings/useDataImportViewModel";
 
 export default function FinanceImports() {
+  useDataImportViewModel(); // ViewModel ready for future use
   const [activeTab, setActiveTab] = useState("finance");
 
   const handleDownloadExample = () => {

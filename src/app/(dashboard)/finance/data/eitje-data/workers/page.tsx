@@ -1,58 +1,34 @@
+/**
+ * Finance Eitje Data Workers View Layer
+ * Pure presentational component - all business logic is in ViewModel
+ */
+
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { formatDateDDMMYY, formatDateDDMMYYTime } from "@/lib/dateFormatters";
 import { ShowMoreColumnsToggle } from "@/components/view-data/ShowMoreColumnsToggle";
-
-const ITEMS_PER_PAGE = 50;
+import { useEitjeDataWorkersViewModel } from "@/viewmodels/finance/useEitjeDataWorkersViewModel";
 
 export default function WorkersPage() {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [showAllColumns, setShowAllColumns] = useState(false);
+  const {
+    // State
+    currentPage,
+    setCurrentPage,
+    showAllColumns,
+    setShowAllColumns,
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["eitje-workers", currentPage],
-    queryFn: async () => {
-      const supabase = createClient();
-      
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
+    // Data
+    data,
+    isLoading,
+    error,
 
-      const { data: records, error: queryError, count } = await supabase
-        .from("eitje_users")
-        .select(`
-          id,
-          eitje_id,
-          first_name,
-          last_name,
-          email,
-          phone,
-          employee_number,
-          hire_date,
-          is_active,
-          raw_data,
-          created_at,
-          updated_at
-        `, { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range(from, to);
-
-      if (queryError) throw queryError;
-
-      return {
-        records: records || [],
-        total: count || 0,
-      };
-    },
-  });
-
-  const totalPages = Math.ceil((data?.total || 0) / ITEMS_PER_PAGE);
+    // Computed
+    totalPages,
+  } = useEitjeDataWorkersViewModel();
 
   return (
     <div className="space-y-6">
@@ -110,15 +86,40 @@ export default function WorkersPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      data.records.map((record: any) => {
+                      data.records.map((record) => {
                         // Extract from raw_data if direct fields don't exist
-                        const firstName = record.first_name || record.raw_data?.first_name || record.raw_data?.firstName || "-";
-                        const lastName = record.last_name || record.raw_data?.last_name || record.raw_data?.lastName || "-";
-                        const email = record.email || record.raw_data?.email || "-";
-                        const phone = record.phone || record.raw_data?.phone || "-";
-                        const employeeNumber = record.employee_number || record.raw_data?.employee_number || record.raw_data?.employeeNumber || "-";
-                        const hireDate = record.hire_date || record.raw_data?.hire_date || record.raw_data?.hireDate || null;
-                        const isActive = record.is_active !== undefined ? record.is_active : (record.raw_data?.is_active ?? true);
+                        const firstName =
+                          record.first_name ||
+                          (record.raw_data as { first_name?: string; firstName?: string })?.first_name ||
+                          (record.raw_data as { firstName?: string })?.firstName ||
+                          "-";
+                        const lastName =
+                          record.last_name ||
+                          (record.raw_data as { last_name?: string; lastName?: string })?.last_name ||
+                          (record.raw_data as { lastName?: string })?.lastName ||
+                          "-";
+                        const email =
+                          record.email ||
+                          (record.raw_data as { email?: string })?.email ||
+                          "-";
+                        const phone =
+                          record.phone ||
+                          (record.raw_data as { phone?: string })?.phone ||
+                          "-";
+                        const employeeNumber =
+                          record.employee_number ||
+                          (record.raw_data as { employee_number?: string; employeeNumber?: string })?.employee_number ||
+                          (record.raw_data as { employeeNumber?: string })?.employeeNumber ||
+                          "-";
+                        const hireDate =
+                          record.hire_date ||
+                          (record.raw_data as { hire_date?: string; hireDate?: string })?.hire_date ||
+                          (record.raw_data as { hireDate?: string })?.hireDate ||
+                          null;
+                        const isActive =
+                          record.is_active !== undefined
+                            ? record.is_active
+                            : ((record.raw_data as { is_active?: boolean })?.is_active ?? true);
 
                         return (
                           <TableRow key={record.id}>
@@ -171,4 +172,3 @@ export default function WorkersPage() {
     </div>
   );
 }
-

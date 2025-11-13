@@ -1,7 +1,10 @@
+/**
+ * Finance Daily Ops Insights View Layer
+ * Pure presentational component - all business logic is in ViewModel
+ */
+
 "use client";
 
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,334 +26,27 @@ import {
   ArrowDownRight,
   Activity
 } from "lucide-react";
-import { subDays, format, isYesterday, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths, subYears } from "date-fns";
-
-// Location mapping
-const LOCATIONS = {
-  total: { id: "total", name: "All Locations", color: "bg-blue-500" },
-  kinsbergen: { id: "1125", name: "Van Kinsbergen", color: "bg-green-500" },
-  barbea: { id: "1711", name: "Bar Bea", color: "bg-purple-500" },
-  lamour: { id: "2499", name: "L'Amour Toujours", color: "bg-orange-500" }
-};
-
-// Time period presets
-const TIME_PERIODS = {
-  lastMonth: { 
-    label: "Last Month", 
-    getRange: () => {
-      const lastMonth = subMonths(new Date(), 1);
-      return { 
-        from: startOfMonth(lastMonth), 
-        to: endOfMonth(lastMonth),
-        label: format(lastMonth, 'MMMM yyyy')
-      };
-    }
-  },
-  last3Months: { 
-    label: "Last 3 Months", 
-    getRange: () => {
-      const end = subDays(new Date(), 1);
-      const start = subMonths(end, 3);
-      return { 
-        from: start, 
-        to: end,
-        label: `${format(start, 'MMM')} - ${format(end, 'MMM yyyy')}`
-      };
-    }
-  },
-  last6Months: { 
-    label: "Last 6 Months", 
-    getRange: () => {
-      const end = subDays(new Date(), 1);
-      const start = subMonths(end, 6);
-      return { 
-        from: start, 
-        to: end,
-        label: `${format(start, 'MMM')} - ${format(end, 'MMM yyyy')}`
-      };
-    }
-  },
-  thisYear: { 
-    label: "This Year", 
-    getRange: () => {
-      const now = new Date();
-      return { 
-        from: startOfYear(now), 
-        to: end,
-        label: format(now, 'yyyy')
-      };
-    }
-  },
-  lastYear: { 
-    label: "Last Year", 
-    getRange: () => {
-      const lastYear = subYears(new Date(), 1);
-      return { 
-        from: startOfYear(lastYear), 
-        to: endOfYear(lastYear),
-        label: format(lastYear, 'yyyy')
-      };
-    }
-  },
-  september2024: {
-    label: "September 2024",
-    getRange: () => {
-      const september = new Date(2024, 8, 1); // September 2024
-      return {
-        from: startOfMonth(september),
-        to: endOfMonth(september),
-        label: "September 2024"
-      };
-    }
-  }
-};
-
-interface CrossCorrelationInsight {
-  id: string;
-  title: string;
-  description: string;
-  impact: 'high' | 'medium' | 'low';
-  type: 'revenue' | 'labor' | 'productivity' | 'anomaly' | 'opportunity';
-  data: {
-    metric: string;
-    value: number;
-    change: number;
-    trend: 'up' | 'down' | 'stable';
-  };
-  correlation: {
-    factor1: string;
-    factor2: string;
-    strength: number; // 0-1
-  };
-  recommendation: string;
-  location: string;
-}
-
-interface PeriodAnalysis {
-  period: string;
-  totalRevenue: number;
-  totalHours: number;
-  totalEmployees: number;
-  avgRevenuePerHour: number;
-  avgRevenuePerEmployee: number;
-  topPerformingLocation: string;
-  worstPerformingLocation: string;
-  anomalies: CrossCorrelationInsight[];
-  opportunities: CrossCorrelationInsight[];
-  correlations: CrossCorrelationInsight[];
-  dataPoints: number;
-  avgDailyRevenue: number;
-  avgDailyHours: number;
-}
-
-interface ComparisonAnalysis {
-  current: PeriodAnalysis;
-  previous?: PeriodAnalysis;
-  comparison: {
-    revenueChange: number;
-    hoursChange: number;
-    efficiencyChange: number;
-    productivityChange: number;
-  };
-}
+import { useDailyOpsInsightsViewModel } from "@/viewmodels/finance/useDailyOpsInsightsViewModel";
+import type { LocationKey, TimePeriodKey } from "@/models/finance/daily-ops-insights.model";
 
 export default function WeNeverKnewThisPage() {
-  const [selectedLocation, setSelectedLocation] = useState<keyof typeof LOCATIONS>("total");
-  const [selectedPeriod, setSelectedPeriod] = useState<keyof typeof TIME_PERIODS>("september2024");
-  const [compareWithPrevious, setCompareWithPrevious] = useState(false);
+  const {
+    // State
+    selectedLocation,
+    setSelectedLocation,
+    selectedPeriod,
+    setSelectedPeriod,
+    compareWithPrevious,
+    setCompareWithPrevious,
 
-  // Get current period range
-  const currentPeriodRange = TIME_PERIODS[selectedPeriod].getRange();
-  
-  // Get previous period for comparison
-  const getPreviousPeriodRange = () => {
-    const current = currentPeriodRange;
-    const daysDiff = Math.ceil((current.to.getTime() - current.from.getTime()) / (1000 * 60 * 60 * 24));
-    const previousEnd = new Date(current.from.getTime() - 1);
-    const previousStart = new Date(previousEnd.getTime() - (daysDiff * 24 * 60 * 60 * 1000));
-    return { from: previousStart, to: previousEnd };
-  };
+    // Data
+    analysis,
+    isLoading,
 
-  // Fetch period data for cross-correlation analysis
-  const { data: analysis, isLoading } = useQuery({
-    queryKey: ["period-cross-analysis", selectedLocation, selectedPeriod, compareWithPrevious],
-    queryFn: async (): Promise<ComparisonAnalysis> => {
-      const currentRange = currentPeriodRange;
-      const previousRange = compareWithPrevious ? getPreviousPeriodRange() : null;
-      
-      // Fetch all data sources for current period
-      const [laborResponse, revenueResponse, salesResponse] = await Promise.all([
-        fetch(`/api/raw-data?table=eitje_labor_hours_aggregated&limit=1000`),
-        fetch(`/api/raw-data?table=eitje_revenue_days_aggregated&limit=1000`),
-        fetch(`/api/raw-data?table=bork_sales_data&limit=1000`)
-      ]);
-
-      const laborData = await laborResponse.json();
-      const revenueData = await revenueResponse.json();
-      const salesData = await salesResponse.json();
-
-      // Filter for current period data
-      const currentLabor = laborData.data?.filter((r: any) => {
-        const recordDate = new Date(r.date);
-        return recordDate >= currentRange.from && recordDate <= currentRange.to;
-      }) || [];
-      const currentRevenue = revenueData.data?.filter((r: any) => {
-        const recordDate = new Date(r.date);
-        return recordDate >= currentRange.from && recordDate <= currentRange.to;
-      }) || [];
-      const currentSales = salesData.data?.filter((r: any) => {
-        const recordDate = new Date(r.date);
-        return recordDate >= currentRange.from && recordDate <= currentRange.to;
-      }) || [];
-
-      // Filter by location if not total
-      let filteredCurrentLabor = currentLabor;
-      let filteredCurrentRevenue = currentRevenue;
-      let filteredCurrentSales = currentSales;
-
-      if (selectedLocation !== "total") {
-        const locationId = LOCATIONS[selectedLocation].id;
-        filteredCurrentLabor = currentLabor.filter((r: any) => r.environment_id === parseInt(locationId));
-        filteredCurrentRevenue = currentRevenue.filter((r: any) => r.environment_id === parseInt(locationId));
-        filteredCurrentSales = currentSales.filter((r: any) => r.location_id === locationId);
-      }
-
-      // Calculate current period metrics
-      const currentTotalRevenue = filteredCurrentRevenue.reduce((sum: number, r: any) => sum + (r.total_revenue || 0), 0);
-      const currentTotalHours = filteredCurrentLabor.reduce((sum: number, r: any) => sum + (r.total_hours_worked || 0), 0);
-      const currentTotalEmployees = filteredCurrentLabor.reduce((sum: number, r: any) => sum + (r.employee_count || 0), 0);
-      const currentAvgRevenuePerHour = currentTotalHours > 0 ? currentTotalRevenue / currentTotalHours : 0;
-      const currentAvgRevenuePerEmployee = currentTotalEmployees > 0 ? currentTotalRevenue / currentTotalEmployees : 0;
-      
-      // Calculate data points and daily averages
-      const dataPoints = Math.max(1, Math.ceil((currentRange.to.getTime() - currentRange.from.getTime()) / (1000 * 60 * 60 * 24)));
-      const currentAvgDailyRevenue = currentTotalRevenue / dataPoints;
-      const currentAvgDailyHours = currentTotalHours / dataPoints;
-
-      // Find top/worst performing locations for current period
-      const locationPerformance = Object.entries(LOCATIONS).map(([key, loc]) => {
-        if (key === 'total') return { key, name: loc.name, revenue: currentTotalRevenue };
-        
-        const locLabor = currentLabor.filter((r: any) => r.environment_id === parseInt(loc.id));
-        const locRevenue = currentRevenue.filter((r: any) => r.environment_id === parseInt(loc.id));
-        const locRevenueTotal = locRevenue.reduce((sum: number, r: any) => sum + (r.total_revenue || 0), 0);
-        
-        return { key, name: loc.name, revenue: locRevenueTotal };
-      });
-
-      const sortedLocations = locationPerformance.sort((a, b) => b.revenue - a.revenue);
-      const topPerformingLocation = sortedLocations[0]?.name || 'N/A';
-      const worstPerformingLocation = sortedLocations[sortedLocations.length - 1]?.name || 'N/A';
-
-      // Generate cross-correlation insights for current period
-      const currentInsights = generateCrossCorrelationInsights({
-        labor: filteredCurrentLabor,
-        revenue: filteredCurrentRevenue,
-        sales: filteredCurrentSales,
-        totalRevenue: currentTotalRevenue,
-        totalHours: currentTotalHours,
-        totalEmployees: currentTotalEmployees,
-        avgRevenuePerHour: currentAvgRevenuePerHour,
-        avgRevenuePerEmployee: currentAvgRevenuePerEmployee
-      });
-
-      const currentAnalysis: PeriodAnalysis = {
-        period: currentRange.label,
-        totalRevenue: currentTotalRevenue,
-        totalHours: currentTotalHours,
-        totalEmployees: currentTotalEmployees,
-        avgRevenuePerHour: currentAvgRevenuePerHour,
-        avgRevenuePerEmployee: currentAvgRevenuePerEmployee,
-        topPerformingLocation,
-        worstPerformingLocation,
-        anomalies: currentInsights.filter(i => i.type === 'anomaly'),
-        opportunities: currentInsights.filter(i => i.type === 'opportunity'),
-        correlations: currentInsights.filter(i => i.type !== 'anomaly' && i.type !== 'opportunity'),
-        dataPoints,
-        avgDailyRevenue: currentAvgDailyRevenue,
-        avgDailyHours: currentAvgDailyHours
-      };
-
-      // If comparison is enabled, calculate previous period data
-      let previousAnalysis: PeriodAnalysis | undefined;
-      let comparison = {
-        revenueChange: 0,
-        hoursChange: 0,
-        efficiencyChange: 0,
-        productivityChange: 0
-      };
-
-      if (compareWithPrevious && previousRange) {
-        // Filter previous period data
-        const previousLabor = laborData.data?.filter((r: any) => {
-          const recordDate = new Date(r.date);
-          return recordDate >= previousRange!.from && recordDate <= previousRange!.to;
-        }) || [];
-        const previousRevenue = revenueData.data?.filter((r: any) => {
-          const recordDate = new Date(r.date);
-          return recordDate >= previousRange!.from && recordDate <= previousRange!.to;
-        }) || [];
-        const previousSales = salesData.data?.filter((r: any) => {
-          const recordDate = new Date(r.date);
-          return recordDate >= previousRange!.from && recordDate <= previousRange!.to;
-        }) || [];
-
-        // Filter by location if not total
-        let filteredPreviousLabor = previousLabor;
-        let filteredPreviousRevenue = previousRevenue;
-        let filteredPreviousSales = previousSales;
-
-        if (selectedLocation !== "total") {
-          const locationId = LOCATIONS[selectedLocation].id;
-          filteredPreviousLabor = previousLabor.filter((r: any) => r.environment_id === parseInt(locationId));
-          filteredPreviousRevenue = previousRevenue.filter((r: any) => r.environment_id === parseInt(locationId));
-          filteredPreviousSales = previousSales.filter((r: any) => r.location_id === locationId);
-        }
-
-        // Calculate previous period metrics
-        const previousTotalRevenue = filteredPreviousRevenue.reduce((sum: number, r: any) => sum + (r.total_revenue || 0), 0);
-        const previousTotalHours = filteredPreviousLabor.reduce((sum: number, r: any) => sum + (r.total_hours_worked || 0), 0);
-        const previousTotalEmployees = filteredPreviousLabor.reduce((sum: number, r: any) => sum + (r.employee_count || 0), 0);
-        const previousAvgRevenuePerHour = previousTotalHours > 0 ? previousTotalRevenue / previousTotalHours : 0;
-        const previousAvgRevenuePerEmployee = previousTotalEmployees > 0 ? previousTotalRevenue / previousTotalEmployees : 0;
-
-        const previousDataPoints = Math.max(1, Math.ceil((previousRange.to.getTime() - previousRange.from.getTime()) / (1000 * 60 * 60 * 24)));
-        const previousAvgDailyRevenue = previousTotalRevenue / previousDataPoints;
-        const previousAvgDailyHours = previousTotalHours / previousDataPoints;
-
-        previousAnalysis = {
-          period: `${format(previousRange.from, 'MMM dd')} - ${format(previousRange.to, 'MMM dd, yyyy')}`,
-          totalRevenue: previousTotalRevenue,
-          totalHours: previousTotalHours,
-          totalEmployees: previousTotalEmployees,
-          avgRevenuePerHour: previousAvgRevenuePerHour,
-          avgRevenuePerEmployee: previousAvgRevenuePerEmployee,
-          topPerformingLocation: 'N/A',
-          worstPerformingLocation: 'N/A',
-          anomalies: [],
-          opportunities: [],
-          correlations: [],
-          dataPoints: previousDataPoints,
-          avgDailyRevenue: previousAvgDailyRevenue,
-          avgDailyHours: previousAvgDailyHours
-        };
-
-        // Calculate comparison metrics
-        comparison = {
-          revenueChange: previousTotalRevenue > 0 ? ((currentTotalRevenue - previousTotalRevenue) / previousTotalRevenue) * 100 : 0,
-          hoursChange: previousTotalHours > 0 ? ((currentTotalHours - previousTotalHours) / previousTotalHours) * 100 : 0,
-          efficiencyChange: previousAvgRevenuePerHour > 0 ? ((currentAvgRevenuePerHour - previousAvgRevenuePerHour) / previousAvgRevenuePerHour) * 100 : 0,
-          productivityChange: previousAvgRevenuePerEmployee > 0 ? ((currentAvgRevenuePerEmployee - previousAvgRevenuePerEmployee) / previousAvgRevenuePerEmployee) * 100 : 0
-        };
-      }
-
-      return {
-        current: currentAnalysis,
-        previous: previousAnalysis,
-        comparison
-      };
-    }
-  });
+    // Constants
+    LOCATIONS,
+    TIME_PERIODS,
+  } = useDailyOpsInsightsViewModel();
 
   if (isLoading) {
     return (
@@ -392,7 +88,7 @@ export default function WeNeverKnewThisPage() {
                 <Button
                   key={key}
                   variant={selectedLocation === key ? "default" : "outline"}
-                  onClick={() => setSelectedLocation(key as keyof typeof LOCATIONS)}
+                  onClick={() => setSelectedLocation(key as LocationKey)}
                   className="flex items-center gap-2"
                 >
                   <div className={`w-3 h-3 rounded-full ${location.color}`}></div>
@@ -410,7 +106,7 @@ export default function WeNeverKnewThisPage() {
                 <Button
                   key={key}
                   variant={selectedPeriod === key ? "default" : "outline"}
-                  onClick={() => setSelectedPeriod(key as keyof typeof TIME_PERIODS)}
+                  onClick={() => setSelectedPeriod(key as TimePeriodKey)}
                   className="text-sm"
                 >
                   {period.label}
@@ -659,148 +355,4 @@ export default function WeNeverKnewThisPage() {
       </Card>
     </div>
   );
-}
-
-// Generate cross-correlation insights based on data analysis
-function generateCrossCorrelationInsights(data: any): CrossCorrelationInsight[] {
-  const insights: CrossCorrelationInsight[] = [];
-
-  // Revenue per hour vs employee count correlation
-  if (data.totalHours > 0 && data.totalEmployees > 0) {
-    const revenuePerHour = data.totalRevenue / data.totalHours;
-    const revenuePerEmployee = data.totalRevenue / data.totalEmployees;
-    
-    if (revenuePerHour > 50) { // High revenue per hour
-      insights.push({
-        id: 'high-revenue-per-hour',
-        title: 'Exceptional Revenue Efficiency',
-        description: `Your team generated €${revenuePerHour.toFixed(2)} per hour worked, which is significantly above average. This suggests excellent operational efficiency.`,
-        impact: 'high',
-        type: 'opportunity',
-        data: {
-          metric: 'Revenue per Hour',
-          value: revenuePerHour,
-          change: 15,
-          trend: 'up'
-        },
-        correlation: {
-          factor1: 'Hours Worked',
-          factor2: 'Revenue Generated',
-          strength: 0.85
-        },
-        recommendation: 'Consider extending hours or replicating this efficiency across other locations.',
-        location: 'All Locations'
-      });
-    }
-
-    if (revenuePerEmployee > 200) { // High revenue per employee
-      insights.push({
-        id: 'high-revenue-per-employee',
-        title: 'Outstanding Employee Productivity',
-        description: `Each employee generated an average of €${revenuePerEmployee.toFixed(2)} in revenue. This indicates excellent staff utilization.`,
-        impact: 'high',
-        type: 'productivity',
-        data: {
-          metric: 'Revenue per Employee',
-          value: revenuePerEmployee,
-          change: 12,
-          trend: 'up'
-        },
-        correlation: {
-          factor1: 'Employee Count',
-          factor2: 'Revenue Generated',
-          strength: 0.78
-        },
-        recommendation: 'Document best practices and consider training programs to maintain this level.',
-        location: 'All Locations'
-      });
-    }
-  }
-
-  // Labor efficiency anomaly detection
-  if (data.totalHours > 0 && data.totalEmployees > 0) {
-    const avgHoursPerEmployee = data.totalHours / data.totalEmployees;
-    
-    if (avgHoursPerEmployee > 10) { // Very high hours per employee
-      insights.push({
-        id: 'high-hours-per-employee',
-        title: 'Potential Overwork Pattern',
-        description: `Employees worked an average of ${avgHoursPerEmployee.toFixed(1)} hours each. This might indicate staffing shortages or high demand.`,
-        impact: 'medium',
-        type: 'anomaly',
-        data: {
-          metric: 'Hours per Employee',
-          value: avgHoursPerEmployee,
-          change: 8,
-          trend: 'up'
-        },
-        correlation: {
-          factor1: 'Employee Count',
-          factor2: 'Total Hours',
-          strength: 0.92
-        },
-        recommendation: 'Consider hiring additional staff or reviewing scheduling to prevent burnout.',
-        location: 'All Locations'
-      });
-    }
-  }
-
-  // Revenue consistency analysis
-  if (data.totalRevenue > 0) {
-    const revenuePerHour = data.totalRevenue / Math.max(data.totalHours, 1);
-    
-    if (revenuePerHour < 20) { // Low revenue per hour
-      insights.push({
-        id: 'low-revenue-efficiency',
-        title: 'Revenue Efficiency Opportunity',
-        description: `Revenue per hour was €${revenuePerHour.toFixed(2)}, which suggests room for improvement in operational efficiency.`,
-        impact: 'medium',
-        type: 'opportunity',
-        data: {
-          metric: 'Revenue per Hour',
-          value: revenuePerHour,
-          change: -5,
-          trend: 'down'
-        },
-        correlation: {
-          factor1: 'Hours Worked',
-          factor2: 'Revenue Generated',
-          strength: 0.65
-        },
-        recommendation: 'Review pricing strategy, upselling opportunities, or operational processes.',
-        location: 'All Locations'
-      });
-    }
-  }
-
-  // Team size vs productivity correlation
-  if (data.totalEmployees > 0) {
-    const optimalTeamSize = 3; // Based on typical restaurant operations
-    const teamSizeDeviation = Math.abs(data.totalEmployees - optimalTeamSize);
-    
-    if (teamSizeDeviation > 2) {
-      insights.push({
-        id: 'team-size-optimization',
-        title: 'Team Size Optimization Opportunity',
-        description: `Current team size of ${data.totalEmployees} employees deviates from optimal staffing patterns. This could impact efficiency.`,
-        impact: 'medium',
-        type: 'opportunity',
-        data: {
-          metric: 'Team Size',
-          value: data.totalEmployees,
-          change: teamSizeDeviation,
-          trend: 'stable'
-        },
-        correlation: {
-          factor1: 'Team Size',
-          factor2: 'Operational Efficiency',
-          strength: 0.72
-        },
-        recommendation: 'Analyze if current team size matches demand patterns and operational needs.',
-        location: 'All Locations'
-      });
-    }
-  }
-
-  return insights;
 }

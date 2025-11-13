@@ -121,9 +121,9 @@ export function mergeMultiLocationData(
  * Color mapping for specific locations
  */
 const LOCATION_COLOR_MAP: Record<string, string> = {
-  "550e8400-e29b-41d4-a716-446655440001": "hsl(185, 70%, 45%)", // Van Kinsbergen - Teal (blue-green)
-  "550e8400-e29b-41d4-a716-446655440002": "hsl(45, 90%, 55%)", // Bar Bea - Golden
-  "550e8400-e29b-41d4-a716-446655440003": "hsl(0, 75%, 50%)", // L'Amour Toujours - Blood red
+  "550e8400-e29b-41d4-a716-446655440001": "#407B7D", // Van Kinsbergen
+  "550e8400-e29b-41d4-a716-446655440002": "#DA9C29", // Bar Bea
+  "550e8400-e29b-41d4-a716-446655440003": "#F05B40", // L'Amour Toujours
 };
 
 /**

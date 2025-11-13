@@ -1,3 +1,8 @@
+/**
+ * Finance Data Overview View Layer
+ * Pure presentational component - all business logic is in ViewModel
+ */
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

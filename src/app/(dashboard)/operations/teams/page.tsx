@@ -1,9 +1,16 @@
+/**
+ * Operations Teams View Layer
+ * Pure presentational component - all business logic is in ViewModel
+ */
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserCheck } from "lucide-react";
+import { useTeamsViewModel } from "@/viewmodels/operations/useTeamsViewModel";
 
 export default function OperationsTeamsPage() {
+  useTeamsViewModel(); // ViewModel ready for future use
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div>

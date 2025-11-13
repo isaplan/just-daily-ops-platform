@@ -1,64 +1,36 @@
 "use client";
 
-import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DollarSign, Upload, Sparkles, FileText, TrendingUp, TrendingDown, Users, Clock, Award } from "lucide-react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/integrations/supabase/client";
 import { PeriodSelector } from "@/components/finance/PeriodSelector";
 import { RevenueKpiCard } from "@/components/finance/RevenueKpiCard";
 import { RevenueTrendChart } from "@/components/finance/RevenueTrendChart";
 import { SalesIntelligenceCard } from "@/components/finance/SalesIntelligenceCard";
-import { useRevenueData } from "@/hooks/useRevenueData";
-import { useSalesIntelligence } from "@/hooks/useSalesIntelligence";
-import { PeriodType, formatPeriodLabel } from "@/lib/dateUtils";
+import { useFinanceDashboardViewModel } from "@/viewmodels/finance/useDashboardViewModel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function FinanceDashboard() {
-  const [period, setPeriod] = useState<PeriodType>("week");
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [comparisonCount, setComparisonCount] = useState(3);
-  const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
-
-  // Fetch locations
-  const { data: locations } = useQuery({
-    queryKey: ["locations"],
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("locations")
-        .select("*")
-        .order("name");
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Fetch revenue data
-  const { data: revenueData, isLoading: revenueLoading } = useRevenueData({
+  const {
     period,
     currentDate,
     comparisonCount,
-    selectedLocation
-  });
-
-  // Fetch sales intelligence
-  const { data: salesData, isLoading: salesLoading } = useSalesIntelligence(
-    period,
-    currentDate,
-    selectedLocation
-  );
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(value);
-  };
-
-  const formatPercent = (value: number) => {
-    return `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
-  };
+    selectedLocation,
+    locations,
+    revenueData,
+    salesData,
+    revenueLoading,
+    salesLoading,
+    periodLabel,
+    setPeriod,
+    setCurrentDate,
+    setComparisonCount,
+    setSelectedLocation,
+    formatCurrency,
+    formatPercent,
+  } = useFinanceDashboardViewModel();
 
   return (
     <div className="w-full p-6 space-y-6">
@@ -98,7 +70,7 @@ export default function FinanceDashboard() {
               <DollarSign className="h-8 w-8 text-muted-foreground" />
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {formatPeriodLabel(period)} growth: {formatPercent(revenueData?.revenueGrowth || 0)}
+              {periodLabel} growth: {formatPercent(revenueData?.revenueGrowth || 0)}
             </p>
           </CardContent>
         </Card>
@@ -158,7 +130,7 @@ export default function FinanceDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="text-sm font-medium">Period</label>
-              <Select value={period} onValueChange={(value) => setPeriod(value as PeriodType)}>
+              <Select value={period} onValueChange={(value) => setPeriod(value as "day" | "week" | "month" | "quarter" | "year")}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
