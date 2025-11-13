@@ -146,3 +146,6 @@ You're ready to go! The extension will now monitor AI agent activity and help en
 
 
 
+
+
+

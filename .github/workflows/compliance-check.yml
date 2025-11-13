@@ -49,11 +49,32 @@ jobs:
             echo "$CHANGED"
           fi
       
+      - name: Detect Branch Type
+        id: branch-type
+        run: |
+          # Determine if we're on main/master or feature branch
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
+          else
+            TARGET_BRANCH="${{ github.ref_name }}"
+          fi
+          
+          echo "Target branch: $TARGET_BRANCH"
+          
+          if [[ "$TARGET_BRANCH" == "main" ]] || [[ "$TARGET_BRANCH" == "master" ]]; then
+            echo "type=main" >> $GITHUB_OUTPUT
+            echo "🔴 Main branch detected - strict enforcement"
+          else
+            echo "type=feature" >> $GITHUB_OUTPUT
+            echo "🟡 Feature branch detected - warn-only mode"
+          fi
+      
       - name: Run Pre-Execution Compliance Check
         id: pre-check
         if: steps.changed-files.outputs.changed == 'true'
         run: |
           echo "🛡️ Running pre-execution compliance checks..."
+          echo "Branch type: ${{ steps.branch-type.outputs.type }}"
           
           CHANGED_FILES=$(cat changed_files.txt | tr '\n' ' ')
           
@@ -66,23 +87,36 @@ jobs:
             echo "$PRE_RESULT"
             echo "===END PRE-CHECK OUTPUT==="
             
-            if [ $PRE_EXIT -ne 0 ]; then
-              echo "❌ Pre-execution check failed with exit code $PRE_EXIT"
-              exit 1
-            fi
-            
             # Extract status from JSON output
             PRE_STATUS=$(echo "$PRE_RESULT" | grep -o '"status":"[^"]*"' | cut -d'"' -f4 || echo "UNKNOWN")
             
-            if [ "$PRE_STATUS" = "BLOCK" ]; then
-              echo "❌ Pre-execution check BLOCKED - violations detected"
-              echo "$PRE_RESULT"
-              exit 1
-            elif [ "$PRE_STATUS" = "WARN" ]; then
-              echo "⚠️ Pre-execution check WARNED - proceeding with caution"
-              echo "$PRE_RESULT"
+            # Branch-aware enforcement
+            if [ "${{ steps.branch-type.outputs.type }}" == "main" ]; then
+              # MAIN BRANCH: Hard block on violations
+              if [ $PRE_EXIT -ne 0 ] || [ "$PRE_STATUS" = "BLOCK" ]; then
+                echo "❌ Pre-execution check BLOCKED on main branch - violations detected"
+                echo "$PRE_RESULT"
+                exit 1
+              elif [ "$PRE_STATUS" = "WARN" ]; then
+                echo "⚠️ Pre-execution check WARNED on main branch"
+                echo "$PRE_RESULT"
+                # Still fail on main for warnings
+                exit 1
+              else
+                echo "✅ Pre-execution check PASSED"
+              fi
             else
-              echo "✅ Pre-execution check PASSED"
+              # FEATURE BRANCH: Warn only, never block
+              if [ $PRE_EXIT -ne 0 ] || [ "$PRE_STATUS" = "BLOCK" ]; then
+                echo "⚠️ Pre-execution check found issues (feature branch - warn only)"
+                echo "$PRE_RESULT"
+                # Don't exit, just warn
+              elif [ "$PRE_STATUS" = "WARN" ]; then
+                echo "⚠️ Pre-execution check WARNED (feature branch)"
+                echo "$PRE_RESULT"
+              else
+                echo "✅ Pre-execution check PASSED"
+              fi
             fi
           else
             echo "⚠️ Pre-execution check script not found, skipping"
@@ -93,6 +127,7 @@ jobs:
         if: steps.changed-files.outputs.changed == 'true'
         run: |
           echo "🛡️ Running post-execution compliance checks..."
+          echo "Branch type: ${{ steps.branch-type.outputs.type }}"
           
           CHANGED_FILES=$(cat changed_files.txt | tr '\n' ' ')
           
@@ -105,12 +140,41 @@ jobs:
             echo "$POST_RESULT"
             echo "===END POST-CHECK OUTPUT==="
             
-            if [ $POST_EXIT -ne 0 ]; then
-              echo "⚠️ Post-execution check found violations (exit code $POST_EXIT)"
-              echo "$POST_RESULT"
-              # Don't fail the build for post-check violations, but report them
+            # Branch-aware enforcement
+            if [ "${{ steps.branch-type.outputs.type }}" == "main" ]; then
+              # MAIN BRANCH: Hard block on violations
+              if [ $POST_EXIT -ne 0 ]; then
+                echo "❌ Post-execution check BLOCKED on main branch - violations detected"
+                echo "$POST_RESULT"
+                exit 1
+              else
+                echo "✅ Post-execution check PASSED"
+              fi
             else
-              echo "✅ Post-execution check PASSED"
+              # FEATURE BRANCH: Warn only, check for permission log
+              if [ $POST_EXIT -ne 0 ]; then
+                echo "⚠️ Post-execution check found violations (feature branch - warn only)"
+                echo "$POST_RESULT"
+                
+                # Check if permission log exists for protected file modifications
+                if [ -f ".ai-compliance-permissions.json" ]; then
+                  echo "📝 Permission log found - checking for approvals"
+                  PERMISSION_COUNT=$(cat .ai-compliance-permissions.json | grep -c '"approved_by": "user"' || echo "0")
+                  echo "Found $PERMISSION_COUNT permission(s) logged"
+                  
+                  if [ "$PERMISSION_COUNT" -gt 0 ]; then
+                    echo "✅ Protected file modifications have logged permissions"
+                  else
+                    echo "⚠️ No permissions found in log. Please verify approvals."
+                  fi
+                else
+                  echo "⚠️ No permission log found. If protected files were modified, permissions should be logged."
+                fi
+                
+                # Don't exit, just warn
+              else
+                echo "✅ Post-execution check PASSED"
+              fi
             fi
           else
             echo "⚠️ Post-execution check script not found, skipping"

@@ -52,3 +52,6 @@ COMMENT ON COLUMN public.eitje_revenue_days_aggregated.raw_data_hash IS 'SHA256 
 
 
 
+
+
+

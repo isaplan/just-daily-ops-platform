@@ -1,9 +1,16 @@
+/**
+ * Settings Themes View Layer
+ * Pure presentational component - all business logic is in ViewModel
+ */
+
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Palette } from "lucide-react";
+import { useThemesViewModel } from "@/viewmodels/settings/useThemesViewModel";
 
 export default function SettingsThemesPage() {
+  useThemesViewModel(); // ViewModel ready for future use
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div>

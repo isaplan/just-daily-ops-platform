@@ -124,40 +124,20 @@ async function syncEndpointForDate(
   console.log(`[eitje-incremental-sync] Syncing ${endpoint} for date: ${dateStr}`);
 
   let apiUrl = '';
-  let requestBody: any = null;
 
-  // Build API URL and request based on endpoint
+  // Build API URL with query parameters (GET requests should not have body)
   switch (endpoint) {
     case 'time_registration_shifts':
-      apiUrl = `${baseUrl}/time_registration_shifts`;
-      requestBody = {
-        filters: {
-          start_date: dateStr,
-          end_date: dateStr,
-          date_filter_type: 'resource_date'
-        }
-      };
-      break;
     case 'planning_shifts':
-      apiUrl = `${baseUrl}/planning_shifts`;
-      requestBody = {
-        filters: {
-          start_date: dateStr,
-          end_date: dateStr,
-          date_filter_type: 'resource_date'
-        }
-      };
+    case 'revenue_days': {
+      const params = new URLSearchParams({
+        'filters[start_date]': dateStr,
+        'filters[end_date]': dateStr,
+        'filters[date_filter_type]': 'resource_date'
+      });
+      apiUrl = `${baseUrl}/${endpoint}?${params.toString()}`;
       break;
-    case 'revenue_days':
-      apiUrl = `${baseUrl}/revenue_days`;
-      requestBody = {
-        filters: {
-          start_date: dateStr,
-          end_date: dateStr,
-          date_filter_type: 'resource_date'
-        }
-      };
-      break;
+    }
     default:
       return {
         success: false,
@@ -166,11 +146,10 @@ async function syncEndpointForDate(
       };
   }
 
-  // Call Eitje API
+  // Call Eitje API with GET request (no body)
   const apiResponse = await fetch(apiUrl, {
     method: 'GET',
-    headers: eitjeHeaders,
-    body: JSON.stringify(requestBody)
+    headers: eitjeHeaders
   });
 
   if (!apiResponse.ok) {

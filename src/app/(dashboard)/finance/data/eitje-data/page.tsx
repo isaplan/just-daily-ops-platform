@@ -1,6 +1,14 @@
+/**
+ * Finance Eitje Data Overview View Layer
+ * Pure presentational component - all business logic is in ViewModel
+ */
+
 "use client";
 
+import { useEitjeDataViewModel } from "@/viewmodels/finance/useEitjeDataViewModel";
+
 export default function EitjeDataOverviewPage() {
+  useEitjeDataViewModel(); // ViewModel ready for future use
   return (
     <div style={{ padding: '2rem' }}>
       <h1>Eitje Data Overview</h1>

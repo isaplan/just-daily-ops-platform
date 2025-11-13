@@ -222,3 +222,6 @@ $$;
 
 COMMENT ON FUNCTION aggregate_hours_v2 IS 'V2 aggregation function that groups processed_v2 data by date, user, location, team and calculates hours_worked, hourly_rate, and labor_cost. Hourly rate priority: 1) worker_profiles.hourly_wage (regardless of wage_override), 2) average from last 30 days for same team + contract_type, 3) NULL (user needs to update wage). Uses SECURITY DEFINER to bypass RLS.';
 
+
+
+

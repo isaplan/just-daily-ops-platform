@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/integrations/supabase/client";
+import { fetchPnLTimeSeries, type MetricType, type DateRange, type PnLTimeSeriesPoint } from "@/lib/services/daily-ops/finance.service";
 
-export type MetricType = "revenue" | "gross_profit" | "ebitda" | "labor_cost" | "other_costs";
+// Re-export for backward compatibility
+export type { MetricType };
 
 interface PnLData {
   revenue: number;
@@ -13,10 +14,7 @@ interface PnLData {
   financial_costs?: number;
 }
 
-interface DateRange {
-  start: Date;
-  end: Date;
-}
+// DateRange is now imported from service
 
 /**
  * Fetch P&L data from pre-aggregated summary table
@@ -123,57 +121,18 @@ function aggregatePnLData(data: any[]): PnLData {
 
 /**
  * Time series data for charts
+ * Thin wrapper around Service layer (MVVM compliant)
+ * Uses aggregated table for consistency with P&L balance page
  */
 export function usePnLTimeSeries(
   locationId: string | null,
   dateRange: DateRange | null,
   metric: MetricType
 ) {
-  return useQuery({
-    queryKey: ["pnl-timeseries-summary", locationId, dateRange, metric],
+  return useQuery<PnLTimeSeriesPoint[]>({
+    queryKey: ["pnl-timeseries-aggregated", locationId, dateRange, metric],
     enabled: !!dateRange && locationId !== undefined,
-    queryFn: async () => {
-      if (!dateRange) return [];
-
-      const supabase = createClient();
-      const startYear = dateRange.start.getFullYear();
-      const startMonth = dateRange.start.getMonth() + 1;
-      const endYear = dateRange.end.getFullYear();
-      const endMonth = dateRange.end.getMonth() + 1;
-
-      let query = supabase
-        .from("powerbi_pnl_data")
-        .select("year, month, category, amount");
-
-      // Filter by year and month range
-      if (startYear === endYear) {
-        query = query
-          .eq("year", startYear)
-          .gte("month", startMonth)
-          .lte("month", endMonth);
-      } else {
-        query = query.or(
-          `and(year.eq.${startYear},month.gte.${startMonth}),` +
-          `and(year.eq.${endYear},month.lte.${endMonth})` +
-          (endYear - startYear > 1 ? `,and(year.gt.${startYear},year.lt.${endYear})` : '')
-        );
-      }
-
-      if (locationId && locationId !== "all") {
-        query = query.eq("location_id", locationId);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      // Group by month
-      const grouped = groupByMonth(data || []);
-      
-      return grouped.map(item => ({
-        period: item.period,
-        value: extractMetricFromSummary(item.totals, metric),
-      }));
-    },
+    queryFn: () => fetchPnLTimeSeries(locationId, dateRange, metric),
   });
 }
 
@@ -223,19 +182,4 @@ function groupByMonth(data: any[]) {
     .map(([period, totals]) => ({ period, totals }));
 }
 
-function extractMetricFromSummary(totals: any, metric: MetricType): number {
-  switch (metric) {
-    case "revenue":
-      return totals.revenue;
-    case "gross_profit":
-      return totals.revenue - totals.cogs;
-    case "ebitda":
-      return totals.revenue - totals.cogs - totals.labor - totals.opex + totals.depreciation;
-    case "labor_cost":
-      return totals.labor;
-    case "other_costs":
-      return totals.opex;
-    default:
-      return 0;
-  }
-}
+// extractMetricFromSummary moved to Service layer (MVVM compliance)

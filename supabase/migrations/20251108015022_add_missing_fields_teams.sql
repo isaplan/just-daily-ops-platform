@@ -25,3 +25,6 @@ COMMENT ON COLUMN public.eitje_teams.code IS 'Code/identifier for the team (from
 
 
 
+
+
+

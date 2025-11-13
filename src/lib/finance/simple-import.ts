@@ -136,12 +136,20 @@ export async function importPowerBIData(
     
     for (const yearMonth of yearMonths) {
       const [year, month] = yearMonth.split('-').map(Number);
-      await supabase
+      const { error: deleteError, count } = await supabase
         .from('powerbi_pnl_data')
         .delete()
         .eq('location_id', locationId)
         .eq('year', year)
-        .eq('month', month);
+        .eq('month', month)
+        .select('*', { count: 'exact', head: true });
+      
+      if (deleteError) {
+        console.error(`⚠️  Error deleting data for ${year}-${month}:`, deleteError.message);
+        // Continue anyway - we'll try to insert and let the unique constraint handle it
+      } else {
+        console.log(`✅ Deleted existing data for ${year}-${month}${count ? ` (${count} records)` : ''}`);
+      }
     }
     
     // Step 6: Insert new records in batches

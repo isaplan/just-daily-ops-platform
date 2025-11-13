@@ -1,8 +1,10 @@
+/**
+ * Finance Eitje Data Locations & Teams View Layer
+ * Pure presentational component - all business logic is in ViewModel
+ */
+
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -10,93 +12,40 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { formatDateDDMMYYTime } from "@/lib/dateFormatters";
 import { ShowMoreColumnsToggle } from "@/components/view-data/ShowMoreColumnsToggle";
-
-const ITEMS_PER_PAGE = 50;
+import { useEitjeDataLocationsTeamsViewModel } from "@/viewmodels/finance/useEitjeDataLocationsTeamsViewModel";
 
 export default function LocationsTeamsPage() {
-  const [currentPageLocations, setCurrentPageLocations] = useState(1);
-  const [currentPageTeams, setCurrentPageTeams] = useState(1);
-  const [activeTab, setActiveTab] = useState("locations");
-  const [showAllColumnsLocations, setShowAllColumnsLocations] = useState(false);
-  const [showAllColumnsTeams, setShowAllColumnsTeams] = useState(false);
+  const {
+    // State
+    currentPageLocations,
+    setCurrentPageLocations,
+    currentPageTeams,
+    setCurrentPageTeams,
+    activeTab,
+    setActiveTab,
+    showAllColumnsLocations,
+    setShowAllColumnsLocations,
+    showAllColumnsTeams,
+    setShowAllColumnsTeams,
 
-  // Fetch locations
-  const { data: locationsData, isLoading: locationsLoading, error: locationsError } = useQuery({
-    queryKey: ["eitje-locations", currentPageLocations],
-    queryFn: async () => {
-      const supabase = createClient();
-      
-      const from = (currentPageLocations - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
+    // Data
+    locationsData,
+    locationsLoading,
+    locationsError,
+    teamsData,
+    teamsLoading,
+    teamsError,
 
-      const { data: records, error: queryError, count } = await supabase
-        .from("eitje_environments")
-        .select(`
-          id,
-          eitje_id,
-          name,
-          description,
-          city,
-          country,
-          is_active,
-          raw_data,
-          created_at,
-          updated_at
-        `, { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range(from, to);
-
-      if (queryError) throw queryError;
-
-      return {
-        records: records || [],
-        total: count || 0,
-      };
-    },
-  });
-
-  // Fetch teams
-  const { data: teamsData, isLoading: teamsLoading, error: teamsError } = useQuery({
-    queryKey: ["eitje-teams", currentPageTeams],
-    queryFn: async () => {
-      const supabase = createClient();
-      
-      const from = (currentPageTeams - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
-
-      const { data: records, error: queryError, count } = await supabase
-        .from("eitje_teams")
-        .select(`
-          id,
-          eitje_id,
-          name,
-          description,
-          environment_id,
-          is_active,
-          raw_data,
-          created_at,
-          updated_at
-        `, { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range(from, to);
-
-      if (queryError) throw queryError;
-
-      return {
-        records: records || [],
-        total: count || 0,
-      };
-    },
-  });
-
-  const locationsTotalPages = Math.ceil((locationsData?.total || 0) / ITEMS_PER_PAGE);
-  const teamsTotalPages = Math.ceil((teamsData?.total || 0) / ITEMS_PER_PAGE);
+    // Computed
+    locationsTotalPages,
+    teamsTotalPages,
+  } = useEitjeDataLocationsTeamsViewModel();
 
   return (
     <div className="space-y-6">
       <Card className="border-0 bg-transparent shadow-none">
         <CardContent className="p-0">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "locations" | "teams")}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="locations">Locations</TabsTrigger>
               <TabsTrigger value="teams">Teams</TabsTrigger>
@@ -155,12 +104,27 @@ export default function LocationsTeamsPage() {
                             </TableCell>
                           </TableRow>
                         ) : (
-                          locationsData.records.map((record: any) => {
-                            const name = record.name || record.raw_data?.name || "-";
-                            const description = record.description || record.raw_data?.description || "-";
-                            const city = record.city || record.raw_data?.city || "-";
-                            const country = record.country || record.raw_data?.country || "-";
-                            const isActive = record.is_active !== undefined ? record.is_active : (record.raw_data?.is_active ?? true);
+                          locationsData.records.map((record) => {
+                            const name =
+                              record.name ||
+                              (record.raw_data as { name?: string })?.name ||
+                              "-";
+                            const description =
+                              record.description ||
+                              (record.raw_data as { description?: string })?.description ||
+                              "-";
+                            const city =
+                              record.city ||
+                              (record.raw_data as { city?: string })?.city ||
+                              "-";
+                            const country =
+                              record.country ||
+                              (record.raw_data as { country?: string })?.country ||
+                              "-";
+                            const isActive =
+                              record.is_active !== undefined
+                                ? record.is_active
+                                : ((record.raw_data as { is_active?: boolean })?.is_active ?? true);
 
                             return (
                               <TableRow key={record.id}>
@@ -261,11 +225,24 @@ export default function LocationsTeamsPage() {
                             </TableCell>
                           </TableRow>
                         ) : (
-                          teamsData.records.map((record: any) => {
-                            const name = record.name || record.raw_data?.name || "-";
-                            const description = record.description || record.raw_data?.description || "-";
-                            const teamType = record.team_type || record.raw_data?.team_type || record.raw_data?.teamType || "-";
-                            const isActive = record.is_active !== undefined ? record.is_active : (record.raw_data?.is_active ?? true);
+                          teamsData.records.map((record) => {
+                            const name =
+                              record.name ||
+                              (record.raw_data as { name?: string })?.name ||
+                              "-";
+                            const description =
+                              record.description ||
+                              (record.raw_data as { description?: string })?.description ||
+                              "-";
+                            const teamType =
+                              record.team_type ||
+                              (record.raw_data as { team_type?: string; teamType?: string })?.team_type ||
+                              (record.raw_data as { teamType?: string })?.teamType ||
+                              "-";
+                            const isActive =
+                              record.is_active !== undefined
+                                ? record.is_active
+                                : ((record.raw_data as { is_active?: boolean })?.is_active ?? true);
 
                             return (
                               <TableRow key={record.id}>
@@ -318,4 +295,3 @@ export default function LocationsTeamsPage() {
     </div>
   );
 }
-

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LayoutDashboard, Target, TrendingUp, Activity, Sparkles } from "lucide-react";
@@ -14,12 +15,29 @@ const dashboardItems = [
   { title: "We Never Knew This", url: "/finance/daily-ops/insights", icon: Sparkles },
 ];
 
+// Memoized navigation button to prevent re-renders
+const NavButton = memo(({ item, isActive }: { item: typeof dashboardItems[0]; isActive: boolean }) => (
+  <Link href={item.url}>
+    <Button
+      variant={isActive ? "default" : "outline"}
+      className="flex items-center gap-2"
+    >
+      <item.icon className="h-4 w-4" />
+      {item.title}
+    </Button>
+  </Link>
+));
+NavButton.displayName = "NavButton";
+
 export default function DailyOpsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+
+  // Memoize active pathname check
+  const activePathname = useMemo(() => pathname, [pathname]);
 
   return (
     <div className="w-full p-6 space-y-6">
@@ -32,15 +50,11 @@ export default function DailyOpsLayout({
         <CardContent>
           <div className="flex flex-wrap gap-2">
             {dashboardItems.map((item) => (
-              <Link key={item.url} href={item.url}>
-                <Button
-                  variant={pathname === item.url ? "default" : "outline"}
-                  className="flex items-center gap-2"
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.title}
-                </Button>
-              </Link>
+              <NavButton
+                key={item.url}
+                item={item}
+                isActive={activePathname === item.url}
+              />
             ))}
           </div>
         </CardContent>

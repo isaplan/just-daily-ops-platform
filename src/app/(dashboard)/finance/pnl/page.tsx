@@ -1,156 +1,64 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { createClient } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, RefreshCw, Filter } from "lucide-react";
-import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RevenueKpiCard } from "@/components/finance/RevenueKpiCard";
-import SmartPeriodSelector, { PeriodPreset, getDateRangeForPreset } from "@/components/finance/SmartPeriodSelector";
+import SmartPeriodSelector from "@/components/finance/SmartPeriodSelector";
 import LocationMultiSelect from "@/components/finance/LocationMultiSelect";
 import FlexibleMetricChart from "@/components/finance/FlexibleMetricChart";
 import { FinancialChatSidepanel } from "@/components/finance/FinancialChatSidepanel";
 import FinanceRevenueTrendChart from "@/components/finance/FinanceRevenueTrendChart";
 import FinanceLocationComparisonChart from "@/components/finance/FinanceLocationComparisonChart";
-import { usePnLSummary, MetricType } from "@/hooks/usePnLSummary";
+import { CategoryFilterSheet, CategorySelection } from "@/components/finance/CategoryFilterSheet";
+import { usePnLViewModel } from "@/viewmodels/finance/usePnLViewModel";
 import { TimeGranularity } from "@/lib/finance/chartDataAggregator";
 import { cn } from "@/lib/utils";
-import { CategoryFilterSheet, CategorySelection } from "@/components/finance/CategoryFilterSheet";
-import { usePnLByCategory } from "@/hooks/usePnLByCategory";
-
-interface DateRange {
-  start: Date;
-  end: Date;
-}
+import type { MetricType } from "@/models/finance/pnl.model";
 
 export default function FinancePnL() {
-  const VAT_RATE = 1.12;
-
-  // Multi-location selection
-  const [activeLocations, setActiveLocations] = useState<string[]>(["all"]);
-  
-  // Chat panel state
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  
-  // Category filter state
-  const [isCategoryFilterOpen, setIsCategoryFilterOpen] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<CategorySelection[]>([]);
-  
-  // Selected metric for chart
-  const [selectedMetric, setSelectedMetric] = useState<MetricType>("revenue");
-  
-  // Comparison mode
-  const [comparisonEnabled, setComparisonEnabled] = useState(false);
-  
-  // VAT inclusion toggle
-  const [includeVat, setIncludeVat] = useState(false);
-  
-  // Chart configuration
-  const [chartType, setChartType] = useState<"line" | "bar">("line");
-  const [xAxisGranularity, setXAxisGranularity] = useState<TimeGranularity>("month");
-  
-  // Reprocess state
-  const [isReprocessing, setIsReprocessing] = useState(false);
-  
-  // Period A state (primary period)
-  const [periodAPreset, setPeriodAPreset] = useState<PeriodPreset>("3months");
-  const [periodARange, setPeriodARange] = useState<DateRange | null>({
-    start: new Date(new Date().getFullYear(), new Date().getMonth() - 3, 1),
-    end: new Date(),
-  });
-  
-  // Period B state (comparison period)
-  const [periodBPreset, setPeriodBPreset] = useState<PeriodPreset>("3months");
-  const [periodBRange, setPeriodBRange] = useState<DateRange | null>({
-    start: new Date(new Date().getFullYear(), new Date().getMonth() - 6, 1),
-    end: new Date(new Date().getFullYear(), new Date().getMonth() - 3, 1),
-  });
-
-  // Fetch locations
-  const { data: locations } = useQuery({
-    queryKey: ["locations"],
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("locations")
-        .select("*")
-        .order("name");
-      if (error) throw error;
-      return data.filter((loc) => !loc.name.toLowerCase().includes("hnhg"));
-    },
-  });
-
-  // Fetch data for primary location (for KPI cards)
-  const primaryLocationId = activeLocations.includes("all") ? null : activeLocations[0];
-  const { data: periodAData, isLoading: periodALoading } = usePnLSummary(primaryLocationId, periodARange);
-  const { data: periodBData, isLoading: periodBLoading } = usePnLSummary(
-    primaryLocationId,
-    comparisonEnabled ? periodBRange : null
-  );
-
-  // Fetch category data if categories are selected
-  const { data: categoryData } = usePnLByCategory(
-    primaryLocationId,
+  const {
+    activeLocations,
+    isChatOpen,
+    isCategoryFilterOpen,
+    selectedCategories,
+    selectedMetric,
+    comparisonEnabled,
+    includeVat,
+    chartType,
+    xAxisGranularity,
+    isReprocessing,
+    periodAPreset,
     periodARange,
-    selectedCategories
-  );
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" }).format(value);
-  };
-
-  const formatPercent = (value: number) => {
-    return `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
-  };
-
-  const calculatePercentChange = (current: number, previous: number) => {
-    if (previous === 0) return 0;
-    return ((current - previous) / previous) * 100;
-  };
-
-  const applyVatIfNeeded = (value: number, isRevenueBased: boolean = true) => {
-    if (includeVat && isRevenueBased) {
-      return value * VAT_RATE;
-    }
-    return value;
-  };
-
-  const handleReprocessData = async () => {
-    setIsReprocessing(true);
-    try {
-      const supabase = createClient();
-      // Fetch all unique location/year/month combinations from powerbi_pnl_data
-      const { data: rawData, error } = await supabase
-        .from("powerbi_pnl_data")
-        .select("location_id, year, month, import_id");
-      
-      if (error) throw error;
-
-      // Create unique combinations
-      const uniqueCombinations = Array.from(
-        new Set(rawData?.map(d => `${d.location_id}|${d.year}|${d.month}|${d.import_id}`))
-      ).map(key => {
-        const [locationId, year, month, importId] = key.split('|');
-        return { locationId, year: parseInt(year), month: parseInt(month), importId };
-      });
-
-      toast.info(`Processing ${uniqueCombinations.length} period(s)...`);
-      
-      // For now, just show success - actual processing would be implemented
-      toast.success(`Successfully processed ${uniqueCombinations.length} periods`);
-    } catch (error) {
-      console.error("Reprocess error:", error);
-      toast.error("Failed to reprocess data. Check console for details.");
-    } finally {
-      setIsReprocessing(false);
-    }
-  };
+    periodBPreset,
+    periodBRange,
+    locations,
+    periodAData,
+    periodBData,
+    categoryData,
+    periodALoading,
+    periodBLoading,
+    isLoading,
+    setActiveLocations,
+    setIsChatOpen,
+    setIsCategoryFilterOpen,
+    setSelectedCategories,
+    setSelectedMetric,
+    setComparisonEnabled,
+    setIncludeVat,
+    setChartType,
+    setXAxisGranularity,
+    handlePeriodAChange,
+    handlePeriodBChange,
+    handleReprocessData,
+    formatCurrency,
+    applyVatIfNeeded,
+    VAT_RATE,
+  } = usePnLViewModel();
 
   const metricCards: Array<{ metric: MetricType; title: string }> = [
     { metric: "revenue", title: "Total Revenue" },
@@ -228,10 +136,7 @@ export default function FinancePnL() {
             <SmartPeriodSelector
               label="Period A"
               value={periodAPreset}
-              onChange={(preset, range) => {
-                setPeriodAPreset(preset);
-                setPeriodARange(range);
-              }}
+              onChange={handlePeriodAChange}
               customRange={periodARange || undefined}
             />
             
@@ -239,10 +144,7 @@ export default function FinancePnL() {
               <SmartPeriodSelector
                 label="Period B"
                 value={periodBPreset}
-                onChange={(preset, range) => {
-                  setPeriodBPreset(preset);
-                  setPeriodBRange(range);
-                }}
+                onChange={handlePeriodBChange}
                 customRange={periodBRange || undefined}
               />
             )}

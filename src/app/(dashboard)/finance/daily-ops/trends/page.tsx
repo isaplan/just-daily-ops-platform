@@ -1,13 +1,22 @@
+/**
+ * Finance Daily Ops Trends View Layer
+ * Pure presentational component - all business logic is in ViewModel
+ */
+
 "use client";
 
-import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TrendingUp } from "lucide-react";
+import { useDailyOpsViewModel } from "@/viewmodels/finance/useDailyOpsViewModel";
 
 export default function TrendsPage() {
-  const [selectedLocation, setSelectedLocation] = useState<string>("total");
-  const [selectedDateRange, setSelectedDateRange] = useState<string>("this-month");
+  const {
+    selectedLocation,
+    selectedDateRange,
+    setSelectedLocation,
+    setSelectedDateRange,
+  } = useDailyOpsViewModel({ page: "trends" });
 
   return (
     <div className="space-y-6">

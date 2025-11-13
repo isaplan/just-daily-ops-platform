@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Upload, FileSpreadsheet, Loader2, X } from "lucide-react";
 import { createClient } from "@/integrations/supabase/client";
+import { importPowerBIData } from "@/lib/finance/simple-import";
 
 interface FileInfo {
   name: string;
@@ -115,34 +116,20 @@ export default function PowerBIImport() {
       for (const fileInfo of files) {
         console.log(`Processing file: ${fileInfo.name} for location: ${fileInfo.detectedLocation?.name}`);
         
-        // Parse the Excel file
-        const workbook = XLSX.read(await fileInfo.file.arrayBuffer());
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const records = XLSX.utils.sheet_to_json(firstSheet);
+        // Use the proper import function that deletes existing data first
+        const importId = `powerbi-import-${Date.now()}`;
+        const result = await importPowerBIData(
+          fileInfo.file,
+          fileInfo.detectedLocation!.id,
+          importId
+        );
 
-        // Transform records for PowerBI P&L data
-        const transformedRecords = records.map((record: any) => ({
-          location_id: fileInfo.detectedLocation!.id,
-          import_id: `powerbi-import-${Date.now()}`,
-          year: 2025, // Default to 2025
-          month: 9,   // Default to September
-          category: record.category || record.Category || record.Categorie || '',
-          subcategory: record.subcategory || record.Subcategory || record.Subcategorie || '',
-          gl_account: record.gl_account || record.GL_Account || record.Grootboek || '',
-          amount: parseFloat(record.amount || record.Amount || record.Bedrag || '0') || 0
-        }));
-
-        // Upload to database
-        const { error } = await supabase
-          .from('powerbi_pnl_data')
-          .insert(transformedRecords as any);
-
-        if (error) {
-          throw new Error(`Database error for ${fileInfo.name}: ${error.message}`);
+        if (!result.success) {
+          throw new Error(`Import failed for ${fileInfo.name}: ${result.message}`);
         }
 
-        totalRecords += transformedRecords.length;
-        console.log(`Uploaded ${transformedRecords.length} records from ${fileInfo.name}`);
+        totalRecords += result.processedCount;
+        console.log(`Uploaded ${result.processedCount} records from ${fileInfo.name}`);
       }
 
       toast.success(`Successfully uploaded ${totalRecords} records from ${files.length} file(s)`);
