@@ -7,15 +7,11 @@ import { useMemo } from "react";
 export function useOptimizedQuery<TData, TError = Error>(
   options: UseQueryOptions<TData, TError>
 ) {
-  // Memoize query key to prevent unnecessary re-renders
-  const stableQueryKey = useMemo(
-    () => options.queryKey,
-    [JSON.stringify(options.queryKey)]
-  );
-
+  // Use queryKey directly - React Query handles memoization internally
+  // Don't use JSON.stringify in dependency arrays as it's not stable
   return useQuery<TData, TError>({
     ...options,
-    queryKey: stableQueryKey as any,
+    queryKey: options.queryKey,
     staleTime: options.staleTime ?? 5 * 60 * 1000, // 5 minutes default
   });
 }
